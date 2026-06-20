@@ -47,33 +47,94 @@ export default function Login() {
     }
   };
 
+  const validateField = (field: string, value: string) => {
+    let errorMsg = '';
+    switch (field) {
+      case 'name':
+        if (!/^[a-zA-Z\s]*$/.test(value)) {
+          errorMsg = 'Name must contain only letters';
+        } else if (value.trim().length > 0 && value.trim().length < 2) {
+          errorMsg = 'Name must be at least 2 characters';
+        } else if (value.trim().length > 50) {
+          errorMsg = 'Name must be at most 50 characters';
+        }
+        break;
+      case 'workspaceName':
+        if (value.trim().length > 0 && value.trim().length < 3) {
+          errorMsg = 'Workspace name must be at least 3 characters';
+        }
+        break;
+      case 'address':
+        if (value.trim().length > 0 && value.trim().length < 5) {
+          errorMsg = 'Address must be at least 5 characters';
+        }
+        break;
+      case 'email':
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (value.trim().length > 0 && !emailRegex.test(value.trim())) {
+          errorMsg = 'Invalid email address';
+        }
+        break;
+      case 'password':
+        if (value.length > 0 && value.length < 6) {
+          errorMsg = 'Password must be at least 6 characters';
+        }
+        break;
+      default:
+        break;
+    }
+
+    setErrors((prev) => {
+      if (errorMsg) {
+        return { ...prev, [field]: errorMsg };
+      } else {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      }
+    });
+  };
+
   const validateRegister = () => {
     const newErrors: Record<string, string> = {};
-    if (!/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
+    if (!name.trim()) {
+      newErrors.name = 'Name is required';
+    } else if (!/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
       newErrors.name = 'Name must be 2-50 characters and contain only letters';
     }
-    if (workspaceName.trim().length < 3) {
+
+    if (!workspaceName.trim()) {
+      newErrors.workspaceName = 'Workspace name is required';
+    } else if (workspaceName.trim().length < 3) {
       newErrors.workspaceName = 'Workspace name must be at least 3 characters';
     }
-    if (address.trim().length < 5) {
+
+    if (!address.trim()) {
+      newErrors.address = 'Address must be at least 5 characters';
+    } else if (address.trim().length < 5) {
       newErrors.address = 'Address must be at least 5 characters';
     }
-    if (password.length < 6) {
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!emailRegex.test(email.trim())) {
+      newErrors.email = 'Invalid email address';
+    }
+
+    if (!password) {
+      newErrors.password = 'Password is required';
+    } else if (password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleRegisterChange = (field: string, value: string, setter: (val: string) => void) => {
     setter(value);
-    if (errors[field]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
-    }
+    validateField(field, value);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -201,7 +262,9 @@ export default function Login() {
                 fullWidth
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                error={!!errors.email}
+                helperText={errors.email}
+                onChange={(e) => handleRegisterChange('email', e.target.value, setEmail)}
                 sx={{ mb: 2 }}
               />
               <TextField

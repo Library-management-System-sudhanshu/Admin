@@ -76,16 +76,92 @@ export default function Students() {
   const [updateStatus] = useUpdateStudentStatusMutation();
   const [deleteStudent] = useDeleteStudentMutation();
 
+  const validateField = (field: string, value: string) => {
+    let errorMsg = '';
+    
+    switch (field) {
+      case 'name':
+        if (!/^[a-zA-Z\s]*$/.test(value)) {
+          errorMsg = 'Name must contain only letters';
+        } else if (value.trim().length > 0 && value.trim().length < 2) {
+          errorMsg = 'Name must be at least 2 characters';
+        } else if (value.trim().length > 50) {
+          errorMsg = 'Name must be at most 50 characters';
+        }
+        break;
+      case 'email':
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (value.trim().length > 0 && !emailRegex.test(value.trim())) {
+          errorMsg = 'Invalid email address';
+        }
+        break;
+      case 'mobile':
+        if (value.trim().length > 0 && !/^\d*$/.test(value.trim())) {
+          errorMsg = 'Mobile number must contain only digits';
+        } else if (value.trim().length > 0 && value.trim().length !== 10) {
+          errorMsg = 'Mobile number must be exactly 10 digits';
+        }
+        break;
+      case 'guardianName':
+        if (!/^[a-zA-Z\s]*$/.test(value)) {
+          errorMsg = 'Guardian name must contain only letters';
+        } else if (value.trim().length > 0 && value.trim().length < 2) {
+          errorMsg = 'Guardian name must be at least 2 characters';
+        } else if (value.trim().length > 50) {
+          errorMsg = 'Guardian name must be at most 50 characters';
+        }
+        break;
+      case 'guardianMobile':
+        if (value.trim().length > 0 && !/^\d*$/.test(value.trim())) {
+          errorMsg = 'Guardian mobile must contain only digits';
+        } else if (value.trim().length > 0 && value.trim().length !== 10) {
+          errorMsg = 'Guardian mobile must be exactly 10 digits';
+        }
+        break;
+      case 'aadharNumber':
+        if (value.trim().length > 0 && !/^\d*$/.test(value.trim())) {
+          errorMsg = 'Aadhar number must contain only digits';
+        } else if (value.trim().length > 0 && value.trim().length !== 12) {
+          errorMsg = 'Aadhar number must be exactly 12 digits';
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setErrors((prev) => {
+      if (errorMsg) {
+        return { ...prev, [field]: errorMsg };
+      } else {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      }
+    });
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
     // Name validation: 2-50 chars, alphabets and spaces
-    if (!/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
+    if (!name.trim()) {
+      newErrors.name = 'Name is required';
+    } else if (!/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
       newErrors.name = 'Name must be 2-50 characters and contain only letters';
     }
     
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!emailRegex.test(email.trim())) {
+      newErrors.email = 'Invalid email address';
+    }
+
     // Mobile validation: exactly 10 digits
-    if (!/^\d{10}$/.test(mobile.trim())) {
+    if (!mobile.trim()) {
+      newErrors.mobile = 'Mobile number is required';
+    } else if (!/^\d{10}$/.test(mobile.trim())) {
       newErrors.mobile = 'Mobile number must be exactly 10 digits';
     }
     
@@ -110,13 +186,7 @@ export default function Students() {
 
   const handleChange = (field: string, value: string, setter: (val: string) => void) => {
     setter(value);
-    if (errors[field]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      });
-    }
+    validateField(field, value);
   };
 
   const handleAddStudent = async (e: React.FormEvent) => {
@@ -306,7 +376,9 @@ export default function Students() {
                 fullWidth
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                error={!!errors.email}
+                helperText={errors.email}
+                onChange={(e) => handleChange('email', e.target.value, setEmail)}
               />
               <TextField
                 label="Mobile Number"
