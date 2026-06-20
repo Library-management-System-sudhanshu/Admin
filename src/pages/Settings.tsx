@@ -3,25 +3,47 @@ import { useSelector } from 'react-redux';
 import { Box, Typography, Button, Card, Table, TableBody, TableCell, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 
-const generateTimeOptions = () => {
-  const options = [];
-  for (let hour = 0; hour < 24; hour++) {
-    for (let min = 0; min < 60; min += 30) {
-      const hh = hour.toString().padStart(2, '0');
-      const mm = min.toString().padStart(2, '0');
-      const value = `${hh}:${mm}`;
-      
-      const period = hour >= 12 ? 'PM' : 'AM';
-      const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-      const label = `${displayHour.toString().padStart(2, '0')}:${mm} ${period}`;
-      
-      options.push({ value, label });
-    }
+const HOURS = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
+const PERIODS = ['AM', 'PM'];
+
+const getMinuteOptions = (currentMin: string) => {
+  const base = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
+  if (currentMin && !base.includes(currentMin)) {
+    base.push(currentMin);
+    base.sort();
   }
-  return options;
+  return base;
 };
 
-const TIME_OPTIONS = generateTimeOptions();
+const parseTime = (timeStr: string) => {
+  if (!timeStr) return { hour: '12', minute: '00', period: 'AM' };
+  const [hhStr, mmStr] = timeStr.split(':');
+  let hh = parseInt(hhStr, 10);
+  const mm = mmStr || '00';
+  
+  let period = 'AM';
+  if (hh >= 12) {
+    period = 'PM';
+    if (hh > 12) hh -= 12;
+  } else if (hh === 0) {
+    hh = 12;
+  }
+  
+  return {
+    hour: hh.toString(),
+    minute: mm,
+    period,
+  };
+};
+
+const formatTo24h = (hour: string, minute: string, period: string) => {
+  let hh = parseInt(hour, 10);
+  if (period === 'PM' && hh < 12) hh += 12;
+  if (period === 'AM' && hh === 12) hh = 0;
+  const hhStr = hh.toString().padStart(2, '0');
+  const mmStr = minute.padStart(2, '0');
+  return `${hhStr}:${mmStr}`;
+};
 import type { RootState } from '../store';
 import { useGetShiftsQuery, useCreateShiftMutation, useUpdateShiftMutation, useDeleteShiftMutation } from '../store/api';
 
@@ -34,12 +56,31 @@ export default function Settings() {
 
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState({ id: '', name: '', startTime: '', endTime: '', capacity: '' as any, price: 0 });
+  const [formData, setFormData] = useState({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: 0 });
 
   const handleOpenCreate = () => {
     setEditMode(false);
-    setFormData({ id: '', name: '', startTime: '', endTime: '', capacity: '' as any, price: 0 });
+    setFormData({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: 0 });
     setOpen(true);
+  };
+
+  const startParsed = parseTime(formData.startTime);
+  const endParsed = parseTime(formData.endTime);
+
+  const handleStartChange = (field: 'hour' | 'minute' | 'period', value: string) => {
+    const newTime = { ...startParsed, [field]: value };
+    setFormData({
+      ...formData,
+      startTime: formatTo24h(newTime.hour, newTime.minute, newTime.period),
+    });
+  };
+
+  const handleEndChange = (field: 'hour' | 'minute' | 'period', value: string) => {
+    const newTime = { ...endParsed, [field]: value };
+    setFormData({
+      ...formData,
+      endTime: formatTo24h(newTime.hour, newTime.minute, newTime.period),
+    });
   };
 
   const handleOpenEdit = (shift: any) => {
@@ -142,38 +183,94 @@ export default function Settings() {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl fullWidth required>
-                <InputLabel id="start-time-label">Start Time</InputLabel>
-                <Select
-                  labelId="start-time-label"
-                  label="Start Time"
-                  value={formData.startTime}
-                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                >
-                  {TIME_OPTIONS.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
+              <Box>
+                <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary' }}>
+                  Start Time
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>Hour</InputLabel>
+                    <Select
+                      value={startParsed.hour}
+                      label="Hour"
+                      onChange={(e) => handleStartChange('hour', e.target.value)}
+                    >
+                      {HOURS.map((h) => (
+                        <MenuItem key={h} value={h}>{h}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>Minute</InputLabel>
+                    <Select
+                      value={startParsed.minute}
+                      label="Minute"
+                      onChange={(e) => handleStartChange('minute', e.target.value)}
+                    >
+                      {getMinuteOptions(startParsed.minute).map((m) => (
+                        <MenuItem key={m} value={m}>{m}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>AM/PM</InputLabel>
+                    <Select
+                      value={startParsed.period}
+                      label="AM/PM"
+                      onChange={(e) => handleStartChange('period', e.target.value)}
+                    >
+                      {PERIODS.map((p) => (
+                        <MenuItem key={p} value={p}>{p}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Box>
 
-              <FormControl fullWidth required>
-                <InputLabel id="end-time-label">End Time</InputLabel>
-                <Select
-                  labelId="end-time-label"
-                  label="End Time"
-                  value={formData.endTime}
-                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                >
-                  {TIME_OPTIONS.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Box>
+                <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary' }}>
+                  End Time
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>Hour</InputLabel>
+                    <Select
+                      value={endParsed.hour}
+                      label="Hour"
+                      onChange={(e) => handleEndChange('hour', e.target.value)}
+                    >
+                      {HOURS.map((h) => (
+                        <MenuItem key={h} value={h}>{h}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>Minute</InputLabel>
+                    <Select
+                      value={endParsed.minute}
+                      label="Minute"
+                      onChange={(e) => handleEndChange('minute', e.target.value)}
+                    >
+                      {getMinuteOptions(endParsed.minute).map((m) => (
+                        <MenuItem key={m} value={m}>{m}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>AM/PM</InputLabel>
+                    <Select
+                      value={endParsed.period}
+                      label="AM/PM"
+                      onChange={(e) => handleEndChange('period', e.target.value)}
+                    >
+                      {PERIODS.map((p) => (
+                        <MenuItem key={p} value={p}>{p}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Box>
             </Box>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
