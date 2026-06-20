@@ -28,6 +28,9 @@ export default function Login() {
   const [name, setName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
   const [address, setAddress] = useState('');
+  
+  // Validation Errors
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [loginMutation, { isLoading: isLoginLoading }] = useLoginMutation();
   const [registerMutation, { isLoading: isRegisterLoading }] = useRegisterTenantMutation();
@@ -44,8 +47,38 @@ export default function Login() {
     }
   };
 
+  const validateRegister = () => {
+    const newErrors: Record<string, string> = {};
+    if (!/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
+      newErrors.name = 'Name must be 2-50 characters and contain only letters';
+    }
+    if (workspaceName.trim().length < 3) {
+      newErrors.workspaceName = 'Workspace name must be at least 3 characters';
+    }
+    if (address.trim().length < 5) {
+      newErrors.address = 'Address must be at least 5 characters';
+    }
+    if (password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleRegisterChange = (field: string, value: string, setter: (val: string) => void) => {
+    setter(value);
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateRegister()) return;
     setError('');
     try {
       const res = await registerMutation({
@@ -131,12 +164,14 @@ export default function Login() {
 
           {tab === 1 && (
             <form onSubmit={handleRegister}>
-              <TextField
+               <TextField
                 label="Owner Name"
                 fullWidth
                 required
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                error={!!errors.name}
+                helperText={errors.name}
+                onChange={(e) => handleRegisterChange('name', e.target.value, setName)}
                 sx={{ mb: 2 }}
               />
               <TextField
@@ -144,7 +179,9 @@ export default function Login() {
                 fullWidth
                 required
                 value={workspaceName}
-                onChange={(e) => setWorkspaceName(e.target.value)}
+                error={!!errors.workspaceName}
+                helperText={errors.workspaceName}
+                onChange={(e) => handleRegisterChange('workspaceName', e.target.value, setWorkspaceName)}
                 sx={{ mb: 2 }}
               />
 
@@ -153,7 +190,9 @@ export default function Login() {
                 fullWidth
                 required
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                error={!!errors.address}
+                helperText={errors.address}
+                onChange={(e) => handleRegisterChange('address', e.target.value, setAddress)}
                 sx={{ mb: 2 }}
               />
               <TextField
@@ -171,7 +210,9 @@ export default function Login() {
                 fullWidth
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                error={!!errors.password}
+                helperText={errors.password}
+                onChange={(e) => handleRegisterChange('password', e.target.value, setPassword)}
                 sx={{ mb: 3 }}
               />
               <Button

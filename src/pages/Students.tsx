@@ -62,6 +62,9 @@ export default function Students() {
   const [aadharNumber, setAadharNumber] = useState('');
   const [branchId, setBranchId] = useState('');
 
+  // Validation Errors
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const { data, isLoading } = useGetStudentsQuery({
     search,
     branchId: branchId || undefined,
@@ -73,8 +76,52 @@ export default function Students() {
   const [updateStatus] = useUpdateStudentStatusMutation();
   const [deleteStudent] = useDeleteStudentMutation();
 
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    // Name validation: 2-50 chars, alphabets and spaces
+    if (!/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
+      newErrors.name = 'Name must be 2-50 characters and contain only letters';
+    }
+    
+    // Mobile validation: exactly 10 digits
+    if (!/^\d{10}$/.test(mobile.trim())) {
+      newErrors.mobile = 'Mobile number must be exactly 10 digits';
+    }
+    
+    // Guardian Name: optional, but if filled, must be alphabets and spaces
+    if (guardianName.trim() && !/^[a-zA-Z\s]{2,50}$/.test(guardianName.trim())) {
+      newErrors.guardianName = 'Guardian name must contain only letters';
+    }
+    
+    // Guardian Mobile: optional, but if filled, must be 10 digits
+    if (guardianMobile.trim() && !/^\d{10}$/.test(guardianMobile.trim())) {
+      newErrors.guardianMobile = 'Guardian mobile must be exactly 10 digits';
+    }
+    
+    // Aadhar number: optional, but if filled, must be 12 digits
+    if (aadharNumber.trim() && !/^\d{12}$/.test(aadharNumber.trim())) {
+      newErrors.aadharNumber = 'Aadhar number must be exactly 12 digits';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (field: string, value: string, setter: (val: string) => void) => {
+    setter(value);
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
     try {
       await createStudent({
         name,
@@ -87,6 +134,7 @@ export default function Students() {
         workspaceId: user?.workspaceId,
       }).unwrap();
       setOpenAdd(false);
+      setErrors({});
       // Reset form
       setName('');
       setEmail('');
@@ -243,9 +291,32 @@ export default function Students() {
         <form onSubmit={handleAddStudent}>
           <DialogContent>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-              <TextField label="Student Name" fullWidth required value={name} onChange={(e) => setName(e.target.value)} />
-              <TextField label="Email Address" type="email" fullWidth required value={email} onChange={(e) => setEmail(e.target.value)} />
-              <TextField label="Mobile Number" fullWidth required value={mobile} onChange={(e) => setMobile(e.target.value)} />
+              <TextField
+                label="Student Name"
+                fullWidth
+                required
+                value={name}
+                error={!!errors.name}
+                helperText={errors.name}
+                onChange={(e) => handleChange('name', e.target.value, setName)}
+              />
+              <TextField
+                label="Email Address"
+                type="email"
+                fullWidth
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <TextField
+                label="Mobile Number"
+                fullWidth
+                required
+                value={mobile}
+                error={!!errors.mobile}
+                helperText={errors.mobile}
+                onChange={(e) => handleChange('mobile', e.target.value, setMobile)}
+              />
               <FormControl fullWidth required>
                 <InputLabel>Target Branch</InputLabel>
                 <Select value={branchId} label="Target Branch" onChange={(e) => setBranchId(e.target.value)}>
@@ -256,10 +327,31 @@ export default function Students() {
                   ))}
                 </Select>
               </FormControl>
-              <TextField label="Guardian Name" fullWidth value={guardianName} onChange={(e) => setGuardianName(e.target.value)} />
-              <TextField label="Guardian Mobile" fullWidth value={guardianMobile} onChange={(e) => setGuardianMobile(e.target.value)} />
+              <TextField
+                label="Guardian Name"
+                fullWidth
+                value={guardianName}
+                error={!!errors.guardianName}
+                helperText={errors.guardianName}
+                onChange={(e) => handleChange('guardianName', e.target.value, setGuardianName)}
+              />
+              <TextField
+                label="Guardian Mobile"
+                fullWidth
+                value={guardianMobile}
+                error={!!errors.guardianMobile}
+                helperText={errors.guardianMobile}
+                onChange={(e) => handleChange('guardianMobile', e.target.value, setGuardianMobile)}
+              />
               <Box sx={{ gridColumn: { sm: 'span 2' } }}>
-                <TextField label="Aadhar Card Number" fullWidth value={aadharNumber} onChange={(e) => setAadharNumber(e.target.value)} />
+                <TextField
+                  label="Aadhar Card Number"
+                  fullWidth
+                  value={aadharNumber}
+                  error={!!errors.aadharNumber}
+                  helperText={errors.aadharNumber}
+                  onChange={(e) => handleChange('aadharNumber', e.target.value, setAadharNumber)}
+                />
               </Box>
             </Box>
           </DialogContent>
