@@ -27,7 +27,6 @@ export default function Login() {
   // Register Fields
   const [name, setName] = useState('');
   const [workspaceName, setWorkspaceName] = useState('');
-  const [subdomain, setSubdomain] = useState('');
   const [address, setAddress] = useState('');
 
   const [loginMutation, { isLoading: isLoginLoading }] = useLoginMutation();
@@ -54,7 +53,6 @@ export default function Login() {
         password,
         name,
         workspaceName,
-        subdomain,
         address,
       }).unwrap();
       dispatch(setCredentials(res));
@@ -149,14 +147,7 @@ export default function Login() {
                 onChange={(e) => setWorkspaceName(e.target.value)}
                 sx={{ mb: 2 }}
               />
-              <TextField
-                label="Subdomain (unique identifier)"
-                fullWidth
-                required
-                value={subdomain}
-                onChange={(e) => setSubdomain(e.target.value)}
-                sx={{ mb: 2 }}
-              />
+
               <TextField
                 label="Address"
                 fullWidth
