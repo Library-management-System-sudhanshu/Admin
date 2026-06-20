@@ -71,6 +71,25 @@ export default function Seats() {
   const [shiftId, setShiftId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [durationMode, setDurationMode] = useState<number>(0); // 0 = 1 Month, 1 = 2 Months, 2 = 3 Months, 3 = Calendar
+
+  React.useEffect(() => {
+    if (durationMode === 3) {
+      return;
+    }
+    if (startDate) {
+      const months = durationMode === 0 ? 1 : durationMode === 1 ? 2 : durationMode === 2 ? 3 : 0;
+      if (months > 0) {
+        const date = new Date(startDate);
+        if (!isNaN(date.getTime())) {
+          date.setMonth(date.getMonth() + months);
+          setEndDate(date.toISOString().split('T')[0]);
+        }
+      }
+    } else {
+      setEndDate('');
+    }
+  }, [startDate, durationMode]);
 
   // Transfer forms
   const [targetSeatId, setTargetSeatId] = useState('');
@@ -100,6 +119,8 @@ export default function Seats() {
   const handleSeatClick = (seat: any) => {
     setSelectedSeat(seat);
     if (seat.status === 'AVAILABLE') {
+      setDurationMode(0);
+      setStartDate(new Date().toISOString().split('T')[0]);
       setOpenAllocate(true);
     } else if (seat.status === 'OCCUPIED') {
       setOpenTransfer(true);
@@ -437,24 +458,69 @@ export default function Seats() {
               </FormControl>
             )}
 
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.secondary', mb: -1 }}>
+              Duration
+            </Typography>
+            <Tabs
+              value={durationMode}
+              onChange={(_, val) => setDurationMode(val)}
+              variant="fullWidth"
+              sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}
+            >
+              <Tab label="1 Month" sx={{ fontSize: '0.8rem', minHeight: 36, py: 0.5 }} />
+              <Tab label="2 Months" sx={{ fontSize: '0.8rem', minHeight: 36, py: 0.5 }} />
+              <Tab label="3 Months" sx={{ fontSize: '0.8rem', minHeight: 36, py: 0.5 }} />
+              <Tab label="Calendar" sx={{ fontSize: '0.8rem', minHeight: 36, py: 0.5 }} />
+            </Tabs>
+
             <TextField
               label="Start Date"
               type="date"
               fullWidth
               required
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: {
+                  onClick: (e: any) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (err) {}
+                  },
+                  onFocus: (e: any) => {
+                    try {
+                      e.currentTarget.showPicker();
+                    } catch (err) {}
+                  }
+                }
+              }}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
-            <TextField
-              label="End Date"
-              type="date"
-              fullWidth
-              required
-              slotProps={{ inputLabel: { shrink: true } }}
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
+            {durationMode === 3 && (
+              <TextField
+                label="End Date"
+                type="date"
+                fullWidth
+                required
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  htmlInput: {
+                    onClick: (e: any) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    },
+                    onFocus: (e: any) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }
+                  }
+                }}
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            )}
           </DialogContent>
           <DialogActions sx={{ p: 2.5, justifyContent: 'space-between' }}>
             <Button color="error" onClick={() => handleDeleteSeat(selectedSeat?.id)}>
