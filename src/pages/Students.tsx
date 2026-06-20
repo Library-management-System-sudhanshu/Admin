@@ -8,40 +8,19 @@ import {
   useDeleteStudentMutation,
   useGetBranchesQuery,
 } from '../store/api';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Modal } from '../components/ui/Modal';
+import '../components/ui/Globals.css';
 import {
-  Box,
-  Typography,
-  Card,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Button,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Chip,
-  IconButton,
-  Tooltip,
-  CircularProgress,
-  Avatar,
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Check as ApproveIcon,
-  Close as RejectIcon,
-  Delete as DeleteIcon,
-  Badge as BadgeIcon,
-} from '@mui/icons-material';
+  Plus,
+  Check,
+  X,
+  Trash2,
+  IdCard,
+  Loader2
+} from 'lucide-react';
 
 export default function Students() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -143,14 +122,12 @@ export default function Students() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
-    // Name validation: 2-50 chars, alphabets and spaces
     if (!name.trim()) {
       newErrors.name = 'Name is required';
     } else if (!/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
       newErrors.name = 'Name must be 2-50 characters and contain only letters';
     }
     
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim()) {
       newErrors.email = 'Email is required';
@@ -158,24 +135,20 @@ export default function Students() {
       newErrors.email = 'Invalid email address';
     }
 
-    // Mobile validation: exactly 10 digits
     if (!mobile.trim()) {
       newErrors.mobile = 'Mobile number is required';
     } else if (!/^\d{10}$/.test(mobile.trim())) {
       newErrors.mobile = 'Mobile number must be exactly 10 digits';
     }
     
-    // Guardian Name: optional, but if filled, must be alphabets and spaces
     if (guardianName.trim() && !/^[a-zA-Z\s]{2,50}$/.test(guardianName.trim())) {
       newErrors.guardianName = 'Guardian name must contain only letters';
     }
     
-    // Guardian Mobile: optional, but if filled, must be 10 digits
     if (guardianMobile.trim() && !/^\d{10}$/.test(guardianMobile.trim())) {
       newErrors.guardianMobile = 'Guardian mobile must be exactly 10 digits';
     }
     
-    // Aadhar number: optional, but if filled, must be 12 digits
     if (aadharNumber.trim() && !/^\d{12}$/.test(aadharNumber.trim())) {
       newErrors.aadharNumber = 'Aadhar number must be exactly 12 digits';
     }
@@ -228,275 +201,280 @@ export default function Students() {
     }
   };
 
-  const getStatusChipColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'APPROVED':
-        return 'success';
+        return <span className="badge badge-success">{status}</span>;
       case 'PENDING':
-        return 'warning';
+        return <span className="badge badge-warning">{status}</span>;
       case 'REJECTED':
-        return 'error';
+        return <span className="badge badge-danger">{status}</span>;
       default:
-        return 'info';
+        return <span className="badge badge-info">{status}</span>;
     }
   };
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A' }}>
+    <div style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>
           Student Records
-        </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenAdd(true)}>
-          New Student
+        </h1>
+        <Button 
+          variant="primary" 
+          onClick={() => setOpenAdd(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+        >
+          <Plus size={18} /> New Student
         </Button>
-      </Box>
+      </div>
 
       {/* Filters Toolbar */}
-      <Card sx={{ p: 2.5, mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <TextField
-          label="Search by Name"
-          variant="outlined"
-          size="small"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 280 }}
-        />
-        <FormControl size="small" sx={{ width: 200 }}>
-          <InputLabel>Branch</InputLabel>
-          <Select value={branchId} label="Branch" onChange={(e) => setBranchId(e.target.value)}>
-            <MenuItem value="">All Branches</MenuItem>
+      <Card elevation="sm" style={{ padding: '1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ width: '280px' }}>
+          <Input
+            placeholder="Search by Name"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ marginBottom: 0 }}
+          />
+        </div>
+        <div style={{ width: '200px' }}>
+          <select 
+            className="custom-input" 
+            value={branchId} 
+            onChange={(e) => setBranchId(e.target.value)}
+          >
+            <option value="">All Branches</option>
             {branches?.map((b: any) => (
-              <MenuItem key={b.id} value={b.id}>
+              <option key={b.id} value={b.id}>
                 {b.name}
-              </MenuItem>
+              </option>
             ))}
-          </Select>
-        </FormControl>
+          </select>
+        </div>
       </Card>
 
       {/* Roster Table */}
       {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-          <CircularProgress />
-        </Box>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem', color: 'var(--primary)' }}>
+          <Loader2 className="spinner" size={40} />
+        </div>
       ) : (
-        <TableContainer component={Paper} sx={{ borderRadius: 2.5, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Contact Info</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Aadhar Card</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Admission Date</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+        <div className="custom-table-container">
+          <table className="custom-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Contact Info</th>
+                <th>Aadhar Card</th>
+                <th>Admission Date</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
               {data?.students.map((student: any) => (
-                <TableRow key={student.id} hover>
-                  <TableCell sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar sx={{ bgcolor: '#3B82F6' }}>{student.user?.name?.charAt(0).toUpperCase()}</Avatar>
-                    <Box>
-                      <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>{student.user?.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{student.branch?.name || 'No Branch'}</Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ fontSize: '0.85rem' }}>{student.user?.email}</Typography>
-                    <Typography variant="caption" color="text.secondary">{student.user?.mobile}</Typography>
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.85rem' }}>{student.aadharNumber || 'N/A'}</TableCell>
-                  <TableCell sx={{ fontSize: '0.85rem' }}>
-                    {new Date(student.joiningDate).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={student.status} size="small" color={getStatusChipColor(student.status)} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                <tr key={student.id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div className="avatar">
+                        {student.user?.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{student.user?.name}</div>
+                        <div className="text-muted">{student.branch?.name || 'No Branch'}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div>{student.user?.email}</div>
+                    <div className="text-muted">{student.user?.mobile}</div>
+                  </td>
+                  <td>{student.aadharNumber || 'N/A'}</td>
+                  <td>{new Date(student.joiningDate).toLocaleDateString()}</td>
+                  <td>{getStatusBadge(student.status)}</td>
+                  <td>
+                    <div className="action-buttons">
                       {student.status === 'PENDING' && (
                         <>
-                          <Tooltip title="Approve Student">
-                            <IconButton color="success" onClick={() => handleStatusChange(student.id, 'APPROVED')}>
-                              <ApproveIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Reject Admission">
-                            <IconButton color="error" onClick={() => handleStatusChange(student.id, 'REJECTED')}>
-                              <RejectIcon />
-                            </IconButton>
-                          </Tooltip>
+                          <button 
+                            className="icon-btn success" 
+                            title="Approve" 
+                            onClick={() => handleStatusChange(student.id, 'APPROVED')}
+                          >
+                            <Check size={18} />
+                          </button>
+                          <button 
+                            className="icon-btn danger" 
+                            title="Reject" 
+                            onClick={() => handleStatusChange(student.id, 'REJECTED')}
+                          >
+                            <X size={18} />
+                          </button>
                         </>
                       )}
-                      <Tooltip title="Generate ID Card">
-                        <IconButton
-                          color="primary"
-                          onClick={() => {
-                            setSelectedStudent(student);
-                            setOpenCard(true);
-                          }}
-                        >
-                          <BadgeIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Student Profile">
-                        <IconButton color="error" onClick={() => handleDelete(student.id)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
+                      <button 
+                        className="icon-btn" 
+                        title="ID Card" 
+                        onClick={() => {
+                          setSelectedStudent(student);
+                          setOpenCard(true);
+                        }}
+                      >
+                        <IdCard size={18} />
+                      </button>
+                      <button 
+                        className="icon-btn danger" 
+                        title="Delete" 
+                        onClick={() => handleDelete(student.id)}
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* Add Student Dialog */}
-      <Dialog open={openAdd} onClose={() => setOpenAdd(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Add New Admission</DialogTitle>
-        <form onSubmit={handleAddStudent}>
-          <DialogContent>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-              <TextField
-                label="Student Name"
-                fullWidth
-                required
-                value={name}
-                error={!!errors.name}
-                helperText={errors.name}
-                onChange={(e) => handleChange('name', e.target.value, setName)}
+      {/* Add Student Modal */}
+      <Modal
+        isOpen={openAdd}
+        onClose={() => setOpenAdd(false)}
+        title="Add New Admission"
+        maxWidth="md"
+      >
+        <form id="add-student-form" onSubmit={handleAddStudent}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+            <Input
+              label="Student Name"
+              required
+              value={name}
+              error={errors.name}
+              onChange={(e) => handleChange('name', e.target.value, setName)}
+            />
+            <Input
+              label="Email Address"
+              type="email"
+              required
+              value={email}
+              error={errors.email}
+              onChange={(e) => handleChange('email', e.target.value, setEmail)}
+            />
+            <Input
+              label="Mobile Number"
+              required
+              value={mobile}
+              error={errors.mobile}
+              onChange={(e) => handleChange('mobile', e.target.value, setMobile)}
+            />
+            <div>
+              <label className="custom-input-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Target Branch</label>
+              <select 
+                className="custom-input" 
+                required 
+                value={branchId} 
+                onChange={(e) => setBranchId(e.target.value)}
+                style={{ width: '100%' }}
+              >
+                <option value="" disabled>Select a branch</option>
+                {branches?.map((b: any) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <Input
+              label="Guardian Name"
+              value={guardianName}
+              error={errors.guardianName}
+              onChange={(e) => handleChange('guardianName', e.target.value, setGuardianName)}
+            />
+            <Input
+              label="Guardian Mobile"
+              value={guardianMobile}
+              error={errors.guardianMobile}
+              onChange={(e) => handleChange('guardianMobile', e.target.value, setGuardianMobile)}
+            />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Input
+                label="Aadhar Card Number"
+                value={aadharNumber}
+                error={errors.aadharNumber}
+                onChange={(e) => handleChange('aadharNumber', e.target.value, setAadharNumber)}
               />
-              <TextField
-                label="Email Address"
-                type="email"
-                fullWidth
-                required
-                value={email}
-                error={!!errors.email}
-                helperText={errors.email}
-                onChange={(e) => handleChange('email', e.target.value, setEmail)}
-              />
-              <TextField
-                label="Mobile Number"
-                fullWidth
-                required
-                value={mobile}
-                error={!!errors.mobile}
-                helperText={errors.mobile}
-                onChange={(e) => handleChange('mobile', e.target.value, setMobile)}
-              />
-              <FormControl fullWidth required>
-                <InputLabel>Target Branch</InputLabel>
-                <Select value={branchId} label="Target Branch" onChange={(e) => setBranchId(e.target.value)}>
-                  {branches?.map((b: any) => (
-                    <MenuItem key={b.id} value={b.id}>
-                      {b.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="Guardian Name"
-                fullWidth
-                value={guardianName}
-                error={!!errors.guardianName}
-                helperText={errors.guardianName}
-                onChange={(e) => handleChange('guardianName', e.target.value, setGuardianName)}
-              />
-              <TextField
-                label="Guardian Mobile"
-                fullWidth
-                value={guardianMobile}
-                error={!!errors.guardianMobile}
-                helperText={errors.guardianMobile}
-                onChange={(e) => handleChange('guardianMobile', e.target.value, setGuardianMobile)}
-              />
-              <Box sx={{ gridColumn: { sm: 'span 2' } }}>
-                <TextField
-                  label="Aadhar Card Number"
-                  fullWidth
-                  value={aadharNumber}
-                  error={!!errors.aadharNumber}
-                  helperText={errors.aadharNumber}
-                  onChange={(e) => handleChange('aadharNumber', e.target.value, setAadharNumber)}
-                />
-              </Box>
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ p: 3 }}>
-            <Button onClick={() => setOpenAdd(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={isCreating}>Create Student</Button>
-          </DialogActions>
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+            <Button type="button" variant="text" onClick={() => setOpenAdd(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" isLoading={isCreating}>Create Student</Button>
+          </div>
         </form>
-      </Dialog>
+      </Modal>
 
-      {/* ID Card Dialog */}
-      <Dialog open={openCard} onClose={() => setOpenCard(false)}>
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: 700 }}>Student ID Card</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4 }}>
-          {selectedStudent && (
+      {/* ID Card Modal */}
+      <Modal
+        isOpen={openCard}
+        onClose={() => setOpenCard(false)}
+        title="Student ID Card"
+        maxWidth="sm"
+      >
+        {selectedStudent && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem' }}>
             <Card
-              sx={{
-                width: 320,
-                border: '2px solid #2563EB',
-                borderRadius: 4,
+              style={{
+                width: '320px',
+                border: '2px solid var(--primary)',
+                borderRadius: '1rem',
                 overflow: 'hidden',
                 boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
-                bgcolor: '#FFFFFF',
+                backgroundColor: '#ffffff',
+                color: '#0f172a'
               }}
             >
               {/* Card Header */}
-              <Box sx={{ bgcolor: '#0F172A', p: 2, textAlign: 'center', color: '#FFFFFF' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  STUDYFLOW HALL
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#38BDF8' }}>
-                  Digital Student Badge
-                </Typography>
-              </Box>
+              <div style={{ backgroundColor: 'var(--primary)', padding: '1rem', textAlign: 'center', color: '#ffffff' }}>
+                <h3 style={{ margin: 0, fontWeight: 700, fontSize: '1.125rem' }}>STUDYFLOW HALL</h3>
+                <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Digital Student Badge</span>
+              </div>
 
               {/* Card Body */}
-              <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Avatar sx={{ width: 80, height: 80, mb: 2, bgcolor: '#2563EB', fontSize: '2rem' }}>
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ width: 80, height: 80, borderRadius: '50%', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 600, marginBottom: '1rem' }}>
                   {selectedStudent.user?.name?.charAt(0).toUpperCase()}
-                </Avatar>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+                </div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.25rem 0' }}>
                   {selectedStudent.user?.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                </h2>
+                <p style={{ margin: '0 0 1rem 0', color: '#64748b', fontSize: '0.875rem' }}>
                   ID: SF-{selectedStudent.id.substring(0, 8).toUpperCase()}
-                </Typography>
+                </p>
 
                 {/* Details list */}
-                <Box sx={{ width: '100%', mb: 3 }}>
-                  <Typography variant="caption" sx={{ display: 'block' }} color="text.secondary">Mobile:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>{selectedStudent.user?.mobile}</Typography>
+                <div style={{ width: '100%', marginBottom: '1.5rem' }}>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>Mobile:</span>
+                  <div style={{ fontWeight: 500, marginBottom: '0.5rem', fontSize: '0.875rem' }}>{selectedStudent.user?.mobile}</div>
 
-                  <Typography variant="caption" sx={{ display: 'block' }} color="text.secondary">Branch:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>{selectedStudent.branch?.name}</Typography>
-                </Box>
+                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>Branch:</span>
+                  <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{selectedStudent.branch?.name}</div>
+                </div>
 
                 {/* QR Code */}
                 {selectedStudent.qrCodeUrl && (
-                  <Box
-                    component="img"
+                  <img
                     src={selectedStudent.qrCodeUrl}
                     alt="QR Code"
-                    sx={{ width: 120, height: 120, border: '1px solid #E2E8F0', borderRadius: 2 }}
+                    style={{ width: 120, height: 120, border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}
                   />
                 )}
-              </Box>
+              </div>
             </Card>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCard(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+          </div>
+        )}
+      </Modal>
+    </div>
   );
 }

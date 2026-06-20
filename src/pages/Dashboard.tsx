@@ -1,19 +1,5 @@
 import { useGetMetricsQuery } from '../store/api';
-import {
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  CircularProgress,
-  LinearProgress,
-} from '@mui/material';
-import {
-  People as PeopleIcon,
-  EventSeat as SeatIcon,
-  MonetizationOn as RevenueIcon,
-  PriorityHigh as DueIcon,
-  DateRange as ExpiryIcon,
-} from '@mui/icons-material';
+import { Card } from '../components/ui/Card';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -25,6 +11,14 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import {
+  Users,
+  Armchair,
+  Banknote,
+  AlertCircle,
+  CalendarClock,
+  Loader2
+} from 'lucide-react';
 
 const COLORS = ['#10B981', '#E2E8F0'];
 
@@ -33,72 +27,79 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}>
-        <CircularProgress size={60} />
-      </Box>
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '5rem', color: 'var(--primary)' }}>
+        <Loader2 className="spinner" size={60} />
+      </div>
     );
   }
 
   if (error || !metrics) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error">Error loading dashboard metrics</Typography>
-      </Box>
+      <div style={{ padding: '1.5rem' }}>
+        <p className="text-danger">Error loading dashboard metrics</p>
+      </div>
     );
   }
 
   const kpis = [
-    { title: 'Active Students', value: metrics.activeStudents, icon: <PeopleIcon color="primary" />, color: '#E0F2FE' },
-    { title: 'Occupied Seats', value: metrics.occupiedSeats, icon: <SeatIcon color="success" />, color: '#D1FAE5' },
-    { title: 'Vacant Seats', value: metrics.vacantSeats, icon: <SeatIcon color="disabled" />, color: '#F1F5F9' },
-    { title: 'Outstanding Dues', value: `₹${metrics.duePayments}`, icon: <DueIcon color="warning" />, color: '#FEF3C7' },
-    { title: 'Monthly Revenue', value: `₹${metrics.monthlyRevenue}`, icon: <RevenueIcon color="success" />, color: '#DCFCE7' },
-    { title: 'Expiring Seats (7 Days)', value: metrics.expiringSubscriptions, icon: <ExpiryIcon color="error" />, color: '#FEE2E2' },
+    { title: 'Active Students', value: metrics.activeStudents, icon: <Users size={24} color="#2563eb" />, bgColor: '#eff6ff' },
+    { title: 'Occupied Seats', value: metrics.occupiedSeats, icon: <Armchair size={24} color="#10b981" />, bgColor: '#d1fae5' },
+    { title: 'Vacant Seats', value: metrics.vacantSeats, icon: <Armchair size={24} color="#94a3b8" />, bgColor: '#f1f5f9' },
+    { title: 'Outstanding Dues', value: `₹${metrics.duePayments}`, icon: <AlertCircle size={24} color="#f59e0b" />, bgColor: '#fef3c7' },
+    { title: 'Monthly Revenue', value: `₹${metrics.monthlyRevenue}`, icon: <Banknote size={24} color="#10b981" />, bgColor: '#dcfce7' },
+    { title: 'Expiring Seats (7 Days)', value: metrics.expiringSubscriptions, icon: <CalendarClock size={24} color="#ef4444" />, bgColor: '#fee2e2' },
   ];
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A', mb: 4 }}>
+    <div style={{ width: '100%' }}>
+      <h1 style={{ marginBottom: '2rem', fontSize: '1.75rem', fontWeight: 700 }}>
         Workspace Dashboard
-      </Typography>
+      </h1>
 
       {/* KPI Section */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3, mb: 4 }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+        gap: '1.5rem', 
+        marginBottom: '2rem' 
+      }}>
         {kpis.map((kpi, idx) => (
-          <Card key={idx} sx={{ boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', borderRadius: 2.5 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
-              <Box
-                sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: kpi.color,
-                  display: 'flex',
-                  mr: 2.5,
-                }}
-              >
+          <Card key={idx} elevation="sm" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{
+                padding: '1rem',
+                borderRadius: '0.75rem',
+                backgroundColor: kpi.bgColor,
+                display: 'flex',
+                marginRight: '1.25rem',
+              }}>
                 {kpi.icon}
-              </Box>
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+              </div>
+              <div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: 500, marginBottom: '0.25rem' }}>
                   {kpi.title}
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
+                </p>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
                   {kpi.value}
-                </Typography>
-              </Box>
-            </CardContent>
+                </h2>
+              </div>
+            </div>
           </Card>
         ))}
-      </Box>
+      </div>
 
       {/* Charts Section */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 4 }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
+        gap: '2rem' 
+      }}>
         {/* Revenue Trend Area Chart */}
-        <Card sx={{ p: 3, borderRadius: 2.5, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+        <Card elevation="sm" style={{ padding: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.5rem' }}>
             Revenue Performance Trend
-          </Typography>
-          <Box sx={{ width: '100%', height: 300 }}>
+          </h2>
+          <div style={{ width: '100%', height: '300px' }}>
             <ResponsiveContainer>
               <AreaChart data={metrics.revenueTrend}>
                 <defs>
@@ -120,18 +121,18 @@ export default function Dashboard() {
                 />
               </AreaChart>
             </ResponsiveContainer>
-          </Box>
+          </div>
         </Card>
 
         {/* Occupancy Rate Pie Chart */}
-        <Card sx={{ p: 3, borderRadius: 2.5, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+        <Card elevation="sm" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
+          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
             Occupancy Rates
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          </h2>
+          <p className="text-muted" style={{ marginBottom: '1.5rem' }}>
             Total seat utilisation details
-          </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', height: 200 }}>
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', height: '200px' }}>
             <ResponsiveContainer>
               <PieChart>
                 <Pie
@@ -147,25 +148,39 @@ export default function Dashboard() {
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            <Box sx={{ position: 'absolute', textAlign: 'center' }}>
-              <Typography variant="h4" sx={{ fontWeight: 700 }}>
+            <div style={{ position: 'absolute', textAlign: 'center' }}>
+              <h2 style={{ fontSize: '2rem', fontWeight: 700, margin: 0 }}>
                 {metrics.occupancyRate}%
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
+              </h2>
+              <span className="text-muted" style={{ fontSize: '0.75rem' }}>
                 Occupied
-              </Typography>
-            </Box>
-          </Box>
+              </span>
+            </div>
+          </div>
 
-          <Box sx={{ mt: 'auto' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body2">Seat Occupancy Bar</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{metrics.occupiedSeats} Seats</Typography>
-            </Box>
-            <LinearProgress variant="determinate" value={metrics.occupancyRate} color="success" sx={{ height: 8, borderRadius: 4 }} />
-          </Box>
+          <div style={{ marginTop: 'auto', paddingTop: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.875rem' }}>Seat Occupancy Bar</span>
+              <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{metrics.occupiedSeats} Seats</span>
+            </div>
+            <div style={{ 
+              width: '100%', 
+              height: '8px', 
+              backgroundColor: 'var(--bg-surface-hover)', 
+              borderRadius: '4px',
+              overflow: 'hidden'
+            }}>
+              <div style={{ 
+                height: '100%', 
+                width: `${metrics.occupancyRate}%`, 
+                backgroundColor: 'var(--success)',
+                borderRadius: '4px'
+              }} />
+            </div>
+          </div>
         </Card>
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }
+

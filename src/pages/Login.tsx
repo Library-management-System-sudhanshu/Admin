@@ -3,23 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useLoginMutation, useRegisterTenantMutation } from '../store/api';
 import { setCredentials } from '../store/authSlice';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Button,
-  Tabs,
-  Tab,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 
 export default function Login() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const [tab, setTab] = useState(0); // 0 = Login, 1 = Register, 2 = OTP Login
+  const [tab, setTab] = useState(0); // 0 = Login, 1 = Register
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -157,141 +148,155 @@ export default function Login() {
   };
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        bgcolor: '#0F172A',
-      }}
-    >
-      <Card sx={{ width: 450, borderRadius: 3, boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-        <CardContent sx={{ p: 4 }}>
-          <Typography variant="h4" align="center" color="primary" sx={{ fontWeight: 700, mb: 1 }}>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      backgroundColor: 'var(--bg-main)'
+    }}>
+      <Card elevation="lg" style={{ width: '100%', maxWidth: '450px', margin: '2rem' }}>
+        <div className="card-content">
+          <h1 className="text-center" style={{ color: 'var(--primary)', marginBottom: '0.25rem', fontWeight: 700 }}>
             StudyFlow
-          </Typography>
-          <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 3 }}>
+          </h1>
+          <p className="text-center text-muted" style={{ marginBottom: '2rem' }}>
             SaaS Study Hall Management System
-          </Typography>
+          </p>
 
-          <Tabs
-            value={tab}
-            onChange={(_, val) => {
-              setTab(val);
-              setError('');
-            }}
-            variant="fullWidth"
-            sx={{ mb: 3 }}
-          >
-            <Tab label="Login" />
-            <Tab label="Register Hall" />
-          </Tabs>
+          <div style={{ display: 'flex', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
+            <button
+              type="button"
+              onClick={() => { setTab(0); setError(''); }}
+              style={{
+                flex: 1,
+                padding: '0.75rem',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: tab === 0 ? '2px solid var(--primary)' : '2px solid transparent',
+                color: tab === 0 ? 'var(--primary)' : 'var(--text-secondary)',
+                fontWeight: tab === 0 ? 600 : 500,
+                cursor: 'pointer',
+                transition: 'all var(--transition-fast)'
+              }}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={() => { setTab(1); setError(''); }}
+              style={{
+                flex: 1,
+                padding: '0.75rem',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: tab === 1 ? '2px solid var(--primary)' : '2px solid transparent',
+                color: tab === 1 ? 'var(--primary)' : 'var(--text-secondary)',
+                fontWeight: tab === 1 ? 600 : 500,
+                cursor: 'pointer',
+                transition: 'all var(--transition-fast)'
+              }}
+            >
+              Register Hall
+            </button>
+          </div>
 
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {error && (
+            <div style={{ 
+              backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+              color: 'var(--danger)', 
+              padding: '0.75rem', 
+              borderRadius: 'var(--radius-md)', 
+              marginBottom: '1rem',
+              fontSize: '0.875rem'
+            }}>
+              {error}
+            </div>
+          )}
 
           {tab === 0 && (
             <form onSubmit={handleLogin}>
-              <TextField
+              <Input
                 label="Email Address"
                 type="email"
-                fullWidth
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                sx={{ mb: 2 }}
               />
-              <TextField
+              <Input
                 label="Password"
                 type="password"
-                fullWidth
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                sx={{ mb: 3 }}
               />
               <Button
                 type="submit"
-                variant="contained"
+                variant="primary"
                 fullWidth
-                size="large"
-                disabled={isLoginLoading}
-                sx={{ height: 48 }}
+                size="lg"
+                isLoading={isLoginLoading}
+                style={{ marginTop: '0.5rem' }}
               >
-                {isLoginLoading ? <CircularProgress size={24} color="inherit" /> : 'Sign In'}
+                Sign In
               </Button>
             </form>
           )}
 
           {tab === 1 && (
             <form onSubmit={handleRegister}>
-               <TextField
+               <Input
                 label="Owner Name"
-                fullWidth
                 required
                 value={name}
-                error={!!errors.name}
-                helperText={errors.name}
+                error={errors.name}
                 onChange={(e) => handleRegisterChange('name', e.target.value, setName)}
-                sx={{ mb: 2 }}
               />
-              <TextField
+              <Input
                 label="Workspace/Study Hall Name"
-                fullWidth
                 required
                 value={workspaceName}
-                error={!!errors.workspaceName}
-                helperText={errors.workspaceName}
+                error={errors.workspaceName}
                 onChange={(e) => handleRegisterChange('workspaceName', e.target.value, setWorkspaceName)}
-                sx={{ mb: 2 }}
               />
-
-              <TextField
+              <Input
                 label="Address"
-                fullWidth
                 required
                 value={address}
-                error={!!errors.address}
-                helperText={errors.address}
+                error={errors.address}
                 onChange={(e) => handleRegisterChange('address', e.target.value, setAddress)}
-                sx={{ mb: 2 }}
               />
-              <TextField
+              <Input
                 label="Email"
                 type="email"
-                fullWidth
                 required
                 value={email}
-                error={!!errors.email}
-                helperText={errors.email}
+                error={errors.email}
                 onChange={(e) => handleRegisterChange('email', e.target.value, setEmail)}
-                sx={{ mb: 2 }}
               />
-              <TextField
+              <Input
                 label="Password"
                 type="password"
-                fullWidth
                 required
                 value={password}
-                error={!!errors.password}
-                helperText={errors.password}
+                error={errors.password}
                 onChange={(e) => handleRegisterChange('password', e.target.value, setPassword)}
-                sx={{ mb: 3 }}
               />
               <Button
                 type="submit"
-                variant="contained"
+                variant="primary"
                 fullWidth
-                size="large"
-                disabled={isRegisterLoading}
-                sx={{ height: 48 }}
+                size="lg"
+                isLoading={isRegisterLoading}
+                style={{ marginTop: '0.5rem' }}
               >
-                {isRegisterLoading ? <CircularProgress size={24} color="inherit" /> : 'Register & Log In'}
+                Register & Log In
               </Button>
             </form>
           )}
-        </CardContent>
+        </div>
       </Card>
-    </Box>
+    </div>
   );
 }
+
