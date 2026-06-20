@@ -80,6 +80,7 @@ export default function Layout() {
             </button>
           )}
         </div>
+        
         <nav className="sidebar-nav">
           {menuItems.map((item) => {
             const active = location.pathname === item.path;
@@ -95,39 +96,67 @@ export default function Layout() {
             );
           })}
         </nav>
+
+        {/* Sidebar Footer - User Profile & Logout */}
+        <div className="sidebar-footer">
+          <div className="sidebar-user-profile">
+            <div className="user-avatar sidebar-avatar">
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="sidebar-user-details">
+              <span className="sidebar-user-name">{user?.name}</span>
+              <span className="sidebar-user-role">{user?.role}</span>
+            </div>
+          </div>
+          <button className="sidebar-logout-btn" onClick={handleLogout}>
+            <LogOut size={18} />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="layout-main">
-        {/* Top App Bar */}
-        <header className="layout-topbar">
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <button className="mobile-menu-btn" onClick={toggleSidebar}>
-              <Menu size={24} />
-            </button>
-            <div className="topbar-title">StudyFlow</div>
-          </div>
-          
-          <div className="topbar-actions">
-            <div className="user-info">
-              {user?.name} <span className="text-muted">({user?.role})</span>
+        {/* Full Top App Bar (Only on Dashboard) */}
+        {location.pathname === '/' && (
+          <header className="layout-topbar">
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <button className="mobile-menu-btn" onClick={toggleSidebar}>
+                <Menu size={24} />
+              </button>
+              <div className="topbar-title">StudyFlow</div>
             </div>
             
-            <div className="user-menu-container" ref={menuRef} style={{ position: 'relative' }}>
-              <button className="user-avatar-btn" onClick={toggleMenu}>
-                <div className="user-avatar">
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </div>
-              </button>
+            <div className="topbar-actions">
+              <div className="user-info">
+                {user?.name} <span className="text-muted">({user?.role})</span>
+              </div>
               
-              <div className={`dropdown-menu ${isMenuOpen ? 'show' : ''}`}>
-                <button className="dropdown-item" onClick={handleLogout}>
-                  <LogOut /> Logout
+              <div className="user-menu-container" ref={menuRef} style={{ position: 'relative' }}>
+                <button className="user-avatar-btn" onClick={toggleMenu}>
+                  <div className="user-avatar">
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
                 </button>
+                
+                <div className={`dropdown-menu ${isMenuOpen ? 'show' : ''}`}>
+                  <button className="dropdown-item" onClick={handleLogout}>
+                    <LogOut /> Logout
+                  </button>
+                </div>
               </div>
             </div>
+          </header>
+        )}
+
+        {/* Mobile Header for other pages to ensure menu button is accessible */}
+        {location.pathname !== '/' && (
+          <div className="mobile-only-header">
+            <button className="mobile-menu-btn" onClick={toggleSidebar} style={{ display: 'block' }}>
+              <Menu size={24} />
+            </button>
           </div>
-        </header>
+        )}
 
         {/* Page Content */}
         <main className="layout-content">

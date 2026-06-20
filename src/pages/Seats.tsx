@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
@@ -16,35 +16,20 @@ import {
   useDeleteRoomMutation,
   useDeleteSeatMutation,
 } from '../store/api';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Modal } from '../components/ui/Modal';
+import '../components/ui/Globals.css';
 import {
-  Box,
-  Typography,
-  Card,
-  Tabs,
-  Tab,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Chip,
-  Paper,
-  Tooltip,
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  AirlineSeatReclineNormal as SeatIcon,
-  SwapHoriz as TransferIcon,
-  Layers as FloorIcon,
-  MeetingRoom as RoomIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
+  Plus,
+  Armchair,
+  ArrowRightLeft,
+  Layers,
+  DoorOpen,
+  Trash2,
+  Loader2
+} from 'lucide-react';
 
 export default function Seats() {
   const navigate = useNavigate();
@@ -73,7 +58,7 @@ export default function Seats() {
   const [endDate, setEndDate] = useState('');
   const [durationMode, setDurationMode] = useState<number>(0); // 0 = 1 Month, 1 = 2 Months, 2 = 3 Months, 3 = Calendar
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (durationMode === 3) {
       return;
     }
@@ -98,7 +83,7 @@ export default function Seats() {
   const [openCreator, setOpenCreator] = useState(false);
   const [creatorType, setCreatorType] = useState<'floor' | 'room' | 'seat'>('floor');
   const [creatorName, setCreatorName] = useState('');
-  const [parentId, setParentId] = useState(''); // floorId or roomId
+  const [parentId, setParentId] = useState('');
 
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
   const [transferSeat, { isLoading: isTransferring }] = useTransferSeatMutation();
@@ -109,8 +94,7 @@ export default function Seats() {
   const [deleteRoom] = useDeleteRoomMutation();
   const [deleteSeat] = useDeleteSeatMutation();
 
-  // Set default branch when loaded
-  React.useEffect(() => {
+  useEffect(() => {
     if (branches && branches.length > 0 && !selectedBranch) {
       setSelectedBranch(branches[0].id);
     }
@@ -222,403 +206,428 @@ export default function Seats() {
     }
   };
 
-  const getSeatColor = (status: string) => {
+  // Modern, clean status design logic (white background, colored accent)
+  const getSeatStyle = (status: string) => {
     switch (status) {
       case 'AVAILABLE':
-        return { bg: '#D1FAE5', border: '#10B981', text: '#065F46' };
+        return { accent: 'var(--success)', iconColor: 'var(--success)' };
       case 'OCCUPIED':
-        return { bg: '#DBEAFE', border: '#2563EB', text: '#1E3A8A' };
+        return { accent: 'var(--primary)', iconColor: 'var(--primary)' };
       case 'RESERVED':
-        return { bg: '#FEF3C7', border: '#F59E0B', text: '#78350F' };
+        return { accent: 'var(--warning)', iconColor: 'var(--warning)' };
       default:
-        return { bg: '#F3F4F6', border: '#9CA3AF', text: '#374151' };
+        return { accent: 'var(--text-muted)', iconColor: 'var(--text-muted)' };
     }
   };
 
   const currentFloor = seatMap?.[activeFloorTab];
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A' }}>
+    <div style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>
           Interactive Seat Map
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        </h1>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
           <Button
-            variant="outlined"
-            startIcon={<FloorIcon />}
+            variant="outline"
             onClick={() => {
               setCreatorType('floor');
               setOpenCreator(true);
             }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
-            Add Floor
+            <Layers size={18} /> Add Floor
           </Button>
           <Button
-            variant="contained"
-            startIcon={<RoomIcon />}
+            variant="primary"
             onClick={() => {
               setCreatorType('room');
               setOpenCreator(true);
             }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
-            Add Room
+            <DoorOpen size={18} /> Add Room
           </Button>
           <Button
-            variant="contained"
-            color="secondary"
-            startIcon={<AddIcon />}
+            style={{ backgroundColor: '#fca311', color: '#14213d', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
             onClick={() => {
               setCreatorType('seat');
               setOpenCreator(true);
             }}
           >
-            Add Seat
+            <Plus size={18} /> Add Seat
           </Button>
-        </Box>
-      </Box>
+        </div>
+      </div>
 
       {/* Toolbar */}
-      <Card sx={{ p: 2.5, mb: 3, display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
-        <FormControl size="small" sx={{ width: 220 }}>
-          <InputLabel>Branch</InputLabel>
-          <Select
-            value={selectedBranch}
-            label="Branch"
+      <Card elevation="sm" style={{ padding: '1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ width: '220px' }}>
+          <select 
+            className="custom-input" 
+            value={selectedBranch} 
             onChange={(e) => {
               setSelectedBranch(e.target.value);
               setActiveFloorTab(0);
             }}
+            style={{ marginBottom: 0 }}
           >
+            <option value="" disabled>Select Branch</option>
             {branches?.map((b: any) => (
-              <MenuItem key={b.id} value={b.id}>
-                {b.name}
-              </MenuItem>
+              <option key={b.id} value={b.id}>{b.name}</option>
             ))}
-          </Select>
-        </FormControl>
+          </select>
+        </div>
 
         {/* Legend Key */}
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <Chip label="Available" sx={{ bgcolor: '#D1FAE5', color: '#065F46', border: '1px solid #10B981', fontWeight: 600 }} />
-          <Chip label="Occupied" sx={{ bgcolor: '#DBEAFE', color: '#1E3A8A', border: '1px solid #2563EB', fontWeight: 600 }} />
-          <Chip label="Reserved" sx={{ bgcolor: '#FEF3C7', color: '#78350F', border: '1px solid #F59E0B', fontWeight: 600 }} />
-          <Chip label="Blocked" sx={{ bgcolor: '#F3F4F6', color: '#374151', border: '1px solid #9CA3AF', fontWeight: 600 }} />
-        </Box>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--success)' }} />
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Available</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--primary)' }} />
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Occupied</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--warning)' }} />
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Reserved</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--text-muted)' }} />
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Blocked</span>
+          </div>
+        </div>
       </Card>
 
       {/* Map Loader */}
       {isMapLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-          <CircularProgress />
-        </Box>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem', color: 'var(--primary)' }}>
+          <Loader2 className="spinner" size={40} />
+        </div>
       ) : !seatMap || seatMap.length === 0 ? (
-        <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3 }}>
-          <Typography color="text.secondary">No floor configuration found for this branch.</Typography>
-        </Paper>
+        <div style={{ padding: '4rem 2rem', textAlign: 'center', backgroundColor: 'var(--bg-surface)', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+          <p className="text-muted">No floor configuration found for this branch.</p>
+        </div>
       ) : (
-        <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-            <Tabs
-              value={activeFloorTab}
-              onChange={(_, val) => setActiveFloorTab(val)}
-            >
-              {seatMap.map((floor: any) => (
-                <Tab label={floor.name} key={floor.id} />
+        <div>
+          {/* Floor Tabs */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            borderBottom: '1px solid var(--border-color)', 
+            marginBottom: '1.5rem',
+            paddingBottom: '0.5rem'
+          }}>
+            <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto' }}>
+              {seatMap.map((floor: any, idx: number) => (
+                <button
+                  key={floor.id}
+                  onClick={() => setActiveFloorTab(idx)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: activeFloorTab === idx ? '2px solid var(--primary)' : '2px solid transparent',
+                    color: activeFloorTab === idx ? 'var(--primary)' : 'var(--text-secondary)',
+                    fontWeight: activeFloorTab === idx ? 600 : 500,
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  {floor.name}
+                </button>
               ))}
-            </Tabs>
+            </div>
             {currentFloor && (
-              <Button color="error" startIcon={<DeleteIcon />} onClick={() => handleDeleteFloor(currentFloor.id)}>
-                Delete Floor
+              <Button variant="text" style={{ color: 'var(--danger)' }} onClick={() => handleDeleteFloor(currentFloor.id)}>
+                <Trash2 size={16} style={{ marginRight: '0.5rem' }} /> Delete Floor
               </Button>
             )}
-          </Box>
+          </div>
 
           {/* Rooms Grid */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             {currentFloor?.rooms.map((room: any) => (
-              <Box key={room.id}>
-                <Card sx={{ p: 3, border: '1px solid #E2E8F0', borderRadius: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <RoomIcon color="primary" /> {room.name}
-                    <Tooltip title="Delete Room">
-                      <Button size="small" color="error" onClick={() => handleDeleteRoom(room.id)} sx={{ minWidth: 'auto', p: 0.5, ml: 1 }}>
-                        <DeleteIcon fontSize="small" />
-                      </Button>
-                    </Tooltip>
-                    <Box sx={{ flexGrow: 1 }} />
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<AddIcon />}
-                      onClick={() => {
-                        setParentId(room.id);
-                        setCreatorType('seat');
-                        setOpenCreator(true);
-                      }}
+              <Card key={room.id} elevation="sm" style={{ padding: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <DoorOpen color="var(--primary)" />
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>{room.name}</h3>
+                    <button 
+                      className="icon-btn danger" 
+                      onClick={() => handleDeleteRoom(room.id)}
+                      title="Delete Room"
+                      style={{ marginLeft: '0.5rem' }}
                     >
-                      Add Seat
-                    </Button>
-                  </Typography>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setParentId(room.id);
+                      setCreatorType('seat');
+                      setOpenCreator(true);
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    <Plus size={16} /> Add Seat
+                  </Button>
+                </div>
 
-                  {/* Seats grid */}
-                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                    {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any) => {
-                      const colors = getSeatColor(seat.status);
-                      const isOccupied = seat.status === 'OCCUPIED';
-                      const allocation = seat.allocations?.find((a: any) => a.isActive);
+                {/* Clean, Modern White Seats Grid */}
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any) => {
+                    const style = getSeatStyle(seat.status);
+                    const isOccupied = seat.status === 'OCCUPIED';
+                    const allocation = seat.allocations?.find((a: any) => a.isActive);
+                    
+                    const tooltipText = isOccupied && allocation 
+                      ? `Occupant: ${allocation.studentProfile?.user?.name || 'N/A'} (${allocation.shift?.name || 'N/A'})`
+                      : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
 
-                      return (
-                        <Tooltip
-                          key={seat.id}
-                          title={
-                            isOccupied && allocation
-                              ? `Occupant: ${allocation.studentProfile?.user?.name || 'N/A'} (${allocation.shift?.name || 'N/A'})`
-                              : `Seat ${seat.number} (${seat.status.toLowerCase()})`
-                          }
-                        >
-                          <Paper
-                            onClick={() => handleSeatClick(seat)}
-                            sx={{
-                              width: 64,
-                              height: 64,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              bgcolor: colors.bg,
-                              border: `2px solid ${colors.border}`,
-                              color: colors.text,
-                              cursor: 'pointer',
-                              borderRadius: 2,
-                              transition: 'transform 0.1s ease',
-                              '&:hover': {
-                                transform: 'scale(1.05)',
-                              },
-                            }}
-                          >
-                            <SeatIcon fontSize="small" />
-                            <Typography variant="caption" sx={{ fontWeight: 700, mt: 0.2 }}>
-                              {seat.number}
-                            </Typography>
-                          </Paper>
-                        </Tooltip>
-                      );
-                    })}
-                  </Box>
-                </Card>
-              </Box>
+                    return (
+                      <div
+                        key={seat.id}
+                        title={tooltipText}
+                        onClick={() => handleSeatClick(seat)}
+                        style={{
+                          width: '72px',
+                          height: '72px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: '#ffffff',
+                          border: `1px solid var(--border-color)`,
+                          borderTop: `4px solid ${style.accent}`,
+                          borderRadius: '0.5rem',
+                          cursor: 'pointer',
+                          boxShadow: 'var(--shadow-sm)',
+                          transition: 'all 0.15s ease',
+                          position: 'relative'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                        }}
+                      >
+                        <Armchair size={24} color={style.iconColor} style={{ marginBottom: '0.25rem' }} />
+                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {seat.number}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
             ))}
-          </Box>
-        </Box>
+          </div>
+        </div>
       )}
 
-      {/* Allocation Dialog */}
-      <Dialog open={openAllocate} onClose={() => setOpenAllocate(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Allocate Seat {selectedSeat?.number}</DialogTitle>
+      {/* Allocation Modal */}
+      <Modal
+        isOpen={openAllocate}
+        onClose={() => setOpenAllocate(false)}
+        title={`Allocate Seat ${selectedSeat?.number}`}
+        maxWidth="sm"
+      >
         <form onSubmit={handleAllocate}>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {(!studentsData?.students || studentsData.students.length === 0) ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, p: 3, border: '1px dashed #cbd5e1', borderRadius: 2, bgcolor: '#f8fafc' }}>
-                <Typography variant="body2" color="text.secondary">No unallocated students available.</Typography>
-                <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate('/students')} size="small">
-                  Add Student
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.5rem', border: '1px dashed var(--border-color)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-surface-hover)' }}>
+                <p className="text-muted" style={{ margin: 0 }}>No unallocated students available.</p>
+                <Button variant="outline" size="sm" onClick={() => navigate('/students')} type="button">
+                  <Plus size={16} style={{ marginRight: '0.25rem' }} /> Add Student
                 </Button>
-              </Box>
+              </div>
             ) : (
-              <FormControl fullWidth required>
-                <InputLabel>Select Student</InputLabel>
-                <Select value={studentProfileId} label="Select Student" onChange={(e) => setStudentProfileId(e.target.value)}>
+              <div>
+                <label className="custom-input-label">Select Student</label>
+                <select className="custom-input" required value={studentProfileId} onChange={(e) => setStudentProfileId(e.target.value)}>
+                  <option value="" disabled>Select a student</option>
                   {studentsData.students.map((student: any) => (
-                    <MenuItem key={student.id} value={student.id}>
-                      {student.user?.name}
-                    </MenuItem>
+                    <option key={student.id} value={student.id}>{student.user?.name}</option>
                   ))}
-                </Select>
-              </FormControl>
+                </select>
+              </div>
             )}
 
             {(!shifts || shifts.length === 0) ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, p: 3, border: '1px dashed #cbd5e1', borderRadius: 2, bgcolor: '#f8fafc' }}>
-                <Typography variant="body2" color="text.secondary">No shifts configured.</Typography>
-                <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate('/settings')} size="small">
-                  Add Shift
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.5rem', border: '1px dashed var(--border-color)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-surface-hover)' }}>
+                <p className="text-muted" style={{ margin: 0 }}>No shifts configured.</p>
+                <Button variant="outline" size="sm" onClick={() => navigate('/settings')} type="button">
+                  <Plus size={16} style={{ marginRight: '0.25rem' }} /> Add Shift
                 </Button>
-              </Box>
+              </div>
             ) : (
-              <FormControl fullWidth required>
-                <InputLabel>Select Shift</InputLabel>
-                <Select value={shiftId} label="Select Shift" onChange={(e) => setShiftId(e.target.value)}>
+              <div>
+                <label className="custom-input-label">Select Shift</label>
+                <select className="custom-input" required value={shiftId} onChange={(e) => setShiftId(e.target.value)}>
+                  <option value="" disabled>Select a shift</option>
                   {shifts.map((shift: any) => (
-                    <MenuItem key={shift.id} value={shift.id}>
-                      {shift.name} ({shift.startTime} - {shift.endTime})
-                    </MenuItem>
+                    <option key={shift.id} value={shift.id}>{shift.name} ({shift.startTime} - {shift.endTime})</option>
                   ))}
-                </Select>
-              </FormControl>
+                </select>
+              </div>
             )}
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.secondary', mb: -1 }}>
-              Duration
-            </Typography>
-            <Tabs
-              value={durationMode}
-              onChange={(_, val) => setDurationMode(val)}
-              variant="fullWidth"
-              sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}
-            >
-              <Tab label="1 Month" sx={{ fontSize: '0.8rem', minHeight: 36, py: 0.5 }} />
-              <Tab label="2 Months" sx={{ fontSize: '0.8rem', minHeight: 36, py: 0.5 }} />
-              <Tab label="3 Months" sx={{ fontSize: '0.8rem', minHeight: 36, py: 0.5 }} />
-              <Tab label="Calendar" sx={{ fontSize: '0.8rem', minHeight: 36, py: 0.5 }} />
-            </Tabs>
+            <div>
+              <label className="custom-input-label">Duration</label>
+              <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1rem', paddingBottom: '0.5rem' }}>
+                {['1 Month', '2 Months', '3 Months', 'Calendar'].map((label, idx) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setDurationMode(idx)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '0.25rem 0.75rem',
+                      fontSize: '0.875rem',
+                      fontWeight: durationMode === idx ? 600 : 500,
+                      color: durationMode === idx ? 'var(--primary)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      borderBottom: durationMode === idx ? '2px solid var(--primary)' : '2px solid transparent',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            <TextField
-              label="Start Date"
-              type="date"
-              fullWidth
-              required
-              slotProps={{
-                inputLabel: { shrink: true },
-                htmlInput: {
-                  onClick: (e: any) => {
-                    try {
-                      e.currentTarget.showPicker();
-                    } catch (err) {}
-                  },
-                  onFocus: (e: any) => {
-                    try {
-                      e.currentTarget.showPicker();
-                    } catch (err) {}
-                  }
-                }
-              }}
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-            {durationMode === 3 && (
-              <TextField
-                label="End Date"
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <Input
+                label="Start Date"
                 type="date"
-                fullWidth
                 required
-                slotProps={{
-                  inputLabel: { shrink: true },
-                  htmlInput: {
-                    onClick: (e: any) => {
-                      try {
-                        e.currentTarget.showPicker();
-                      } catch (err) {}
-                    },
-                    onFocus: (e: any) => {
-                      try {
-                        e.currentTarget.showPicker();
-                      } catch (err) {}
-                    }
-                  }
-                }}
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
               />
-            )}
-          </DialogContent>
-          <DialogActions sx={{ p: 2.5, justifyContent: 'space-between' }}>
-            <Button color="error" onClick={() => handleDeleteSeat(selectedSeat?.id)}>
+              {durationMode === 3 && (
+                <Input
+                  label="End Date"
+                  type="date"
+                  required
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              )}
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+            <Button type="button" variant="text" style={{ color: 'var(--danger)' }} onClick={() => handleDeleteSeat(selectedSeat?.id)}>
               Delete Seat
             </Button>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button onClick={() => setOpenAllocate(false)}>Cancel</Button>
-              <Button type="submit" variant="contained" disabled={isAllocating}>
-                Allocate
-              </Button>
-            </Box>
-          </DialogActions>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <Button type="button" variant="text" onClick={() => setOpenAllocate(false)}>Cancel</Button>
+              <Button type="submit" variant="primary" isLoading={isAllocating}>Allocate</Button>
+            </div>
+          </div>
         </form>
-      </Dialog>
+      </Modal>
 
-      {/* Transfer Dialog */}
-      <Dialog open={openTransfer} onClose={() => setOpenTransfer(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Manage Occupied Seat {selectedSeat?.number}</DialogTitle>
+      {/* Transfer Modal */}
+      <Modal
+        isOpen={openTransfer}
+        onClose={() => setOpenTransfer(false)}
+        title={`Manage Occupied Seat ${selectedSeat?.number}`}
+        maxWidth="sm"
+      >
         <form onSubmit={handleTransfer}>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box>
-              <Typography variant="body2" color="text.secondary">Current Occupant:</Typography>
-              <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div>
+              <p className="text-muted" style={{ margin: '0 0 0.25rem 0' }}>Current Occupant:</p>
+              <h4 style={{ margin: 0, fontWeight: 600 }}>
                 {selectedSeat?.allocations?.find((a: any) => a.isActive)?.studentProfile?.user?.name}
-              </Typography>
-            </Box>
+              </h4>
+            </div>
 
-            <FormControl fullWidth required sx={{ mt: 2 }}>
-              <InputLabel>Transfer to Vacant Seat</InputLabel>
-              <Select value={targetSeatId} label="Transfer to Vacant Seat" onChange={(e) => setTargetSeatId(e.target.value)}>
+            <div>
+              <label className="custom-input-label">Transfer to Vacant Seat</label>
+              <select className="custom-input" required value={targetSeatId} onChange={(e) => setTargetSeatId(e.target.value)}>
+                <option value="" disabled>Select target seat</option>
                 {currentFloor?.rooms.flatMap((r: any) => r.seats).filter((s: any) => s.status === 'AVAILABLE').map((s: any) => (
-                  <MenuItem key={s.id} value={s.id}>
+                  <option key={s.id} value={s.id}>
                     Room: {currentFloor.rooms.find((rm: any) => rm.seats.some((seat: any) => seat.id === s.id))?.name} | Seat: {s.number}
-                  </MenuItem>
+                  </option>
                 ))}
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions sx={{ p: 2.5 }}>
-            <Button onClick={() => setOpenTransfer(false)}>Close</Button>
-            <Button type="submit" variant="contained" startIcon={<TransferIcon />} disabled={isTransferring}>
-              Transfer
+              </select>
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+            <Button type="button" variant="text" onClick={() => setOpenTransfer(false)}>Close</Button>
+            <Button type="submit" variant="primary" isLoading={isTransferring} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <ArrowRightLeft size={16} /> Transfer
             </Button>
-          </DialogActions>
+          </div>
         </form>
-      </Dialog>
+      </Modal>
 
-      {/* Layout Creator Dialog */}
-      <Dialog open={openCreator} onClose={() => setOpenCreator(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, bgcolor: 'primary.main', color: '#ffffff', mb: 2 }}>
-          {creatorType === 'room' ? 'Add Room' : creatorType === 'seat' ? 'Add Seat' : 'Add Floor'}
-        </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+      {/* Layout Creator Modal */}
+      <Modal
+        isOpen={openCreator}
+        onClose={() => setOpenCreator(false)}
+        title={creatorType === 'room' ? 'Add Room' : creatorType === 'seat' ? 'Add Seat' : 'Add Floor'}
+        maxWidth="sm"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {creatorType === 'room' && (
             (!seatMap || seatMap.length === 0) ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, p: 3, border: '1px dashed #cbd5e1', borderRadius: 2, bgcolor: '#f8fafc' }}>
-                <Typography variant="body2" color="text.secondary">No floors exist yet.</Typography>
-                <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatorType('floor')} size="small">
-                  Add Floor
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.5rem', border: '1px dashed var(--border-color)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-surface-hover)' }}>
+                <p className="text-muted" style={{ margin: 0 }}>No floors exist yet.</p>
+                <Button variant="outline" size="sm" onClick={() => setCreatorType('floor')}>
+                  <Plus size={16} style={{ marginRight: '0.25rem' }} /> Add Floor
                 </Button>
-              </Box>
+              </div>
             ) : (
-              <FormControl fullWidth required>
-                <InputLabel>Target Floor</InputLabel>
-                <Select value={parentId} label="Target Floor" onChange={(e) => setParentId(e.target.value)}>
+              <div>
+                <label className="custom-input-label">Target Floor</label>
+                <select className="custom-input" required value={parentId} onChange={(e) => setParentId(e.target.value)}>
+                  <option value="" disabled>Select floor</option>
                   {seatMap.map((f: any) => (
-                    <MenuItem key={f.id} value={f.id}>
-                      {f.name}
-                    </MenuItem>
+                    <option key={f.id} value={f.id}>{f.name}</option>
                   ))}
-                </Select>
-              </FormControl>
+                </select>
+              </div>
             )
           )}
 
           {creatorType === 'seat' && (
             (!currentFloor?.rooms || currentFloor.rooms.length === 0) ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, p: 3, border: '1px dashed #cbd5e1', borderRadius: 2, bgcolor: '#f8fafc' }}>
-                <Typography variant="body2" color="text.secondary">No rooms exist on this floor.</Typography>
-                <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatorType('room')} size="small">
-                  Add Room
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.5rem', border: '1px dashed var(--border-color)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-surface-hover)' }}>
+                <p className="text-muted" style={{ margin: 0 }}>No rooms exist on this floor.</p>
+                <Button variant="outline" size="sm" onClick={() => setCreatorType('room')}>
+                  <Plus size={16} style={{ marginRight: '0.25rem' }} /> Add Room
                 </Button>
-              </Box>
+              </div>
             ) : (
-              <FormControl fullWidth required>
-                <InputLabel>Target Room</InputLabel>
-                <Select value={parentId} label="Target Room" onChange={(e) => setParentId(e.target.value)}>
+              <div>
+                <label className="custom-input-label">Target Room</label>
+                <select className="custom-input" required value={parentId} onChange={(e) => setParentId(e.target.value)}>
+                  <option value="" disabled>Select room</option>
                   {currentFloor.rooms.map((r: any) => (
-                    <MenuItem key={r.id} value={r.id}>
-                      {r.name}
-                    </MenuItem>
+                    <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
-                </Select>
-              </FormControl>
+                </select>
+              </div>
             )
           )}
 
-          <TextField
+          <Input
             label={
               creatorType === 'seat'
                 ? 'Seat Number (e.g. A-1 or 1-60)'
@@ -626,14 +635,14 @@ export default function Seats() {
                 ? 'Room Name (e.g. Hall A)'
                 : 'Floor Name (e.g. Ground Floor)'
             }
-            fullWidth
             required
             value={creatorName}
             onChange={(e) => setCreatorName(e.target.value)}
           />
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
           <Button
+            variant="text"
             onClick={() => {
               if (creatorType === 'room') {
                 setCreatorType('seat');
@@ -644,11 +653,12 @@ export default function Seats() {
           >
             {creatorType === 'room' ? 'Proceed to Seat' : 'Cancel'}
           </Button>
-          <Button onClick={handleCreate} variant="contained">
+          <Button onClick={handleCreate} variant="primary">
             Create
           </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        </div>
+      </Modal>
+    </div>
   );
 }
+
