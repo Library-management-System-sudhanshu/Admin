@@ -15,6 +15,7 @@ import {
   useDeleteFloorMutation,
   useDeleteRoomMutation,
   useDeleteSeatMutation,
+  useVacateSeatMutation,
 } from '../store/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -87,6 +88,7 @@ export default function Seats() {
 
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
   const [transferSeat, { isLoading: isTransferring }] = useTransferSeatMutation();
+  const [vacateSeat, { isLoading: isVacating }] = useVacateSeatMutation();
   const [addFloor] = useAddFloorMutation();
   const [addRoom] = useAddRoomMutation();
   const [addSeat] = useAddSeatMutation();
@@ -145,6 +147,17 @@ export default function Seats() {
       setTargetSeatId('');
     } catch (err) {
       alert('Seat transfer failed');
+    }
+  };
+
+  const handleVacateSeat = async () => {
+    if (!selectedSeat) return;
+    try {
+      await vacateSeat(selectedSeat.id).unwrap();
+      setOpenTransfer(false);
+      setSelectedSeat(null);
+    } catch (err: any) {
+      alert(err.data?.message || 'Failed to vacate seat');
     }
   };
 
@@ -264,9 +277,9 @@ export default function Seats() {
       {/* Toolbar */}
       <Card elevation="sm" style={{ padding: '1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ width: '220px' }}>
-          <select 
-            className="custom-input" 
-            value={selectedBranch} 
+          <select
+            className="custom-input"
+            value={selectedBranch}
             onChange={(e) => {
               setSelectedBranch(e.target.value);
               setActiveFloorTab(0);
@@ -313,11 +326,11 @@ export default function Seats() {
       ) : (
         <div>
           {/* Floor Tabs */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            borderBottom: '1px solid var(--border-color)', 
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: '1px solid var(--border-color)',
             marginBottom: '1.5rem',
             paddingBottom: '0.5rem'
           }}>
@@ -357,8 +370,8 @@ export default function Seats() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <DoorOpen color="var(--primary)" />
                     <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>{room.name}</h3>
-                    <button 
-                      className="icon-btn danger" 
+                    <button
+                      className="icon-btn danger"
                       onClick={() => handleDeleteRoom(room.id)}
                       title="Delete Room"
                       style={{ marginLeft: '0.5rem' }}
@@ -386,8 +399,8 @@ export default function Seats() {
                     const style = getSeatStyle(seat.status);
                     const isOccupied = seat.status === 'OCCUPIED';
                     const allocation = seat.allocations?.find((a: any) => a.isActive);
-                    
-                    const tooltipText = isOccupied && allocation 
+
+                    const tooltipText = isOccupied && allocation
                       ? `Occupant: ${allocation.studentProfile?.user?.name || 'N/A'} (${allocation.shift?.name || 'N/A'})`
                       : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
 
@@ -526,7 +539,7 @@ export default function Seats() {
               )}
             </div>
           </div>
-          
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
             <Button type="button" variant="text" style={{ color: 'var(--danger)' }} onClick={() => handleDeleteSeat(selectedSeat?.id)}>
               Delete Seat
@@ -567,9 +580,10 @@ export default function Seats() {
               </select>
             </div>
           </div>
-          
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
             <Button type="button" variant="text" onClick={() => setOpenTransfer(false)}>Close</Button>
+            <Button type="button" variant="text" style={{ color: 'var(--danger)' }} onClick={handleVacateSeat} isLoading={isVacating}>Vacate Seat</Button>
             <Button type="submit" variant="primary" isLoading={isTransferring} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <ArrowRightLeft size={16} /> Transfer
             </Button>
@@ -632,8 +646,8 @@ export default function Seats() {
               creatorType === 'seat'
                 ? 'Seat Number (e.g. A-1 or 1-60)'
                 : creatorType === 'room'
-                ? 'Room Name (e.g. Hall A)'
-                : 'Floor Name (e.g. Ground Floor)'
+                  ? 'Room Name (e.g. Hall A)'
+                  : 'Floor Name (e.g. Ground Floor)'
             }
             required
             value={creatorName}

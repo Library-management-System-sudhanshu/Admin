@@ -113,6 +113,13 @@ export const api = createApi({
       }),
       invalidatesTags: ['Seats', 'Students', 'Metrics'],
     }),
+    vacateSeat: builder.mutation({
+      query: (id) => ({
+        url: `seats/${id}/vacate`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Seats', 'Students', 'Metrics'],
+    }),
     updateSeatStatus: builder.mutation({
       query: ({ id, status }) => ({
         url: `seats/${id}/status`,
@@ -326,6 +333,7 @@ export const {
   useGetSeatMapQuery,
   useAllocateSeatMutation,
   useTransferSeatMutation,
+  useVacateSeatMutation,
   useUpdateSeatStatusMutation,
   useAddFloorMutation,
   useAddRoomMutation,
