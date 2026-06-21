@@ -32,6 +32,35 @@ import {
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 
+const inputStyle = {
+  '& .MuiOutlinedInput-root': {
+    color: 'var(--text-primary)',
+    backgroundColor: 'var(--bg-surface)',
+    '& fieldset': {
+      borderColor: 'var(--border-color)',
+    },
+    '&:hover fieldset': {
+      borderColor: 'var(--primary)',
+    },
+    '&.Mui-focused fieldset': {
+      borderColor: 'var(--primary)',
+    },
+  },
+  '& .MuiInputLabel-root': {
+    color: 'var(--text-secondary)',
+    '&.Mui-focused': {
+      color: 'var(--primary)',
+    }
+  },
+  '& .MuiSelect-select': {
+    color: 'var(--text-primary)',
+  },
+  '& .MuiMenuItem-root': {
+    color: 'var(--text-primary)',
+    backgroundColor: 'var(--bg-surface)',
+  }
+};
+
 export default function WhatsApp() {
   const { user } = useSelector((state: RootState) => state.auth);
   const [tab, setTab] = useState(0);
@@ -51,7 +80,10 @@ export default function WhatsApp() {
   // Custom variables
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [seatNumber, setSeatNumber] = useState('');
   const [holidayDate, setHolidayDate] = useState('');
+  const [resumeDate, setResumeDate] = useState('');
   const [reason, setReason] = useState('');
   const [customMsg, setCustomMsg] = useState('');
 
@@ -65,7 +97,10 @@ export default function WhatsApp() {
         customVariables: {
           amount,
           dueDate,
+          endDate,
+          seatNumber,
           holidayDate,
+          resumeDate,
           reason,
           message: customMsg,
         },
@@ -78,7 +113,10 @@ export default function WhatsApp() {
       // Reset variables
       setAmount('');
       setDueDate('');
+      setEndDate('');
+      setSeatNumber('');
       setHolidayDate('');
+      setResumeDate('');
       setReason('');
       setCustomMsg('');
     } catch (err) {
@@ -93,8 +131,11 @@ export default function WhatsApp() {
     preview = preview.replace('{{studentName}}', 'John Doe');
     preview = preview.replace('{{amount}}', amount || '______');
     preview = preview.replace('{{dueDate}}', dueDate || '______');
+    preview = preview.replace('{{endDate}}', endDate || '______');
+    preview = preview.replace('{{seatNumber}}', seatNumber || '______');
     preview = preview.replace('{{branchName}}', 'Main Branch');
     preview = preview.replace('{{holidayDate}}', holidayDate || '______');
+    preview = preview.replace('{{resumeDate}}', resumeDate || '______');
     preview = preview.replace('{{reason}}', reason || '______');
     preview = preview.replace('{{message}}', customMsg || '______');
     return preview;
@@ -102,18 +143,27 @@ export default function WhatsApp() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A', mb: 4 }}>
+      <Typography variant="h4" sx={{ fontWeight: 700, color: 'var(--text-primary)', mb: 4 }}>
         WhatsApp Communications
       </Typography>
 
-      <Tabs value={tab} onChange={(_, val) => setTab(val)} sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
-        <Tab label="Broadcast Console" />
-        <Tab label="Dispatch Logs" />
+      <Tabs 
+        value={tab} 
+        onChange={(_, val) => setTab(val)} 
+        sx={{ 
+          borderBottom: 1, 
+          borderColor: 'var(--border-color)', 
+          mb: 4,
+          '& .MuiTabs-indicator': { bgcolor: 'var(--primary)' }
+        }}
+      >
+        <Tab label="Broadcast Console" sx={{ color: 'var(--text-secondary)', '&.Mui-selected': { color: 'var(--primary)' } }} />
+        <Tab label="Dispatch Logs" sx={{ color: 'var(--text-secondary)', '&.Mui-selected': { color: 'var(--primary)' } }} />
       </Tabs>
 
       {tab === 0 && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 4 }}>
-          <Card sx={{ p: 3, borderRadius: 2.5 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.25fr 1fr' }, gap: 4, alignItems: 'start' }}>
+          <Card sx={{ p: 3, borderRadius: 2.5, bgcolor: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', boxShadow: 'none' }}>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
               Configure Campaign
             </Typography>
@@ -121,12 +171,26 @@ export default function WhatsApp() {
               <CircularProgress />
             ) : (
               <form onSubmit={handleSend}>
-                <FormControl fullWidth required sx={{ mb: 3 }}>
-                  <InputLabel>Select Template</InputLabel>
+                <FormControl fullWidth required size="small" sx={{ mb: 3, ...inputStyle }}>
+                  <InputLabel id="template-select-label">Select Template</InputLabel>
                   <Select
+                    labelId="template-select-label"
                     value={selectedTemplateId}
                     label="Select Template"
                     onChange={(e) => setSelectedTemplateId(e.target.value)}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          bgcolor: 'var(--bg-surface)',
+                          border: '1px solid var(--border-color)',
+                          '& .MuiMenuItem-root': {
+                            color: 'var(--text-primary)',
+                            '&:hover': { bgcolor: 'var(--bg-surface-hover)' },
+                            '&.Mui-selected': { bgcolor: 'var(--primary-light)', color: 'var(--primary)' }
+                          }
+                        }
+                      }
+                    }}
                   >
                     {templates?.map((t: any) => (
                       <MenuItem key={t.id} value={t.id}>
@@ -137,13 +201,30 @@ export default function WhatsApp() {
                 </FormControl>
 
                 {/* Group Filters */}
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: '#475569' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'var(--text-secondary)' }}>
                   Target Filters (Optional)
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Filter by Branch</InputLabel>
-                    <Select value={branchId} label="Filter by Branch" onChange={(e) => setBranchId(e.target.value)}>
+                  <FormControl fullWidth size="small" sx={inputStyle}>
+                    <InputLabel id="branch-select-label">Filter by Branch</InputLabel>
+                    <Select 
+                      labelId="branch-select-label"
+                      value={branchId} 
+                      label="Filter by Branch" 
+                      onChange={(e) => setBranchId(e.target.value)}
+                      MenuProps={{
+                        PaperProps: {
+                          sx: {
+                            bgcolor: 'var(--bg-surface)',
+                            border: '1px solid var(--border-color)',
+                            '& .MuiMenuItem-root': {
+                              color: 'var(--text-primary)',
+                              '&:hover': { bgcolor: 'var(--bg-surface-hover)' }
+                            }
+                          }
+                        }
+                      }}
+                    >
                       <MenuItem value="">All Branches</MenuItem>
                       {branches?.map((b: any) => (
                         <MenuItem key={b.id} value={b.id}>
@@ -152,9 +233,26 @@ export default function WhatsApp() {
                       ))}
                     </Select>
                   </FormControl>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Filter by Shift</InputLabel>
-                    <Select value={shiftId} label="Filter by Shift" onChange={(e) => setShiftId(e.target.value)}>
+                  <FormControl fullWidth size="small" sx={inputStyle}>
+                    <InputLabel id="shift-select-label">Filter by Shift</InputLabel>
+                    <Select 
+                      labelId="shift-select-label"
+                      value={shiftId} 
+                      label="Filter by Shift" 
+                      onChange={(e) => setShiftId(e.target.value)}
+                      MenuProps={{
+                        PaperProps: {
+                          sx: {
+                            bgcolor: 'var(--bg-surface)',
+                            border: '1px solid var(--border-color)',
+                            '& .MuiMenuItem-root': {
+                              color: 'var(--text-primary)',
+                              '&:hover': { bgcolor: 'var(--bg-surface-hover)' }
+                            }
+                          }
+                        }
+                      }}
+                    >
                       <MenuItem value="">All Shifts</MenuItem>
                       {shifts?.map((s: any) => (
                         <MenuItem key={s.id} value={s.id}>
@@ -168,27 +266,72 @@ export default function WhatsApp() {
                 {/* Variables depending on templates */}
                 {selectedTemplateId === 'fee_reminder' && (
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
-                    <TextField label="Outstanding Amount" fullWidth size="small" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                    <TextField label="Due Date" fullWidth size="small" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                    <TextField sx={inputStyle} label="Outstanding Amount" fullWidth size="small" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                    <TextField 
+                      sx={inputStyle} 
+                      label="Due Date" 
+                      type="date" 
+                      fullWidth 
+                      size="small" 
+                      InputLabelProps={{ shrink: true }} 
+                      value={dueDate} 
+                      onChange={(e) => setDueDate(e.target.value)} 
+                    />
+                  </Box>
+                )}
+
+                {selectedTemplateId === 'renewal_reminder' && (
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
+                    <TextField 
+                      sx={inputStyle} 
+                      label="Expiry End Date" 
+                      type="date" 
+                      fullWidth 
+                      size="small" 
+                      InputLabelProps={{ shrink: true }} 
+                      value={endDate} 
+                      onChange={(e) => setEndDate(e.target.value)} 
+                    />
+                    <TextField sx={inputStyle} label="Seat Number" fullWidth size="small" value={seatNumber} onChange={(e) => setSeatNumber(e.target.value)} />
                   </Box>
                 )}
 
                 {selectedTemplateId === 'holiday_notice' && (
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
-                    <TextField label="Holiday Date" fullWidth size="small" value={holidayDate} onChange={(e) => setHolidayDate(e.target.value)} />
-                    <TextField label="Reason" fullWidth size="small" value={reason} onChange={(e) => setReason(e.target.value)} />
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2, mb: 3 }}>
+                    <TextField 
+                      sx={inputStyle} 
+                      label="Holiday Date" 
+                      type="date" 
+                      fullWidth 
+                      size="small" 
+                      InputLabelProps={{ shrink: true }} 
+                      value={holidayDate} 
+                      onChange={(e) => setHolidayDate(e.target.value)} 
+                    />
+                    <TextField 
+                      sx={inputStyle} 
+                      label="Resume Date" 
+                      type="date" 
+                      fullWidth 
+                      size="small" 
+                      InputLabelProps={{ shrink: true }} 
+                      value={resumeDate} 
+                      onChange={(e) => setResumeDate(e.target.value)} 
+                    />
+                    <TextField sx={inputStyle} label="Reason" fullWidth size="small" value={reason} onChange={(e) => setReason(e.target.value)} />
                   </Box>
                 )}
 
                 {selectedTemplateId === 'general_notice' && (
                   <TextField
+                    sx={inputStyle}
                     label="Announcement Message"
                     fullWidth
                     multiline
                     rows={3}
                     value={customMsg}
                     onChange={(e) => setCustomMsg(e.target.value)}
-                    sx={{ mb: 3 }}
+                    sx={{ mb: 3, ...inputStyle }}
                   />
                 )}
 
@@ -199,6 +342,15 @@ export default function WhatsApp() {
                   disabled={isSending || !selectedTemplateId}
                   fullWidth
                   size="large"
+                  sx={{ 
+                    py: 1.2, 
+                    borderRadius: 2, 
+                    bgcolor: 'var(--primary)',
+                    boxShadow: 'none',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    '&:hover': { bgcolor: 'var(--primary-dark)', boxShadow: 'none' }
+                  }}
                 >
                   Send Campaign Broadcast
                 </Button>
@@ -206,16 +358,78 @@ export default function WhatsApp() {
             )}
           </Card>
 
-          {/* Message Preview */}
-          <Card sx={{ p: 3, borderRadius: 2.5, bgcolor: '#DCF8C6', minHeight: 280, display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="subtitle2" sx={{ color: '#075E54', fontWeight: 700, mb: 2 }}>
-              WhatsApp Message Preview
-            </Typography>
-            <Paper sx={{ p: 2, borderRadius: 2.5, maxWidth: '90%', alignSelf: 'flex-start', bgcolor: '#FFFFFF', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {selectedTemplateId ? getTemplateTextPreview() : 'Please select a template to preview the message...'}
-              </Typography>
-            </Paper>
+          {/* Message Preview (Mock Mobile Screen) */}
+          <Card 
+            sx={{ 
+              borderRadius: 3, 
+              border: '1px solid var(--border-color)', 
+              boxShadow: 'var(--shadow-md)',
+              overflow: 'hidden', 
+              display: 'flex', 
+              flexDirection: 'column',
+              height: '100%',
+              minHeight: 380,
+              bgcolor: 'var(--bg-surface)'
+            }}
+          >
+            {/* WhatsApp Header */}
+            <Box sx={{ bgcolor: '#075E54', px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box sx={{ width: 36, height: 36, borderRadius: '50%', bgcolor: '#128C7E', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '1rem' }}>
+                SF
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 600, lineHeight: 1.2 }}>
+                  StudyFlow Broadcast
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#85E3B2', fontSize: '0.75rem' }}>
+                  online
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Chat Body */}
+            <Box 
+              sx={{ 
+                flex: 1, 
+                bgcolor: '#efeae2', 
+                p: 2, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                justifyContent: 'flex-start',
+                gap: 1.5,
+                backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")',
+                backgroundSize: 'cover',
+              }}
+            >
+              {/* WhatsApp Chat Bubble */}
+              <Box 
+                sx={{ 
+                  alignSelf: 'flex-end', 
+                  maxWidth: '85%', 
+                  bgcolor: '#d9fdd3', 
+                  color: '#303030',
+                  p: 1.5, 
+                  borderRadius: '8px 0px 8px 8px',
+                  boxShadow: '0 1px 0.5px rgba(0,0,0,0.13)',
+                  position: 'relative',
+                  mb: 1
+                }}
+              >
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem', pr: 4, pb: 1, color: '#303030' }}>
+                  {selectedTemplateId ? getTemplateTextPreview() : 'Please select a template to preview the message...'}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.25, position: 'absolute', bottom: 4, right: 6 }}>
+                  <Typography variant="caption" sx={{ fontSize: '0.65rem', color: '#667781' }}>
+                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Typography>
+                  <svg width="16" height="11" viewBox="0 0 16 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4.5 9.5L1.5 6.5L0.5 7.5L4.5 11.5L13 3L12 2L4.5 9.5Z" fill="#53bdeb"/>
+                    <path d="M7.5 9.5L9.5 7.5L8.5 6.5L7.5 7.5L7.5 9.5Z" fill="#53bdeb"/>
+                    <path d="M15 3L14 2L9.5 6.5L10.5 7.5L15 3Z" fill="#53bdeb"/>
+                  </svg>
+                </Box>
+              </Box>
+            </Box>
           </Card>
         </Box>
       )}
@@ -227,24 +441,29 @@ export default function WhatsApp() {
               <CircularProgress />
             </Box>
           ) : (
-            <TableContainer component={Paper} sx={{ borderRadius: 2.5, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+            <TableContainer component={Paper} sx={{ borderRadius: 2.5, bgcolor: 'var(--bg-surface)', border: '1px solid var(--border-color)', boxShadow: 'none' }}>
               <Table>
                 <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Recipient Mobile</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Message Content</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Sent Date</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Delivery Status</TableCell>
+                  <TableRow sx={{ bgcolor: 'var(--bg-surface-hover)' }}>
+                    <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Recipient Mobile</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Message Content</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Sent Date</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Delivery Status</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {logs?.map((log: any) => (
-                    <TableRow key={log.id} hover>
-                      <TableCell sx={{ fontWeight: 600 }}>{log.recipient}</TableCell>
-                      <TableCell sx={{ maxWidth: 400, fontSize: '0.85rem' }}>{log.message}</TableCell>
-                      <TableCell sx={{ fontSize: '0.85rem' }}>{new Date(log.sentAt).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Chip label={log.status} size="small" color="success" />
+                    <TableRow key={log.id} hover sx={{ '&:hover': { bgcolor: 'var(--bg-surface-hover) !important' } }}>
+                      <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>{log.recipient}</TableCell>
+                      <TableCell sx={{ maxWidth: 400, fontSize: '0.85rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>{log.message}</TableCell>
+                      <TableCell sx={{ fontSize: '0.85rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>{new Date(log.sentAt).toLocaleString()}</TableCell>
+                      <TableCell sx={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <Chip 
+                          label={log.status} 
+                          size="small" 
+                          color={log.status === 'SENT' || log.status === 'SUCCESS' ? 'success' : 'error'} 
+                          variant="outlined" 
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
