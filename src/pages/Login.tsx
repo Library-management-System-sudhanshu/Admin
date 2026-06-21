@@ -161,7 +161,7 @@ export default function Login() {
             StudyFlow
           </h1>
           <p className="text-center text-muted" style={{ marginBottom: '2rem' }}>
-            SaaS Study Hall Management System
+            Study Hall Management System
           </p>
 
           <div style={{ display: 'flex', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>

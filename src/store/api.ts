@@ -173,6 +173,14 @@ export const api = createApi({
       }),
       invalidatesTags: ['Seats'],
     }),
+    updateFloor: builder.mutation({
+      query: ({ id, name }) => ({
+        url: `seats/floors/${id}`,
+        method: 'PATCH',
+        body: { name },
+      }),
+      invalidatesTags: ['Seats'],
+    }),
 
     // Payments
     getPayments: builder.query({
@@ -341,6 +349,7 @@ export const {
   useDeleteSeatMutation,
   useDeleteRoomMutation,
   useDeleteFloorMutation,
+  useUpdateFloorMutation,
   useGetPaymentsQuery,
   useGetCollectionReportQuery,
   useCreatePaymentMutation,
