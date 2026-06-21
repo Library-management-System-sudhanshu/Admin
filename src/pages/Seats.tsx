@@ -27,15 +27,30 @@ import { useAlert } from '../components/ui/AlertContext';
 import '../components/ui/Globals.css';
 import {
   Plus,
-  ArrowRightLeft,
   Layers,
   DoorOpen,
   Trash2,
   Loader2,
   Search,
   ChevronDown,
-  Edit2
+  Edit2,
+  UserCog,
+  LogOut,
+  Clock
 } from 'lucide-react';
+
+const getDaysRemainingText = (endDateStr: string) => {
+  if (!endDateStr) return 'No end date';
+  const end = new Date(endDateStr);
+  const today = new Date();
+  end.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  const diffTime = end.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return 'Expired';
+  if (diffDays === 0) return 'Ends today';
+  return `Ends in ${diffDays} days`;
+};
 
 export default function Seats() {
   const { showAlert } = useAlert();
@@ -52,6 +67,7 @@ export default function Seats() {
 
   // Navigation states
   const [activeFloorTab, setActiveFloorTab] = useState(0);
+  const currentFloor = seatMap?.[activeFloorTab];
 
   // Dialog states
   const [openAllocate, setOpenAllocate] = useState(false);
@@ -66,20 +82,17 @@ export default function Seats() {
   const [shiftId, setShiftId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [durationMode, setDurationMode] = useState<number>(0); // 0 = 1 MO, 1 = 3 MO, 2 = Flex
+  const [durationMode, setDurationMode] = useState<number | 'flex'>(1); // 1-6 months, or 'flex'
 
   useEffect(() => {
-    if (durationMode === 2) { // Flex
+    if (durationMode === 'flex') {
       return;
     }
-    if (startDate) {
-      const months = durationMode === 0 ? 1 : durationMode === 1 ? 3 : 0;
-      if (months > 0) {
-        const date = new Date(startDate);
-        if (!isNaN(date.getTime())) {
-          date.setMonth(date.getMonth() + months);
-          setEndDate(date.toISOString().split('T')[0]);
-        }
+    if (startDate && typeof durationMode === 'number') {
+      const date = new Date(startDate);
+      if (!isNaN(date.getTime())) {
+        date.setMonth(date.getMonth() + durationMode);
+        setEndDate(date.toISOString().split('T')[0]);
       }
     } else {
       setEndDate('');
@@ -88,6 +101,8 @@ export default function Seats() {
 
   // Transfer forms
   const [targetSeatId, setTargetSeatId] = useState('');
+  const [targetFloorId, setTargetFloorId] = useState('');
+  const [targetRoomId, setTargetRoomId] = useState('');
 
   // Creator forms
   const [openCreator, setOpenCreator] = useState(false);
@@ -161,7 +176,7 @@ export default function Seats() {
       setShiftId('');
       setStartDate('');
       setEndDate('');
-      setDurationMode(0);
+      setDurationMode(1);
     } else {
       const today = new Date().toISOString().split('T')[0];
       setStartDate(today);
@@ -170,6 +185,21 @@ export default function Seats() {
       }
     }
   }, [openAllocate, shifts]);
+
+  useEffect(() => {
+    if (openTransfer) {
+      if (currentFloor) {
+        setTargetFloorId(currentFloor.id);
+        if (currentFloor.rooms && currentFloor.rooms.length > 0) {
+          setTargetRoomId(currentFloor.rooms[0].id);
+        }
+      }
+    } else {
+      setTargetFloorId('');
+      setTargetRoomId('');
+      setTargetSeatId('');
+    }
+  }, [openTransfer, currentFloor]);
 
   const handleSeatClick = (seat: any) => {
     setSelectedSeat(seat);
@@ -304,8 +334,6 @@ export default function Seats() {
         return { accent: 'var(--text-muted)', iconColor: 'var(--text-muted)' };
     }
   };
-
-  const currentFloor = seatMap?.[activeFloorTab];
 
   return (
     <div style={{ width: '100%' }}>      {/* Header & Controls in one sleek row */}
@@ -645,7 +673,7 @@ export default function Seats() {
         isOpen={openAllocate}
         onClose={() => setOpenAllocate(false)}
         title={`Allocate Seat ${selectedSeat?.number}`}
-        maxWidth="sm"
+        maxWidth="md"
       >
         <form onSubmit={handleAllocate}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -812,45 +840,65 @@ export default function Seats() {
                 )}
               </div>
 
-              {/* Duration Segmented Control */}
+              {/* Duration Selector */}
               <div>
                 <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
                   Duration
                 </label>
                 <div style={{
                   display: 'flex',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '0.5rem',
-                  overflow: 'hidden',
+                  gap: '0.5rem',
                   height: '38px',
                 }}>
-                  {[
-                    { label: '1 MO', val: 0 },
-                    { label: '3 MO', val: 1 },
-                    { label: 'Flex', val: 2 },
-                  ].map((item, idx) => {
-                    const isSelected = durationMode === item.val;
-                    return (
-                      <button
-                        key={item.label}
-                        type="button"
-                        onClick={() => setDurationMode(item.val)}
-                        style={{
-                          flex: 1,
-                          border: 'none',
-                          background: isSelected ? '#2f2fd1' : '#ffffff',
-                          color: isSelected ? '#ffffff' : '#0f172a',
-                          fontWeight: 600,
-                          fontSize: '0.75rem',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          borderRight: idx < 2 ? '1px solid #cbd5e1' : 'none',
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    );
-                  })}
+                  {/* Months Dropdown */}
+                  <select
+                    className="custom-input"
+                    value={typeof durationMode === 'number' ? durationMode : ''}
+                    onChange={(e) => setDurationMode(parseInt(e.target.value, 10))}
+                    style={{
+                      flex: 2,
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      padding: '0 0.75rem',
+                      borderColor: typeof durationMode === 'number' ? '#2f2fd1' : '#cbd5e1',
+                      borderWidth: typeof durationMode === 'number' ? '2px' : '1px',
+                      color: typeof durationMode === 'number' ? '#2f2fd1' : '#0f172a',
+                      fontWeight: typeof durationMode === 'number' ? 600 : 400,
+                      height: '38px',
+                      backgroundColor: '#ffffff',
+                      marginBottom: 0,
+                    }}
+                  >
+                    {typeof durationMode === 'number' ? null : (
+                      <option value="" disabled>Select months</option>
+                    )}
+                    <option value={1}>1 Month</option>
+                    <option value={2}>2 Months</option>
+                    <option value={3}>3 Months</option>
+                    <option value={4}>4 Months</option>
+                    <option value={5}>5 Months</option>
+                    <option value={6}>6 Months</option>
+                  </select>
+
+                  {/* Flex Button */}
+                  <button
+                    type="button"
+                    onClick={() => setDurationMode('flex')}
+                    style={{
+                      flex: 1,
+                      border: durationMode === 'flex' ? '2px solid #2f2fd1' : '1px solid #cbd5e1',
+                      borderRadius: '0.5rem',
+                      background: durationMode === 'flex' ? '#2f2fd1' : '#ffffff',
+                      color: durationMode === 'flex' ? '#ffffff' : '#0f172a',
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      height: '38px',
+                    }}
+                  >
+                    Flex
+                  </button>
                 </div>
               </div>
             </div>
@@ -891,7 +939,7 @@ export default function Seats() {
                   <input
                     type="date"
                     required
-                    disabled={durationMode !== 2}
+                    disabled={durationMode !== 'flex'}
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     className="custom-input"
@@ -902,8 +950,8 @@ export default function Seats() {
                       borderColor: '#cbd5e1',
                       color: '#0f172a',
                       width: '100%',
-                      backgroundColor: durationMode !== 2 ? '#f1f5f9' : '#ffffff',
-                      cursor: durationMode !== 2 ? 'not-allowed' : 'text',
+                      backgroundColor: durationMode !== 'flex' ? '#f1f5f9' : '#ffffff',
+                      cursor: durationMode !== 'flex' ? 'not-allowed' : 'text',
                     }}
                   />
                 </div>
@@ -1053,37 +1101,262 @@ export default function Seats() {
       <Modal
         isOpen={openTransfer}
         onClose={() => setOpenTransfer(false)}
-        title={`Manage Occupied Seat ${selectedSeat?.number}`}
-        maxWidth="sm"
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <UserCog size={20} style={{ color: 'var(--primary)' }} />
+            <span>Manage Seat {selectedSeat?.number}</span>
+          </div>
+        }
+        maxWidth="md"
       >
         <form onSubmit={handleTransfer}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div>
-              <p className="text-muted" style={{ margin: '0 0 0.25rem 0' }}>Current Occupant:</p>
-              <h4 style={{ margin: 0, fontWeight: 600 }}>
-                {selectedSeat?.allocations?.find((a: any) => a.isActive)?.studentProfile?.user?.name}
-              </h4>
-            </div>
+            
+            {/* Occupant Card */}
+            {(() => {
+              const activeAllocation = selectedSeat?.allocations?.find((a: any) => a.isActive);
+              if (!activeAllocation) return null;
+              const currentRoomName = currentFloor?.rooms?.find((r: any) => r.seats?.some((s: any) => s.id === selectedSeat?.id))?.name || 'N/A';
+              const nameInitials = activeAllocation.studentProfile?.user?.name?.charAt(0).toUpperCase() || 'U';
 
+              return (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1.25rem',
+                  padding: '1.25rem',
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '0.75rem',
+                  position: 'relative',
+                }}>
+                  {/* Avatar */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    backgroundColor: '#3b82f6',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '1.5rem',
+                    boxShadow: 'var(--shadow-sm)',
+                    border: '3px solid #ffffff',
+                  }}>
+                    {nameInitials}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '1.125rem', fontWeight: 700, color: '#1e3a8a' }}>
+                        {activeAllocation.studentProfile?.user?.name}
+                      </span>
+                      <span style={{
+                        fontSize: '0.625rem',
+                        fontWeight: 700,
+                        color: '#ffffff',
+                        backgroundColor: '#1d4ed8',
+                        padding: '0.15rem 0.5rem',
+                        borderRadius: '0.25rem',
+                        textTransform: 'uppercase',
+                      }}>
+                        Active
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.8125rem', color: '#1e40af' }}>
+                      Registration: STD-{activeAllocation.studentProfile?.id?.slice(0, 4).toUpperCase() || 'XXXX'}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: '#1e40af', opacity: 0.8 }}>
+                      {activeAllocation.shift?.name || 'N/A'} Shift • {currentRoomName}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', color: '#2563eb', fontSize: '0.75rem', fontWeight: 600, marginTop: '0.25rem' }}>
+                      <Clock size={12} style={{ marginRight: '0.25rem' }} />
+                      <span>{getDaysRemainingText(activeAllocation.endDate)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Transfer Occupant Header */}
             <div>
-              <label className="custom-input-label">Transfer to Vacant Seat</label>
-              <select className="custom-input" required value={targetSeatId} onChange={(e) => setTargetSeatId(e.target.value)}>
-                <option value="" disabled>Select target seat</option>
-                {currentFloor?.rooms.flatMap((r: any) => r.seats).filter((s: any) => s.status === 'AVAILABLE').map((s: any) => (
-                  <option key={s.id} value={s.id}>
-                    Room: {currentFloor.rooms.find((rm: any) => rm.seats.some((seat: any) => seat.id === s.id))?.name} | Seat: {s.number}
-                  </option>
-                ))}
-              </select>
+              <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'block' }}>
+                Transfer Occupant
+              </label>
+
+              {/* Cascading selectors in 3-column grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                
+                {/* Target Floor */}
+                <div>
+                  <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                    Target Floor
+                  </span>
+                  <select
+                    className="custom-input"
+                    value={targetFloorId}
+                    onChange={(e) => {
+                      const floorId = e.target.value;
+                      setTargetFloorId(floorId);
+                      const floorObj = seatMap?.find((f: any) => f.id === floorId);
+                      if (floorObj?.rooms && floorObj.rooms.length > 0) {
+                        setTargetRoomId(floorObj.rooms[0].id);
+                      } else {
+                        setTargetRoomId('');
+                        setTargetSeatId('');
+                      }
+                    }}
+                    style={{ borderRadius: '0.5rem', fontSize: '0.8125rem', padding: '0.4rem 0.5rem', height: '36px', borderColor: '#cbd5e1' }}
+                  >
+                    <option value="" disabled>Select floor</option>
+                    {seatMap?.map((floor: any) => (
+                      <option key={floor.id} value={floor.id}>
+                        {floor.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Target Room */}
+                <div>
+                  <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                    Target Room
+                  </span>
+                  <select
+                    className="custom-input"
+                    value={targetRoomId}
+                    onChange={(e) => {
+                      setTargetRoomId(e.target.value);
+                      setTargetSeatId('');
+                    }}
+                    style={{ borderRadius: '0.5rem', fontSize: '0.8125rem', padding: '0.4rem 0.5rem', height: '36px', borderColor: '#cbd5e1' }}
+                    disabled={!targetFloorId}
+                  >
+                    <option value="" disabled>Select room</option>
+                    {seatMap?.find((f: any) => f.id === targetFloorId)?.rooms?.map((room: any) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Available Seat */}
+                <div>
+                  <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                    Available Seat
+                  </span>
+                  <select
+                    className="custom-input"
+                    value={targetSeatId}
+                    required
+                    onChange={(e) => setTargetSeatId(e.target.value)}
+                    style={{ borderRadius: '0.5rem', fontSize: '0.8125rem', padding: '0.4rem 0.5rem', height: '36px', borderColor: '#cbd5e1' }}
+                    disabled={!targetRoomId}
+                  >
+                    <option value="" disabled>Select seat</option>
+                    {seatMap
+                      ?.find((f: any) => f.id === targetFloorId)
+                      ?.rooms?.find((r: any) => r.id === targetRoomId)
+                      ?.seats?.filter((s: any) => s.status === 'AVAILABLE')
+                      ?.map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.number}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <Button type="button" variant="text" onClick={() => setOpenTransfer(false)}>Close</Button>
-            <Button type="button" variant="text" style={{ color: 'var(--danger)' }} onClick={handleVacateSeat} isLoading={isVacating}>Vacate Seat</Button>
-            <Button type="submit" variant="primary" isLoading={isTransferring} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ArrowRightLeft size={16} /> Transfer
+          {/* Footer block */}
+          <div className="modal-form-footer" style={{
+            margin: '2rem -1.5rem -1.5rem -1.5rem',
+            padding: '1.25rem 1.5rem',
+            backgroundColor: '#f8f9fd',
+            borderTop: '1px solid var(--border-color)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            {/* Vacate Seat Button */}
+            <Button
+              type="button"
+              onClick={handleVacateSeat}
+              isLoading={isVacating}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                backgroundColor: '#ffffff',
+                border: '1px solid #fca5a5',
+                color: 'var(--danger)',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                padding: '0.5rem 1rem',
+                borderRadius: '0.5rem',
+                transition: 'all 0.15s ease',
+                boxShadow: 'none',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              <LogOut size={16} style={{ transform: 'rotate(180deg)', marginRight: '0.25rem' }} />
+              Vacate Seat
             </Button>
+
+            {/* Details & Confirm Buttons */}
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenTransfer(false);
+                  navigate('/students');
+                }}
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  padding: '0.5rem 1.125rem',
+                  borderRadius: '0.5rem',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = '#94a3b8';
+                  e.currentTarget.style.color = '#0f172a';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = '#cbd5e1';
+                  e.currentTarget.style.color = '#475569';
+                }}
+              >
+                Details
+              </button>
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={isTransferring}
+                disabled={!targetSeatId}
+                style={{
+                  backgroundColor: '#2f2fd1',
+                  borderColor: '#2f2fd1',
+                  borderRadius: '0.5rem',
+                  padding: '0.625rem 1.25rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 6px -1px rgba(47, 209, 209, 0.2), 0 2px 4px -2px rgba(47, 209, 209, 0.2)',
+                }}
+              >
+                Confirm Transfer
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>
