@@ -23,6 +23,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
+import { useAlert } from '../components/ui/AlertContext';
 import '../components/ui/Globals.css';
 import {
   Plus,
@@ -37,6 +38,7 @@ import {
 } from 'lucide-react';
 
 export default function Seats() {
+  const { showAlert } = useAlert();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
@@ -196,7 +198,7 @@ export default function Seats() {
       setStartDate('');
       setEndDate('');
     } catch (err) {
-      alert('Seat allocation failed');
+      showAlert('Seat allocation failed');
     }
   };
 
@@ -213,7 +215,7 @@ export default function Seats() {
       setOpenTransfer(false);
       setTargetSeatId('');
     } catch (err) {
-      alert('Seat transfer failed');
+      showAlert('Seat transfer failed');
     }
   };
 
@@ -224,7 +226,7 @@ export default function Seats() {
       setOpenTransfer(false);
       setSelectedSeat(null);
     } catch (err: any) {
-      alert(err.data?.message || 'Failed to vacate seat');
+      showAlert(err.data?.message || 'Failed to vacate seat');
     }
   };
 
@@ -253,36 +255,39 @@ export default function Seats() {
       setOpenCreator(false);
       setCreatorName('');
     } catch (err) {
-      alert('Creation failed');
+      showAlert('Creation failed');
     }
   };
 
   const handleDeleteFloor = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this floor and all its rooms and seats?')) return;
+    const confirmed = await showAlert('Are you sure you want to delete this floor and all its rooms and seats?', { type: 'danger' });
+    if (!confirmed) return;
     try {
       await deleteFloor(id).unwrap();
       setActiveFloorTab(0);
     } catch (err: any) {
-      alert(err.data?.message || 'Failed to delete floor');
+      showAlert(err.data?.message || 'Failed to delete floor');
     }
   };
 
   const handleDeleteRoom = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this room and all its seats?')) return;
+    const confirmed = await showAlert('Are you sure you want to delete this room and all its seats?', { type: 'danger' });
+    if (!confirmed) return;
     try {
       await deleteRoom(id).unwrap();
     } catch (err: any) {
-      alert(err.data?.message || 'Failed to delete room');
+      showAlert(err.data?.message || 'Failed to delete room');
     }
   };
 
   const handleDeleteSeat = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this seat?')) return;
+    const confirmed = await showAlert('Are you sure you want to delete this seat?', { type: 'danger' });
+    if (!confirmed) return;
     try {
       await deleteSeat(id).unwrap();
       setOpenAllocate(false);
     } catch (err: any) {
-      alert(err.data?.message || 'Failed to delete seat');
+      showAlert(err.data?.message || 'Failed to delete seat');
     }
   };
 
@@ -945,7 +950,7 @@ export default function Seats() {
                     setOpenAllocate(false);
                     setSelectedSeat(null);
                   } catch (err: any) {
-                    alert(err.data?.message || 'Failed to mark seat as maintenance');
+                    showAlert(err.data?.message || 'Failed to mark seat as maintenance');
                   }
                 }}
                 style={{
@@ -1033,7 +1038,7 @@ export default function Seats() {
                     setOpenMaintenance(false);
                     setSelectedSeat(null);
                   } catch (err: any) {
-                    alert(err.data?.message || 'Failed to mark seat as available');
+                    showAlert(err.data?.message || 'Failed to mark seat as available');
                   }
                 }}
               >
@@ -1246,7 +1251,7 @@ export default function Seats() {
                       await updateFloor({ id: selectedFloorToEdit.id, name: editFloorName.trim() }).unwrap();
                       setOpenEditFloorModal(false);
                     } catch (err: any) {
-                      alert(err.data?.message || 'Failed to update floor name');
+                      showAlert(err.data?.message || 'Failed to update floor name');
                     }
                   }
                 }}

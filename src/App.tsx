@@ -11,10 +11,12 @@ import Complaints from './pages/Complaints';
 import WhatsApp from './pages/WhatsApp';
 import Settings from './pages/Settings';
 import SuperAdmin from './pages/SuperAdmin';
+import { AlertProvider } from './components/ui/AlertContext';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <AlertProvider>
+      <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
 
@@ -40,5 +42,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </AlertProvider>
   );
 }
