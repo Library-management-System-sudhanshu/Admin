@@ -23,6 +23,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
+import { Select } from '../components/ui/Select';
 import { useAlert } from '../components/ui/AlertContext';
 import '../components/ui/Globals.css';
 import {
@@ -342,20 +343,19 @@ export default function Seats() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
             <h1 className="page-title" style={{ margin: 0 }}>Interactive Seat Map</h1>
             
-            <select
-              className="custom-input"
+            <Select
               value={selectedBranch}
-              onChange={(e) => {
-                setSelectedBranch(e.target.value);
+              onChange={(val) => {
+                setSelectedBranch(val);
                 setActiveFloorTab(0);
               }}
-              style={{ width: '200px', marginBottom: 0, padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
-            >
-              <option value="" disabled>Select Branch</option>
-              {branches?.map((b: any) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
+              placeholder="Select Branch"
+              style={{ width: '200px' }}
+              options={branches?.map((b: any) => ({
+                value: b.id,
+                label: b.name,
+              })) || []}
+            />
 
             {/* Custom Floor Selector Dropdown */}
             {selectedBranch && seatMap && seatMap.length > 0 && (
@@ -816,27 +816,15 @@ export default function Seats() {
                     </Button>
                   </div>
                 ) : (
-                  <select
-                    className="custom-input"
-                    required
+                  <Select
                     value={shiftId}
-                    onChange={(e) => setShiftId(e.target.value)}
-                    style={{
-                      borderRadius: '0.5rem',
-                      fontSize: '0.875rem',
-                      padding: '0.625rem 0.75rem',
-                      borderColor: '#cbd5e1',
-                      color: '#0f172a',
-                      height: '38px',
-                    }}
-                  >
-                    <option value="" disabled>Select shift</option>
-                    {shifts.map((shift: any) => (
-                      <option key={shift.id} value={shift.id}>
-                        {shift.name} ({shift.startTime} - {shift.endTime})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setShiftId(val)}
+                    placeholder="Select shift"
+                    options={shifts.map((shift: any) => ({
+                      value: shift.id,
+                      label: `${shift.name} (${shift.startTime} - ${shift.endTime})`,
+                    }))}
+                  />
                 )}
               </div>
 
@@ -851,34 +839,22 @@ export default function Seats() {
                   height: '38px',
                 }}>
                   {/* Months Dropdown */}
-                  <select
-                    className="custom-input"
+                  <Select
                     value={typeof durationMode === 'number' ? durationMode : ''}
-                    onChange={(e) => setDurationMode(parseInt(e.target.value, 10))}
+                    onChange={(val) => setDurationMode(val)}
+                    placeholder="Select months"
                     style={{
                       flex: 2,
-                      borderRadius: '0.5rem',
-                      fontSize: '0.875rem',
-                      padding: '0 0.75rem',
-                      borderColor: typeof durationMode === 'number' ? '#2f2fd1' : '#cbd5e1',
-                      borderWidth: typeof durationMode === 'number' ? '2px' : '1px',
-                      color: typeof durationMode === 'number' ? '#2f2fd1' : '#0f172a',
-                      fontWeight: typeof durationMode === 'number' ? 600 : 400,
-                      height: '38px',
-                      backgroundColor: '#ffffff',
-                      marginBottom: 0,
                     }}
-                  >
-                    {typeof durationMode === 'number' ? null : (
-                      <option value="" disabled>Select months</option>
-                    )}
-                    <option value={1}>1 Month</option>
-                    <option value={2}>2 Months</option>
-                    <option value={3}>3 Months</option>
-                    <option value={4}>4 Months</option>
-                    <option value={5}>5 Months</option>
-                    <option value={6}>6 Months</option>
-                  </select>
+                    options={[
+                      { value: 1, label: '1 Month' },
+                      { value: 2, label: '2 Months' },
+                      { value: 3, label: '3 Months' },
+                      { value: 4, label: '4 Months' },
+                      { value: 5, label: '5 Months' },
+                      { value: 6, label: '6 Months' },
+                    ]}
+                  />
 
                   {/* Flex Button */}
                   <button
@@ -1194,13 +1170,11 @@ export default function Seats() {
                   <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
                     Target Floor
                   </span>
-                  <select
-                    className="custom-input"
+                  <Select
                     value={targetFloorId}
-                    onChange={(e) => {
-                      const floorId = e.target.value;
-                      setTargetFloorId(floorId);
-                      const floorObj = seatMap?.find((f: any) => f.id === floorId);
+                    onChange={(val) => {
+                      setTargetFloorId(val);
+                      const floorObj = seatMap?.find((f: any) => f.id === val);
                       if (floorObj?.rooms && floorObj.rooms.length > 0) {
                         setTargetRoomId(floorObj.rooms[0].id);
                       } else {
@@ -1208,15 +1182,12 @@ export default function Seats() {
                         setTargetSeatId('');
                       }
                     }}
-                    style={{ borderRadius: '0.5rem', fontSize: '0.8125rem', padding: '0.4rem 0.5rem', height: '36px', borderColor: '#cbd5e1' }}
-                  >
-                    <option value="" disabled>Select floor</option>
-                    {seatMap?.map((floor: any) => (
-                      <option key={floor.id} value={floor.id}>
-                        {floor.name}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Select floor"
+                    options={seatMap?.map((floor: any) => ({
+                      value: floor.id,
+                      label: floor.name,
+                    })) || []}
+                  />
                 </div>
 
                 {/* Target Room */}
@@ -1224,23 +1195,19 @@ export default function Seats() {
                   <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
                     Target Room
                   </span>
-                  <select
-                    className="custom-input"
+                  <Select
                     value={targetRoomId}
-                    onChange={(e) => {
-                      setTargetRoomId(e.target.value);
+                    onChange={(val) => {
+                      setTargetRoomId(val);
                       setTargetSeatId('');
                     }}
-                    style={{ borderRadius: '0.5rem', fontSize: '0.8125rem', padding: '0.4rem 0.5rem', height: '36px', borderColor: '#cbd5e1' }}
+                    placeholder="Select room"
                     disabled={!targetFloorId}
-                  >
-                    <option value="" disabled>Select room</option>
-                    {seatMap?.find((f: any) => f.id === targetFloorId)?.rooms?.map((room: any) => (
-                      <option key={room.id} value={room.id}>
-                        {room.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={seatMap?.find((f: any) => f.id === targetFloorId)?.rooms?.map((room: any) => ({
+                      value: room.id,
+                      label: room.name,
+                    })) || []}
+                  />
                 </div>
 
                 {/* Available Seat */}
@@ -1248,25 +1215,20 @@ export default function Seats() {
                   <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
                     Available Seat
                   </span>
-                  <select
-                    className="custom-input"
+                  <Select
                     value={targetSeatId}
-                    required
-                    onChange={(e) => setTargetSeatId(e.target.value)}
-                    style={{ borderRadius: '0.5rem', fontSize: '0.8125rem', padding: '0.4rem 0.5rem', height: '36px', borderColor: '#cbd5e1' }}
+                    onChange={(val) => setTargetSeatId(val)}
+                    placeholder="Select seat"
                     disabled={!targetRoomId}
-                  >
-                    <option value="" disabled>Select seat</option>
-                    {seatMap
+                    options={seatMap
                       ?.find((f: any) => f.id === targetFloorId)
                       ?.rooms?.find((r: any) => r.id === targetRoomId)
                       ?.seats?.filter((s: any) => s.status === 'AVAILABLE')
-                      ?.map((s: any) => (
-                        <option key={s.id} value={s.id}>
-                          {s.number}
-                        </option>
-                      ))}
-                  </select>
+                      ?.map((s: any) => ({
+                        value: s.id,
+                        label: s.number,
+                      })) || []}
+                  />
                 </div>
 
               </div>
@@ -1380,12 +1342,15 @@ export default function Seats() {
             ) : (
               <div>
                 <label className="custom-input-label">Target Floor</label>
-                <select className="custom-input" required value={parentId} onChange={(e) => setParentId(e.target.value)}>
-                  <option value="" disabled>Select floor</option>
-                  {seatMap.map((f: any) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
+                <Select
+                  value={parentId}
+                  onChange={(val) => setParentId(val)}
+                  placeholder="Select floor"
+                  options={seatMap.map((f: any) => ({
+                    value: f.id,
+                    label: f.name,
+                  }))}
+                />
               </div>
             )
           )}
@@ -1401,12 +1366,15 @@ export default function Seats() {
             ) : (
               <div>
                 <label className="custom-input-label">Target Room</label>
-                <select className="custom-input" required value={parentId} onChange={(e) => setParentId(e.target.value)}>
-                  <option value="" disabled>Select room</option>
-                  {currentFloor.rooms.map((r: any) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
+                <Select
+                  value={parentId}
+                  onChange={(val) => setParentId(val)}
+                  placeholder="Select room"
+                  options={currentFloor.rooms.map((r: any) => ({
+                    value: r.id,
+                    label: r.name,
+                  }))}
+                />
               </div>
             )
           )}
