@@ -493,26 +493,93 @@ export default function Seats() {
           
           {/* Seat Summary Component */}
           {selectedBranch && seatMap && (
-            <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', padding: '1rem 1.5rem', background: 'var(--bg-surface)', borderRadius: '0.75rem', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>Total Seats</span>
-                <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>{seatCounts.total}</span>
-              </div>
-              <div style={{ width: '1px', backgroundColor: 'var(--border-color)' }} />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600, textTransform: 'uppercase' }}>Available</span>
-                <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--success)' }}>{seatCounts.available}</span>
-              </div>
-              <div style={{ width: '1px', backgroundColor: 'var(--border-color)' }} />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600, textTransform: 'uppercase' }}>Occupied</span>
-                <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>{seatCounts.occupied}</span>
-              </div>
-              <div style={{ width: '1px', backgroundColor: 'var(--border-color)' }} />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Maintenance</span>
-                <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-muted)' }}>{seatCounts.maintenance}</span>
-              </div>
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              marginTop: '1.25rem',
+              marginBottom: '1rem',
+              width: '100%',
+              flexWrap: 'nowrap'
+            }}>
+              {/* Total Seats */}
+              <Card
+                elevation="sm"
+                style={{
+                  padding: '1rem 1.25rem',
+                  border: '1px solid var(--border-color)',
+                  borderTop: '4px solid #64748b',
+                  backgroundColor: 'var(--bg-surface)',
+                  borderRadius: '0.75rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem',
+                  flex: 1,
+                  minWidth: 0
+                }}
+              >
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Total Seats</span>
+                <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>{seatCounts.total}</span>
+              </Card>
+
+              {/* Available */}
+              <Card
+                elevation="sm"
+                style={{
+                  padding: '1rem 1.25rem',
+                  border: '1px solid var(--border-color)',
+                  borderTop: '4px solid var(--success)',
+                  backgroundColor: 'var(--bg-surface)',
+                  borderRadius: '0.75rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem',
+                  flex: 1,
+                  minWidth: 0
+                }}
+              >
+                <span style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Available</span>
+                <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--success)', lineHeight: 1.1 }}>{seatCounts.available}</span>
+              </Card>
+
+              {/* Occupied */}
+              <Card
+                elevation="sm"
+                style={{
+                  padding: '1rem 1.25rem',
+                  border: '1px solid var(--border-color)',
+                  borderTop: '4px solid var(--primary)',
+                  backgroundColor: 'var(--bg-surface)',
+                  borderRadius: '0.75rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem',
+                  flex: 1,
+                  minWidth: 0
+                }}
+              >
+                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Occupied</span>
+                <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1 }}>{seatCounts.occupied}</span>
+              </Card>
+
+              {/* Maintenance */}
+              <Card
+                elevation="sm"
+                style={{
+                  padding: '1rem 1.25rem',
+                  border: '1px solid var(--border-color)',
+                  borderTop: '4px solid var(--text-muted)',
+                  backgroundColor: 'var(--bg-surface)',
+                  borderRadius: '0.75rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem',
+                  flex: 1,
+                  minWidth: 0
+                }}
+              >
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Maintenance</span>
+                <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-muted)', lineHeight: 1.1 }}>{seatCounts.maintenance}</span>
+              </Card>
             </div>
           )}
         </div>
