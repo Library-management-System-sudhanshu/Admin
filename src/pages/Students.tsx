@@ -4,14 +4,17 @@ import type { RootState } from '../store';
 import {
   useGetStudentsQuery,
   useCreateStudentMutation,
+  useUpdateStudentMutation,
   useUpdateStudentStatusMutation,
   useDeleteStudentMutation,
   useGetBranchesQuery,
+  useGetShiftsQuery,
 } from '../store/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
+import { Select } from '../components/ui/Select';
 import '../components/ui/Globals.css';
 import {
   Plus,
@@ -19,18 +22,25 @@ import {
   X,
   Trash2,
   IdCard,
-  Loader2
+  Loader2,
+  Edit2
 } from 'lucide-react';
 
 export default function Students() {
   const { user } = useSelector((state: RootState) => state.auth);
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
+  const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
 
   const [search, setSearch] = useState('');
   const [page] = useState(1);
+  const [filterShiftId, setFilterShiftId] = useState('');
+  const [filterExpiration, setFilterExpiration] = useState('');
   const [openAdd, setOpenAdd] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [openCard, setOpenCard] = useState(false);
+
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<any>(null);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -44,6 +54,17 @@ export default function Students() {
   // Validation Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Edit Form Fields
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editMobile, setEditMobile] = useState('');
+  const [editGuardianName, setEditGuardianName] = useState('');
+  const [editGuardianMobile, setEditGuardianMobile] = useState('');
+  const [editAadharNumber, setEditAadharNumber] = useState('');
+  const [editBranchId, setEditBranchId] = useState('');
+  const [editJoiningDate, setEditJoiningDate] = useState('');
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
   const { data, isLoading } = useGetStudentsQuery({
     search,
     branchId: branchId || undefined,
@@ -51,7 +72,49 @@ export default function Students() {
     limit: 10,
   });
 
+  const filteredStudents = React.useMemo(() => {
+    if (!data?.students) return [];
+
+    return data.students.filter((student: any) => {
+      const activeAllocation = student.allocations?.find((a: any) => a.isActive);
+
+      // Filter by Shift
+      if (filterShiftId) {
+        if (!activeAllocation || activeAllocation.shiftId !== filterShiftId) {
+          return false;
+        }
+      }
+
+      // Filter by Expiration
+      if (filterExpiration) {
+        if (filterExpiration === 'NO_SEAT') {
+          if (activeAllocation) return false;
+        } else {
+          if (!activeAllocation) return false;
+
+          const end = new Date(activeAllocation.endDate);
+          const today = new Date();
+          end.setHours(0, 0, 0, 0);
+          today.setHours(0, 0, 0, 0);
+          const diffTime = end.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if (filterExpiration === 'ACTIVE') {
+            if (diffDays < 0) return false;
+          } else if (filterExpiration === 'EXPIRED') {
+            if (diffDays >= 0) return false;
+          } else if (filterExpiration === 'EXPIRING_SOON') {
+            if (diffDays < 0 || diffDays > 7) return false;
+          }
+        }
+      }
+
+      return true;
+    });
+  }, [data?.students, filterShiftId, filterExpiration]);
+
   const [createStudent, { isLoading: isCreating }] = useCreateStudentMutation();
+  const [updateStudent, { isLoading: isUpdating }] = useUpdateStudentMutation();
   const [updateStatus] = useUpdateStudentStatusMutation();
   const [deleteStudent] = useDeleteStudentMutation();
 
@@ -117,6 +180,51 @@ export default function Students() {
         return next;
       }
     });
+  };
+
+  const handleOpenEdit = (student: any) => {
+    setEditingStudent(student);
+    setEditName(student.user?.name || '');
+    setEditEmail(student.user?.email || '');
+    setEditMobile(student.user?.mobile || '');
+    setEditGuardianName(student.guardianName || '');
+    setEditGuardianMobile(student.guardianMobile || '');
+    setEditAadharNumber(student.aadharNumber || '');
+    setEditBranchId(student.branchId || '');
+    setEditJoiningDate(student.joiningDate ? new Date(student.joiningDate).toISOString().split('T')[0] : '');
+    setEditErrors({});
+    setOpenEdit(true);
+  };
+
+  const handleEditStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const newErrors: Record<string, string> = {};
+    if (!editName.trim()) newErrors.name = 'Name is required';
+    if (!editEmail.trim()) newErrors.email = 'Email is required';
+    if (!editMobile.trim()) newErrors.mobile = 'Mobile is required';
+
+    if (Object.keys(newErrors).length > 0) {
+      setEditErrors(newErrors);
+      return;
+    }
+
+    try {
+      await updateStudent({
+        id: editingStudent.id,
+        name: editName,
+        email: editEmail,
+        mobile: editMobile,
+        guardianName: editGuardianName,
+        guardianMobile: editGuardianMobile,
+        aadharNumber: editAadharNumber,
+        branchId: editBranchId,
+        joiningDate: editJoiningDate,
+      }).unwrap();
+      setOpenEdit(false);
+      setEditingStudent(null);
+    } catch (err) {
+      alert('Error updating student');
+    }
   };
 
   const validateForm = () => {
@@ -230,28 +338,71 @@ export default function Students() {
       </div>
 
       {/* Filters Toolbar */}
-      <Card elevation="sm" style={{ padding: '1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-        <div style={{ width: '280px' }}>
+      <Card
+        elevation="sm"
+        style={{
+          padding: '0.75rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: '1rem',
+          flexWrap: 'nowrap',
+          overflow: 'visible',
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '0.75rem',
+        }}
+      >
+        <div style={{ width: '240px', flexShrink: 0 }}>
           <Input
             placeholder="Search by Name"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ marginBottom: 0 }}
+            className="no-margin"
           />
         </div>
-        <div style={{ width: '200px' }}>
-          <select 
-            className="custom-input" 
-            value={branchId} 
-            onChange={(e) => setBranchId(e.target.value)}
-          >
-            <option value="">All Branches</option>
-            {branches?.map((b: any) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+        <div style={{ width: '180px', flexShrink: 0 }}>
+          <Select
+            value={branchId}
+            onChange={(val) => setBranchId(val)}
+            placeholder="All Branches"
+            options={[
+              { value: '', label: 'All Branches' },
+              ...(branches?.map((b: any) => ({
+                value: b.id,
+                label: b.name,
+              })) || [])
+            ]}
+          />
+        </div>
+        <div style={{ width: '180px', flexShrink: 0 }}>
+          <Select
+            value={filterShiftId}
+            onChange={(val) => setFilterShiftId(val)}
+            placeholder="All Shifts"
+            options={[
+              { value: '', label: 'All Shifts' },
+              ...(shifts?.map((s: any) => ({
+                value: s.id,
+                label: `${s.name} (${s.startTime}-${s.endTime})`,
+              })) || [])
+            ]}
+          />
+        </div>
+        <div style={{ width: '180px', flexShrink: 0 }}>
+          <Select
+            value={filterExpiration}
+            onChange={(val) => setFilterExpiration(val)}
+            placeholder="All Statuses"
+            options={[
+              { value: '', label: 'All Statuses' },
+              { value: 'ACTIVE', label: 'Active Seat' },
+              { value: 'EXPIRING_SOON', label: 'Expiring Soon' },
+              { value: 'EXPIRED', label: 'Expired Seat' },
+              { value: 'NO_SEAT', label: 'No Seat' },
+            ]}
+          />
         </div>
       </Card>
 
@@ -262,38 +413,86 @@ export default function Students() {
         </div>
       ) : (
         <div className="custom-table-container">
-          <table className="custom-table">
+          <table className="custom-table" style={{ minWidth: '900px' }}>
             <thead>
               <tr>
                 <th>Student</th>
                 <th>Contact Info</th>
+                <th style={{ whiteSpace: 'nowrap' }}>Seat & Shift</th>
                 <th>Aadhar Card</th>
                 <th>Admission Date</th>
-                <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {data?.students.map((student: any) => (
-                <tr key={student.id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div className="avatar">
-                        {student.user?.name?.charAt(0).toUpperCase()}
+              {filteredStudents.map((student: any) => {
+                const avatarBorderColor = 
+                  student.status === 'APPROVED' ? 'var(--success)' :
+                  student.status === 'PENDING' ? 'var(--warning)' :
+                  student.status === 'REJECTED' ? 'var(--danger)' :
+                  'var(--border-color)';
+
+                return (
+                  <tr key={student.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div className="avatar" style={{ border: `2.5px solid ${avatarBorderColor}`, boxSizing: 'border-box' }}>
+                          {student.user?.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{student.user?.name}</div>
+                          <div className="text-muted">{student.branch?.name || 'No Branch'}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{student.user?.name}</div>
-                        <div className="text-muted">{student.branch?.name || 'No Branch'}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div>{student.user?.email}</div>
-                    <div className="text-muted">{student.user?.mobile}</div>
-                  </td>
-                  <td>{student.aadharNumber || 'N/A'}</td>
-                  <td>{new Date(student.joiningDate).toLocaleDateString()}</td>
-                  <td>{getStatusBadge(student.status)}</td>
+                    </td>
+                    <td>
+                      <div>{student.user?.email}</div>
+                      <div className="text-muted">{student.user?.mobile}</div>
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {(() => {
+                        const activeAllocation = student.allocations?.find((a: any) => a.isActive);
+                        if (!activeAllocation) {
+                          return <span className="text-muted" style={{ fontStyle: 'italic', fontSize: '0.875rem' }}>No Seat Allocated</span>;
+                        }
+                        
+                        const end = new Date(activeAllocation.endDate);
+                        const today = new Date();
+                        end.setHours(0, 0, 0, 0);
+                        today.setHours(0, 0, 0, 0);
+                        const diffTime = end.getTime() - today.getTime();
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        
+                        let expColor = 'var(--text-muted)';
+                        let expWeight = 'normal';
+                        if (diffDays < 0) {
+                          expColor = 'var(--danger)';
+                          expWeight = '600';
+                        } else if (diffDays <= 7) {
+                          expColor = 'var(--warning)';
+                          expWeight = '600';
+                        }
+
+                        const daysText = diffDays < 0 ? '(Expired)' : diffDays === 0 ? '(Today)' : `(${diffDays})`;
+
+                        return (
+                          <div style={{ fontSize: '0.875rem' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                              Seat {activeAllocation.seat?.number || 'N/A'}
+                            </span>
+                            <span style={{ color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>
+                              ({activeAllocation.shift?.name || 'N/A'})
+                            </span>
+                            <span style={{ margin: '0 0.4rem', color: 'var(--text-muted)' }}>•</span>
+                            <span style={{ color: expColor, fontWeight: expWeight }}>
+                              {daysText}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    <td>{student.aadharNumber || 'N/A'}</td>
+                    <td>{new Date(student.joiningDate).toLocaleDateString()}</td>
                   <td>
                     <div className="action-buttons">
                       {student.status === 'PENDING' && (
@@ -316,6 +515,13 @@ export default function Students() {
                       )}
                       <button 
                         className="icon-btn" 
+                        title="Edit Student" 
+                        onClick={() => handleOpenEdit(student)}
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button 
+                        className="icon-btn" 
                         title="ID Card" 
                         onClick={() => {
                           setSelectedStudent(student);
@@ -334,7 +540,8 @@ export default function Students() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         </div>
@@ -373,18 +580,15 @@ export default function Students() {
             />
             <div>
               <label className="custom-input-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Target Branch</label>
-              <select 
-                className="custom-input" 
-                required 
-                value={branchId} 
-                onChange={(e) => setBranchId(e.target.value)}
-                style={{ width: '100%' }}
-              >
-                <option value="" disabled>Select a branch</option>
-                {branches?.map((b: any) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
+              <Select
+                value={branchId}
+                onChange={(val) => setBranchId(val)}
+                placeholder="Select a branch"
+                options={branches?.map((b: any) => ({
+                  value: b.id,
+                  label: b.name,
+                })) || []}
+              />
             </div>
             <Input
               label="Guardian Name"
@@ -454,12 +658,32 @@ export default function Students() {
                 </p>
 
                 {/* Details list */}
-                <div style={{ width: '100%', marginBottom: '1.5rem' }}>
-                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>Mobile:</span>
-                  <div style={{ fontWeight: 500, marginBottom: '0.5rem', fontSize: '0.875rem' }}>{selectedStudent.user?.mobile}</div>
-
-                  <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>Branch:</span>
-                  <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{selectedStudent.branch?.name}</div>
+                <div style={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                  marginBottom: '1.5rem',
+                  borderTop: '1px solid #f1f5f9',
+                  borderBottom: '1px solid #f1f5f9',
+                  padding: '1rem 0',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
+                    <span style={{ color: '#64748b', fontWeight: 500 }}>Mobile</span>
+                    <span style={{ color: '#0f172a', fontWeight: 600 }}>{selectedStudent.user?.mobile}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
+                    <span style={{ color: '#64748b', fontWeight: 500 }}>Email</span>
+                    <span style={{ color: '#0f172a', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }} title={selectedStudent.user?.email}>{selectedStudent.user?.email}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
+                    <span style={{ color: '#64748b', fontWeight: 500 }}>Branch</span>
+                    <span style={{ color: '#0f172a', fontWeight: 600 }}>{selectedStudent.branch?.name || 'N/A'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
+                    <span style={{ color: '#64748b', fontWeight: 500 }}>Admission</span>
+                    <span style={{ color: '#0f172a', fontWeight: 600 }}>{new Date(selectedStudent.joiningDate).toLocaleDateString()}</span>
+                  </div>
                 </div>
 
                 {/* QR Code */}
@@ -474,6 +698,87 @@ export default function Students() {
             </Card>
           </div>
         )}
+      </Modal>
+
+      {/* Edit Student Modal */}
+      <Modal
+        isOpen={openEdit}
+        onClose={() => setOpenEdit(false)}
+        title="Edit Student Details"
+        maxWidth="md"
+      >
+        <form onSubmit={handleEditStudent}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+            <Input
+              label="Student Name"
+              required
+              value={editName}
+              error={editErrors.name}
+              onChange={(e) => setEditName(e.target.value)}
+            />
+            <Input
+              label="Email Address"
+              type="email"
+              required
+              value={editEmail}
+              error={editErrors.email}
+              onChange={(e) => setEditEmail(e.target.value)}
+            />
+            <Input
+              label="Mobile Number"
+              required
+              value={editMobile}
+              error={editErrors.mobile}
+              onChange={(e) => setEditMobile(e.target.value)}
+            />
+            <div>
+              <label className="custom-input-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Target Branch</label>
+              <Select
+                value={editBranchId}
+                onChange={(val) => setEditBranchId(val)}
+                placeholder="Select a branch"
+                options={branches?.map((b: any) => ({
+                  value: b.id,
+                  label: b.name,
+                })) || []}
+              />
+            </div>
+            <Input
+              label="Guardian Name"
+              value={editGuardianName}
+              error={editErrors.guardianName}
+              onChange={(e) => setEditGuardianName(e.target.value)}
+            />
+            <Input
+              label="Guardian Mobile"
+              value={editGuardianMobile}
+              error={editErrors.guardianMobile}
+              onChange={(e) => setEditGuardianMobile(e.target.value)}
+            />
+            <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <Input
+                label="Admission Date"
+                type="date"
+                required
+                value={editJoiningDate}
+                onChange={(e) => setEditJoiningDate(e.target.value)}
+                className="no-margin"
+              />
+              <Input
+                label="Aadhar Card Number"
+                value={editAadharNumber}
+                error={editErrors.aadharNumber}
+                onChange={(e) => setEditAadharNumber(e.target.value)}
+                className="no-margin"
+              />
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+            <Button type="button" variant="text" onClick={() => setOpenEdit(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" isLoading={isUpdating}>Save Changes</Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
