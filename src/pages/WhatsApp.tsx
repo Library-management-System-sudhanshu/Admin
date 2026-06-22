@@ -159,6 +159,7 @@ export default function WhatsApp() {
       >
         <Tab label="Broadcast Console" sx={{ color: 'var(--text-secondary)', '&.Mui-selected': { color: 'var(--primary)' } }} />
         <Tab label="Dispatch Logs" sx={{ color: 'var(--text-secondary)', '&.Mui-selected': { color: 'var(--primary)' } }} />
+        <Tab label="Automated Reminders" sx={{ color: 'var(--text-secondary)', '&.Mui-selected': { color: 'var(--primary)' } }} />
       </Tabs>
 
       {tab === 0 && (
@@ -471,6 +472,49 @@ export default function WhatsApp() {
               </Table>
             </TableContainer>
           )}
+        </Box>
+      )}
+
+      {tab === 2 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, maxWidth: 800 }}>
+          <Card sx={{ p: 4, borderRadius: 3, bgcolor: 'var(--bg-surface)', border: '1px solid var(--border-color)', boxShadow: 'none' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, mb: 2, color: 'var(--text-primary)' }}>
+              Scheduled Automations
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'var(--text-secondary)', mb: 4 }}>
+              StudyFlow automatically monitors student subscriptions and fee payments in the background to send necessary WhatsApp reminders.
+            </Typography>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Fee Reminder Status */}
+              <Box sx={{ p: 3, border: '1px solid var(--border-color)', borderRadius: 2, bgcolor: 'var(--bg-surface-hover)' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'var(--text-primary)' }}>Fee Due Reminders</Typography>
+                  <Chip label="Active" color="success" size="small" />
+                </Box>
+                <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
+                  Sends a friendly WhatsApp message 2 days before a student's unpaid fee is due.
+                </Typography>
+              </Box>
+
+              {/* Renewal Status */}
+              <Box sx={{ p: 3, border: '1px solid var(--border-color)', borderRadius: 2, bgcolor: 'var(--bg-surface-hover)' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'var(--text-primary)' }}>Plan Renewal Alerts</Typography>
+                  <Chip label="Active" color="success" size="small" />
+                </Box>
+                <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
+                  Sends an alert 3 days before a student's subscription plan expires, encouraging them to renew their seat.
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ mt: 4, p: 2, bgcolor: 'var(--primary-light)', borderRadius: 2, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+              <Typography variant="body2" sx={{ color: 'var(--primary-dark)', fontWeight: 500 }}>
+                💡 These reminders run automatically every day at 09:00 AM server time. Ensure student profiles have valid mobile numbers configured.
+              </Typography>
+            </Box>
+          </Card>
         </Box>
       )}
     </Box>
