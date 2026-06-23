@@ -24,6 +24,7 @@ export const api = createApi({
     'Branches',
     'Shifts',
     'Plans',
+    'Notices',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -325,6 +326,25 @@ export const api = createApi({
       query: (workspaceId) => `workspaces/${workspaceId}/plans`,
       providesTags: ['Plans'],
     }),
+    getNotices: builder.query({
+      query: () => 'notices',
+      providesTags: ['Notices'],
+    }),
+    createNotice: builder.mutation({
+      query: (data) => ({
+        url: 'notices',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Notices'],
+    }),
+    deleteNotice: builder.mutation({
+      query: (id) => ({
+        url: `notices/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Notices'],
+    }),
   }),
 });
 
@@ -372,5 +392,8 @@ export const {
   useUpdateShiftMutation,
   useDeleteShiftMutation,
   useGetPlansQuery,
+  useGetNoticesQuery,
+  useCreateNoticeMutation,
+  useDeleteNoticeMutation,
 } = api;
 

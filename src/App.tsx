@@ -10,6 +10,7 @@ import Library from './pages/Library';
 import Complaints from './pages/Complaints';
 import WhatsApp from './pages/WhatsApp';
 import Settings from './pages/Settings';
+import Notices from './pages/Notices';
 import SuperAdmin from './pages/SuperAdmin';
 import { AlertProvider } from './components/ui/AlertContext';
 
@@ -29,6 +30,7 @@ export default function App() {
             <Route path="/billing" element={<Billing />} />
             <Route path="/library" element={<Library />} />
             <Route path="/complaints" element={<Complaints />} />
+            <Route path="/notices" element={<Notices />} />
             <Route path="/whatsapp" element={<WhatsApp />} />
             <Route path="/settings" element={<Settings />} />
 

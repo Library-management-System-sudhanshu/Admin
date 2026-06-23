@@ -46,6 +46,7 @@ export default function Students() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
+  const [password, setPassword] = useState('');
   const [guardianName, setGuardianName] = useState('');
   const [guardianMobile, setGuardianMobile] = useState('');
   const [aadharNumber, setAadharNumber] = useState('');
@@ -58,6 +59,7 @@ export default function Students() {
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editMobile, setEditMobile] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const [editGuardianName, setEditGuardianName] = useState('');
   const [editGuardianMobile, setEditGuardianMobile] = useState('');
   const [editAadharNumber, setEditAadharNumber] = useState('');
@@ -144,6 +146,11 @@ export default function Students() {
           errorMsg = 'Mobile number must be exactly 10 digits';
         }
         break;
+      case 'password':
+        if (value.length > 0 && value.length < 6) {
+          errorMsg = 'Password must be at least 6 characters';
+        }
+        break;
       case 'guardianName':
         if (!/^[a-zA-Z\s]*$/.test(value)) {
           errorMsg = 'Guardian name must contain only letters';
@@ -187,6 +194,7 @@ export default function Students() {
     setEditName(student.user?.name || '');
     setEditEmail(student.user?.email || '');
     setEditMobile(student.user?.mobile || '');
+    setEditPassword('');
     setEditGuardianName(student.guardianName || '');
     setEditGuardianMobile(student.guardianMobile || '');
     setEditAadharNumber(student.aadharNumber || '');
@@ -202,6 +210,9 @@ export default function Students() {
     if (!editName.trim()) newErrors.name = 'Name is required';
     if (!editEmail.trim()) newErrors.email = 'Email is required';
     if (!editMobile.trim()) newErrors.mobile = 'Mobile is required';
+    if (editPassword && editPassword.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setEditErrors(newErrors);
@@ -214,6 +225,7 @@ export default function Students() {
         name: editName,
         email: editEmail,
         mobile: editMobile,
+        password: editPassword || undefined,
         guardianName: editGuardianName,
         guardianMobile: editGuardianMobile,
         aadharNumber: editAadharNumber,
@@ -222,6 +234,7 @@ export default function Students() {
       }).unwrap();
       setOpenEdit(false);
       setEditingStudent(null);
+      setEditPassword('');
     } catch (err) {
       alert('Error updating student');
     }
@@ -247,6 +260,10 @@ export default function Students() {
       newErrors.mobile = 'Mobile number is required';
     } else if (!/^\d{10}$/.test(mobile.trim())) {
       newErrors.mobile = 'Mobile number must be exactly 10 digits';
+    }
+
+    if (password && password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
     }
     
     if (guardianName.trim() && !/^[a-zA-Z\s]{2,50}$/.test(guardianName.trim())) {
@@ -278,6 +295,7 @@ export default function Students() {
         name,
         email,
         mobile,
+        password: password || undefined,
         guardianName,
         guardianMobile,
         aadharNumber,
@@ -290,6 +308,7 @@ export default function Students() {
       setName('');
       setEmail('');
       setMobile('');
+      setPassword('');
       setGuardianName('');
       setGuardianMobile('');
       setAadharNumber('');
@@ -578,6 +597,14 @@ export default function Students() {
               error={errors.mobile}
               onChange={(e) => handleChange('mobile', e.target.value, setMobile)}
             />
+            <Input
+              label="Password"
+              type="password"
+              value={password}
+              error={errors.password}
+              placeholder="Leave blank for default (Student@123)"
+              onChange={(e) => handleChange('password', e.target.value, setPassword)}
+            />
             <div>
               <label className="custom-input-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Target Branch</label>
               <Select
@@ -613,7 +640,7 @@ export default function Students() {
           </div>
           
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <Button type="button" variant="text" onClick={() => setOpenAdd(false)}>Cancel</Button>
+            <Button type="button" variant="text" onClick={() => { setOpenAdd(false); setPassword(''); }}>Cancel</Button>
             <Button type="submit" variant="primary" isLoading={isCreating}>Create Student</Button>
           </div>
         </form>
@@ -731,6 +758,14 @@ export default function Students() {
               error={editErrors.mobile}
               onChange={(e) => setEditMobile(e.target.value)}
             />
+            <Input
+              label="New Password"
+              type="password"
+              value={editPassword}
+              error={editErrors.password}
+              placeholder="Leave blank to keep unchanged"
+              onChange={(e) => setEditPassword(e.target.value)}
+            />
             <div>
               <label className="custom-input-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Target Branch</label>
               <Select
@@ -775,7 +810,7 @@ export default function Students() {
           </div>
           
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <Button type="button" variant="text" onClick={() => setOpenEdit(false)}>Cancel</Button>
+            <Button type="button" variant="text" onClick={() => { setOpenEdit(false); setEditPassword(''); }}>Cancel</Button>
             <Button type="submit" variant="primary" isLoading={isUpdating}>Save Changes</Button>
           </div>
         </form>

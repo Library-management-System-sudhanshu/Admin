@@ -18,6 +18,8 @@ import {
   useVacateSeatMutation,
   useUpdateSeatStatusMutation,
   useUpdateFloorMutation,
+  useCreatePaymentMutation,
+  useGetPlansQuery,
 } from '../store/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -65,6 +67,7 @@ export default function Seats() {
   });
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: studentsData } = useGetStudentsQuery({ status: 'APPROVED' });
+  const { data: plans } = useGetPlansQuery(user?.workspaceId, { skip: !user?.workspaceId });
 
   // Navigation states
   const [activeFloorTab, setActiveFloorTab] = useState(0);
@@ -85,6 +88,16 @@ export default function Seats() {
   const [endDate, setEndDate] = useState('');
   const [durationMode, setDurationMode] = useState<number | 'flex'>(1); // 1-6 months, or 'flex'
 
+  // Billing/Invoice states
+  const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
+
+  // Success Invoice Receipt Modal states
+  const [openInvoiceReceipt, setOpenInvoiceReceipt] = useState(false);
+  const [createdInvoiceData, setCreatedInvoiceData] = useState<any>(null);
+
   useEffect(() => {
     if (durationMode === 'flex') {
       return;
@@ -99,6 +112,38 @@ export default function Seats() {
       setEndDate('');
     }
   }, [startDate, durationMode]);
+
+  // Calculate auto-filled amount based on shift and duration
+  const calculatedBaseAmount = useMemo(() => {
+    if (!shiftId || !shifts) return 0;
+    const shift = shifts.find((s: any) => s.id === shiftId);
+    if (!shift) return 0;
+
+    const basePrice = shift.price || 0;
+
+    if (typeof durationMode === 'number') {
+      return basePrice * durationMode;
+    } else if (durationMode === 'flex' && startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const diffTime = end.getTime() - start.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) {
+          return Math.round(basePrice * (diffDays / 30));
+        }
+      }
+    }
+    return basePrice;
+  }, [shiftId, shifts, durationMode, startDate, endDate]);
+
+  useEffect(() => {
+    if (calculatedBaseAmount > 0) {
+      setInvoiceAmount(calculatedBaseAmount.toString());
+    } else {
+      setInvoiceAmount('');
+    }
+  }, [calculatedBaseAmount]);
 
   // Transfer forms
   const [targetSeatId, setTargetSeatId] = useState('');
@@ -120,6 +165,7 @@ export default function Seats() {
   const [selectedFloorToEdit, setSelectedFloorToEdit] = useState<any>(null);
 
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
+  const [createPayment, { isLoading: isCreatingPayment }] = useCreatePaymentMutation();
   const [transferSeat, { isLoading: isTransferring }] = useTransferSeatMutation();
   const [vacateSeat, { isLoading: isVacating }] = useVacateSeatMutation();
   const [addFloor] = useAddFloorMutation();
@@ -178,6 +224,10 @@ export default function Seats() {
       setStartDate('');
       setEndDate('');
       setDurationMode(1);
+      setShouldGenerateInvoice(true);
+      setSelectedPlanId('');
+      setInvoiceAmount('');
+      setPaymentMethod('CASH');
     } else {
       const today = new Date().toISOString().split('T')[0];
       setStartDate(today);
@@ -216,6 +266,7 @@ export default function Seats() {
   const handleAllocate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // 1. Allocate the seat
       await allocateSeat({
         studentProfileId,
         seatId: selectedSeat.id,
@@ -223,13 +274,41 @@ export default function Seats() {
         startDate,
         endDate,
       }).unwrap();
+
+      // 2. Generate invoice if requested
+      if (shouldGenerateInvoice) {
+        const paymentResult = await createPayment({
+          studentProfileId,
+          amount: Number(invoiceAmount),
+          method: paymentMethod,
+          subscriptionPlanId: selectedPlanId || undefined,
+        }).unwrap();
+
+        // Prepare the detailed receipt data
+        const invoiceInfo = {
+          payment: paymentResult.payment,
+          student: studentsData?.students?.find((s: any) => s.id === studentProfileId),
+          seatNumber: selectedSeat?.number,
+          shift: shifts?.find((s: any) => s.id === shiftId),
+          startDate,
+          endDate,
+          branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
+          originalAmount: calculatedBaseAmount,
+          payableAmount: Number(invoiceAmount),
+        };
+        setCreatedInvoiceData(invoiceInfo);
+        setOpenInvoiceReceipt(true);
+      } else {
+        showAlert('Seat allocated successfully!');
+      }
+
       setOpenAllocate(false);
       setStudentProfileId('');
       setShiftId('');
       setStartDate('');
       setEndDate('');
-    } catch (err) {
-      showAlert('Seat allocation failed');
+    } catch (err: any) {
+      showAlert(err.data?.message || 'Seat allocation failed');
     }
   };
 
@@ -1000,6 +1079,107 @@ export default function Seats() {
                 </div>
               </div>
             </div>
+
+            {/* Billing & Subscription Details section */}
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '0.5rem 0' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                id="generate-invoice-checkbox"
+                checked={shouldGenerateInvoice}
+                onChange={(e) => setShouldGenerateInvoice(e.target.checked)}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '0.25rem',
+                  border: '1px solid #cbd5e1',
+                  cursor: 'pointer',
+                }}
+              />
+              <label
+                htmlFor="generate-invoice-checkbox"
+                style={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: '#0f172a',
+                  cursor: 'pointer',
+                }}
+              >
+                Generate Fee Invoice for this booking
+              </label>
+            </div>
+
+            {shouldGenerateInvoice && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  {/* Select Plan */}
+                  <div>
+                    <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
+                      Link Subscription Plan
+                    </label>
+                    <Select
+                      value={selectedPlanId}
+                      onChange={(val) => {
+                        setSelectedPlanId(val);
+                        const plan = plans?.find((p: any) => p.id === val);
+                        if (plan) {
+                          setInvoiceAmount(plan.price.toString());
+                        }
+                      }}
+                      placeholder="Select plan (Optional)"
+                      options={[
+                        { value: '', label: 'Custom / None' },
+                        ...(plans?.map((p: any) => ({
+                          value: p.id,
+                          label: `${p.name} (₹${p.price})`,
+                        })) || []),
+                      ]}
+                    />
+                  </div>
+
+                  {/* Payment Channel */}
+                  <div>
+                    <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
+                      Payment Channel
+                    </label>
+                    <Select
+                      value={paymentMethod}
+                      onChange={(val: any) => setPaymentMethod(val)}
+                      placeholder="Select channel"
+                      options={[
+                        { value: 'CASH', label: 'Cash Deposit' },
+                        { value: 'UPI', label: 'UPI Transfer' },
+                        { value: 'RAZORPAY', label: 'Razorpay Portal (Online)' },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {/* Amount field */}
+                <div>
+                  <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
+                    Billing Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    required={shouldGenerateInvoice}
+                    placeholder="e.g. 1500"
+                    value={invoiceAmount}
+                    onChange={(e) => setInvoiceAmount(e.target.value)}
+                    className="custom-input"
+                    style={{
+                      borderRadius: '0.5rem',
+                      fontSize: '0.875rem',
+                      padding: '0.625rem 0.75rem',
+                      borderColor: '#cbd5e1',
+                      color: '#0f172a',
+                      width: '100%',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Dialog Footer */}
@@ -1086,8 +1266,8 @@ export default function Seats() {
               <Button
                 type="submit"
                 variant="primary"
-                isLoading={isAllocating}
-                disabled={!studentProfileId || !shiftId || !startDate || !endDate}
+                isLoading={isAllocating || isCreatingPayment}
+                disabled={!studentProfileId || !shiftId || !startDate || !endDate || (shouldGenerateInvoice && !invoiceAmount)}
                 style={{
                   backgroundColor: '#2f2fd1',
                   borderColor: '#2f2fd1',
@@ -1577,6 +1757,207 @@ export default function Seats() {
             </div>
           </div>
         </div>
+      </Modal>
+
+      {/* Invoice Receipt Modal */}
+      <Modal
+        isOpen={openInvoiceReceipt}
+        onClose={() => setOpenInvoiceReceipt(false)}
+        title="Fee Receipt & Invoice"
+        maxWidth="md"
+      >
+        {createdInvoiceData && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <style dangerouslySetInnerHTML={{ __html: `
+              @media print {
+                /* Hide everything in the document */
+                body * {
+                  visibility: hidden !important;
+                }
+                /* Show only the print area and its children */
+                #studyflow-invoice-print-area,
+                #studyflow-invoice-print-area * {
+                  visibility: visible !important;
+                }
+                /* Fix print area positioning and remove borders */
+                #studyflow-invoice-print-area {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  border: none !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  box-shadow: none !important;
+                  background: white !important;
+                }
+              }
+            `}} />
+            
+            {/* Printable Area */}
+            <div 
+              id="studyflow-invoice-print-area"
+              style={{
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-color)',
+                borderRadius: '0.75rem',
+                padding: '2rem',
+                color: '#1e293b',
+              }}
+            >
+              {/* Header: Company Details & Invoice Info */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #f1f5f9', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.025em' }}>StudyFlow</h2>
+                  <span style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: 500 }}>Library & Study Space Management</span>
+                  {createdInvoiceData.branchName && (
+                    <div style={{ fontSize: '0.8125rem', color: '#64748b', marginTop: '0.25rem' }}>
+                      <strong>Branch:</strong> {createdInvoiceData.branchName}
+                    </div>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ 
+                    display: 'inline-block', 
+                    fontSize: '0.75rem', 
+                    fontWeight: 700, 
+                    textTransform: 'uppercase', 
+                    backgroundColor: createdInvoiceData.payment.status === 'PAID' ? '#dcfce7' : '#fee2e2',
+                    color: createdInvoiceData.payment.status === 'PAID' ? '#15803d' : '#b91c1c',
+                    padding: '0.25rem 0.75rem',
+                    borderRadius: '1rem',
+                    marginBottom: '0.5rem'
+                  }}>
+                    {createdInvoiceData.payment.status}
+                  </span>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                    INV-{createdInvoiceData.payment.id.substring(0, 8).toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                    Date: {new Date(createdInvoiceData.payment.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bill To & Seat Information Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+                <div>
+                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bill To</h4>
+                  <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#0f172a' }}>
+                    {createdInvoiceData.student?.user?.name || 'N/A'}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.25rem' }}>
+                    <strong>Phone:</strong> {createdInvoiceData.student?.user?.mobile || 'N/A'}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.125rem' }}>
+                    <strong>Email:</strong> {createdInvoiceData.student?.user?.email || 'No Email'}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.125rem' }}>
+                    <strong>Reg ID:</strong> STD-{createdInvoiceData.student?.id?.slice(0, 4).toUpperCase() || 'XXXX'}
+                  </div>
+                </div>
+                <div>
+                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Booking Details</h4>
+                  <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#0f172a' }}>
+                    Seat {createdInvoiceData.seatNumber || 'N/A'}
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.25rem' }}>
+                    <strong>Shift:</strong> {createdInvoiceData.shift?.name || 'N/A'} ({createdInvoiceData.shift?.startTime || ''} - {createdInvoiceData.shift?.endTime || ''})
+                  </div>
+                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.125rem' }}>
+                    <strong>Duration:</strong> {new Date(createdInvoiceData.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - {new Date(createdInvoiceData.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Itemized Table */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '2rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                    <th style={{ padding: '0.75rem 0', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Description</th>
+                    <th style={{ padding: '0.75rem 0', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', textAlign: 'right' }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '1rem 0', fontSize: '0.875rem' }}>
+                      <div style={{ fontWeight: 600, color: '#0f172a' }}>Seat Booking Subscription Fee</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                        Seat {createdInvoiceData.seatNumber} | {createdInvoiceData.shift?.name} Shift ({createdInvoiceData.startDate} to {createdInvoiceData.endDate})
+                      </div>
+                    </td>
+                    <td style={{ padding: '1rem 0', fontSize: '0.875rem', fontWeight: 600, color: '#0f172a', textAlign: 'right' }}>
+                      ₹{(createdInvoiceData.originalAmount ?? createdInvoiceData.payment.amount).toFixed(2)}
+                    </td>
+                  </tr>
+                  
+                  {createdInvoiceData.originalAmount !== undefined && 
+                   createdInvoiceData.payableAmount !== undefined && 
+                   createdInvoiceData.originalAmount !== createdInvoiceData.payableAmount && (
+                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '0.75rem 0', fontSize: '0.875rem', color: '#475569' }}>
+                        Adjustment / Discount
+                      </td>
+                      <td style={{ padding: '0.75rem 0', fontSize: '0.875rem', fontWeight: 600, color: createdInvoiceData.payableAmount < createdInvoiceData.originalAmount ? '#15803d' : '#b91c1c', textAlign: 'right' }}>
+                        {createdInvoiceData.payableAmount < createdInvoiceData.originalAmount ? '-' : '+'}₹{Math.abs(createdInvoiceData.originalAmount - createdInvoiceData.payableAmount).toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+
+                  <tr>
+                    <td style={{ padding: '1rem 0 0 0', fontSize: '0.875rem', fontWeight: 700, color: '#0f172a' }}>Total Payable Amount</td>
+                    <td style={{ padding: '1rem 0 0 0', fontSize: '1.125rem', fontWeight: 800, color: 'var(--primary)', textAlign: 'right' }}>
+                      ₹{(createdInvoiceData.payableAmount ?? createdInvoiceData.payment.amount).toFixed(2)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Footer Terms */}
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    <strong>Payment Method:</strong> {createdInvoiceData.payment.method}
+                  </div>
+                  {createdInvoiceData.payment.transactionId && (
+                    <div style={{ fontSize: '0.6875rem', color: '#64748b', marginTop: '0.125rem' }}>
+                      <strong>Txn ID:</strong> {createdInvoiceData.payment.transactionId}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                  Thank you for booking with StudyFlow!
+                </div>
+              </div>
+            </div>
+
+            {/* Actions Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+              <Button
+                variant="outline"
+                onClick={() => setOpenInvoiceReceipt(false)}
+                style={{ borderRadius: '0.5rem', fontWeight: 600 }}
+              >
+                Close
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  window.print();
+                }}
+                style={{
+                  backgroundColor: '#2f2fd1',
+                  borderColor: '#2f2fd1',
+                  borderRadius: '0.5rem',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 6px -1px rgba(47, 47, 209, 0.2)',
+                }}
+              >
+                Print Invoice
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
