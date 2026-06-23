@@ -1,5 +1,6 @@
 import { useGetMetricsQuery } from '../store/api';
 import { Card } from '../components/ui/Card';
+import { useNavigate } from 'react-router-dom';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -23,6 +24,7 @@ import {
 const COLORS = ['#10B981', '#E2E8F0'];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { data: metrics, isLoading, error } = useGetMetricsQuery({});
 
   if (isLoading) {
@@ -42,12 +44,12 @@ export default function Dashboard() {
   }
 
   const kpis = [
-    { title: 'Active Students', value: metrics.activeStudents, icon: <Users size={24} color="#2563eb" />, bgColor: '#eff6ff' },
-    { title: 'Occupied Seats', value: metrics.occupiedSeats, icon: <Armchair size={24} color="#10b981" />, bgColor: '#d1fae5' },
-    { title: 'Vacant Seats', value: metrics.vacantSeats, icon: <Armchair size={24} color="#94a3b8" />, bgColor: '#f1f5f9' },
-    { title: 'Outstanding Dues', value: `₹${metrics.duePayments}`, icon: <AlertCircle size={24} color="#f59e0b" />, bgColor: '#fef3c7' },
-    { title: 'Monthly Revenue', value: `₹${metrics.monthlyRevenue}`, icon: <Banknote size={24} color="#10b981" />, bgColor: '#dcfce7' },
-    { title: 'Expiring Seats (7 Days)', value: metrics.expiringSubscriptions, icon: <CalendarClock size={24} color="#ef4444" />, bgColor: '#fee2e2' },
+    { title: 'Active Students', value: metrics.activeStudents, icon: <Users size={24} color="#2563eb" />, bgColor: '#eff6ff', path: '/students', state: { filterExpiration: 'ACTIVE' } },
+    { title: 'Occupied Seats', value: metrics.occupiedSeats, icon: <Armchair size={24} color="#10b981" />, bgColor: '#d1fae5', path: '/seats' },
+    { title: 'Vacant Seats', value: metrics.vacantSeats, icon: <Armchair size={24} color="#94a3b8" />, bgColor: '#f1f5f9', path: '/seats' },
+    { title: 'Outstanding Dues', value: `₹${metrics.duePayments}`, icon: <AlertCircle size={24} color="#f59e0b" />, bgColor: '#fef3c7', path: '/billing' },
+    { title: 'Monthly Revenue', value: `₹${metrics.monthlyRevenue}`, icon: <Banknote size={24} color="#10b981" />, bgColor: '#dcfce7', path: '/billing' },
+    { title: 'Expiring Seats (7 Days)', value: metrics.expiringSubscriptions, icon: <CalendarClock size={24} color="#ef4444" />, bgColor: '#fee2e2', path: '/students', state: { filterExpiration: 'EXPIRING_SOON' } },
   ];
 
   return (
@@ -64,7 +66,14 @@ export default function Dashboard() {
         marginBottom: '2rem' 
       }}>
         {kpis.map((kpi, idx) => (
-          <Card key={idx} elevation="sm" style={{ padding: '1.5rem' }}>
+          <Card
+            key={idx}
+            elevation="sm"
+            className="card-interactive"
+            style={{ padding: '1.5rem' }}
+            onClick={() => navigate(kpi.path, { state: kpi.state })}
+          >
+
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <div style={{
                 padding: '1rem',

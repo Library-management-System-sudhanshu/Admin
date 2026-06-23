@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import {
@@ -28,13 +29,24 @@ import {
 
 export default function Students() {
   const { user } = useSelector((state: RootState) => state.auth);
+  const location = useLocation();
+
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
 
   const [search, setSearch] = useState('');
   const [page] = useState(1);
   const [filterShiftId, setFilterShiftId] = useState('');
-  const [filterExpiration, setFilterExpiration] = useState('');
+  const [filterExpiration, setFilterExpiration] = useState(() => {
+    return (location.state as any)?.filterExpiration || '';
+  });
+
+  React.useEffect(() => {
+    if (location.state && (location.state as any).filterExpiration !== undefined) {
+      setFilterExpiration((location.state as any).filterExpiration);
+    }
+  }, [location.state]);
+
   const [openAdd, setOpenAdd] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [openCard, setOpenCard] = useState(false);
@@ -325,19 +337,6 @@ export default function Students() {
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this student?')) {
       await deleteStudent(id);
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'APPROVED':
-        return <span className="badge badge-success">{status}</span>;
-      case 'PENDING':
-        return <span className="badge badge-warning">{status}</span>;
-      case 'REJECTED':
-        return <span className="badge badge-danger">{status}</span>;
-      default:
-        return <span className="badge badge-info">{status}</span>;
     }
   };
 

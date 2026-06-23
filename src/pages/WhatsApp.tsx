@@ -191,7 +191,7 @@ export default function WhatsApp() {
                           }
                         }
                       }
-                    }}
+                    } as any}
                   >
                     {templates?.map((t: any) => (
                       <MenuItem key={t.id} value={t.id}>
@@ -224,7 +224,7 @@ export default function WhatsApp() {
                             }
                           }
                         }
-                      }}
+                      } as any}
                     >
                       <MenuItem value="">All Branches</MenuItem>
                       {branches?.map((b: any) => (
@@ -252,7 +252,7 @@ export default function WhatsApp() {
                             }
                           }
                         }
-                      }}
+                      } as any}
                     >
                       <MenuItem value="">All Shifts</MenuItem>
                       {shifts?.map((s: any) => (
@@ -269,12 +269,12 @@ export default function WhatsApp() {
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
                     <TextField sx={inputStyle} label="Outstanding Amount" fullWidth size="small" value={amount} onChange={(e) => setAmount(e.target.value)} />
                     <TextField 
-                      sx={inputStyle} 
+                      sx={inputStyle as any} 
                       label="Due Date" 
                       type="date" 
                       fullWidth 
                       size="small" 
-                      InputLabelProps={{ shrink: true }} 
+                      slotProps={{ inputLabel: { shrink: true } } as any} 
                       value={dueDate} 
                       onChange={(e) => setDueDate(e.target.value)} 
                     />
@@ -284,12 +284,12 @@ export default function WhatsApp() {
                 {selectedTemplateId === 'renewal_reminder' && (
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
                     <TextField 
-                      sx={inputStyle} 
+                      sx={inputStyle as any} 
                       label="Expiry End Date" 
                       type="date" 
                       fullWidth 
                       size="small" 
-                      InputLabelProps={{ shrink: true }} 
+                      slotProps={{ inputLabel: { shrink: true } } as any} 
                       value={endDate} 
                       onChange={(e) => setEndDate(e.target.value)} 
                     />
@@ -300,22 +300,22 @@ export default function WhatsApp() {
                 {selectedTemplateId === 'holiday_notice' && (
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2, mb: 3 }}>
                     <TextField 
-                      sx={inputStyle} 
+                      sx={inputStyle as any} 
                       label="Holiday Date" 
                       type="date" 
                       fullWidth 
                       size="small" 
-                      InputLabelProps={{ shrink: true }} 
+                      slotProps={{ inputLabel: { shrink: true } } as any} 
                       value={holidayDate} 
                       onChange={(e) => setHolidayDate(e.target.value)} 
                     />
                     <TextField 
-                      sx={inputStyle} 
+                      sx={inputStyle as any} 
                       label="Resume Date" 
                       type="date" 
                       fullWidth 
                       size="small" 
-                      InputLabelProps={{ shrink: true }} 
+                      slotProps={{ inputLabel: { shrink: true } } as any} 
                       value={resumeDate} 
                       onChange={(e) => setResumeDate(e.target.value)} 
                     />
@@ -325,7 +325,6 @@ export default function WhatsApp() {
 
                 {selectedTemplateId === 'general_notice' && (
                   <TextField
-                    sx={inputStyle}
                     label="Announcement Message"
                     fullWidth
                     multiline

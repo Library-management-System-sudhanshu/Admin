@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { useSelector } from 'react-redux';
-import type { RootState } from '../store';
 import {
   useGetNoticesQuery,
   useCreateNoticeMutation,
@@ -9,7 +7,6 @@ import {
 import {
   Box,
   Typography,
-  Grid,
   Card,
   CardContent,
   TextField,
@@ -28,7 +25,6 @@ import {
 import { Delete as DeleteIcon, Send as SendIcon } from '@mui/icons-material';
 
 export default function Notices() {
-  const { user } = useSelector((state: RootState) => state.auth);
   const { data: notices, isLoading } = useGetNoticesQuery({});
   const [createNotice, { isLoading: isCreating }] = useCreateNoticeMutation();
   const [deleteNotice] = useDeleteNoticeMutation();
@@ -69,9 +65,9 @@ export default function Notices() {
         Notices & Broadcasts
       </Typography>
 
-      <Grid container spacing={4}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, alignItems: 'start' }}>
         {/* Create Notice Column */}
-        <Grid item xs={12} md={4}>
+        <Box sx={{ flex: { xs: 'none', md: 4 }, width: '100%', maxWidth: { xs: '100%', md: '360px' } }}>
           <Card sx={{ borderRadius: 3, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0' }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 3, color: '#1E293B' }}>
@@ -120,10 +116,10 @@ export default function Notices() {
               </form>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Notices History Column */}
-        <Grid item xs={12} md={8}>
+        <Box sx={{ flex: { xs: 'none', md: 8 }, width: '100%' }}>
           {isLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
               <CircularProgress />
@@ -183,8 +179,8 @@ export default function Notices() {
               </Table>
             </TableContainer>
           )}
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Box>
   );
 }
