@@ -20,6 +20,7 @@ import {
   useUpdateSeatStatusMutation,
   useUpdateSeatLayoutMutation,
   useUpdateFloorMutation,
+  useUpdateRoomMutation,
   useCreatePaymentMutation,
   useGetPlansQuery,
 } from '../store/api';
@@ -115,6 +116,9 @@ export default function Seats() {
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
+  const [roomSearches, setRoomSearches] = useState<Record<string, string>>({});
+  const [collapsedRooms, setCollapsedRooms] = useState<Record<string, boolean>>({});
+
 
   useEffect(() => {
     if (renewPlanId && plans) {
@@ -196,6 +200,11 @@ export default function Seats() {
   const [editFloorName, setEditFloorName] = useState('');
   const [selectedFloorToEdit, setSelectedFloorToEdit] = useState<any>(null);
 
+  // Edit Room states
+  const [openEditRoomModal, setOpenEditRoomModal] = useState(false);
+  const [editRoomName, setEditRoomName] = useState('');
+  const [selectedRoomToEdit, setSelectedRoomToEdit] = useState<any>(null);
+
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
   const [createPayment, { isLoading: isCreatingPayment }] = useCreatePaymentMutation();
   const [transferSeat, { isLoading: isTransferring }] = useTransferSeatMutation();
@@ -209,6 +218,7 @@ export default function Seats() {
   const [deleteSeat] = useDeleteSeatMutation();
   const [updateSeatStatus] = useUpdateSeatStatusMutation();
   const [updateFloor] = useUpdateFloorMutation();
+  const [updateRoom] = useUpdateRoomMutation();
   const [updateSeatLayout, { isLoading: isUpdatingLayout }] = useUpdateSeatLayoutMutation();
 
   // Floor Visualization layout states
@@ -940,24 +950,152 @@ export default function Seats() {
 
           {/* Rooms Grid */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {currentFloor?.rooms.map((room: any) => (
-              <Card key={room.id} elevation="sm" style={{ padding: '1.5rem', border: '1px solid var(--border-color)', overflow: 'visible' }}>
-                
-                {/* Room Header & Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ padding: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem' }}>
-                      <DoorOpen size={20} color="var(--primary)" />
-                    </div>
-                    <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>{room.name}</h3>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-main)', padding: '0.25rem 0.6rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
-                      {room.seats?.length || 0} Seats
-                    </span>
-                  </div>
+            {currentFloor?.rooms.map((room: any) => {
+              const query = (roomSearches[room.id] || '').trim().toLowerCase();
+              let matchCount = 0;
+              if (query) {
+                matchCount = room.seats?.filter((seat: any) => {
+                  const isOccupied = seat.status === 'OCCUPIED';
+                  const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
+                  return seat.number.toLowerCase().includes(query) ||
+                    (isOccupied && (
+                      activeAllocation?.studentProfile?.user?.name?.toLowerCase().includes(query) ||
+                      activeAllocation?.studentProfile?.user?.email?.toLowerCase().includes(query) ||
+                      activeAllocation?.studentProfile?.user?.mobile?.includes(query)
+                    ));
+                }).length || 0;
+              }
+
+              return (
+                <Card key={room.id} elevation="sm" style={{ padding: '1.5rem', border: '1px solid var(--border-color)', overflow: 'visible' }}>
                   
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {isFloorVisualization ? (
-                      activeRoomEditingId === room.id ? (
+                  {/* Room Header & Actions */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: collapsedRooms[room.id] ? '0' : '1.5rem',
+                    borderBottom: collapsedRooms[room.id] ? 'none' : '1px solid var(--border-color)',
+                    paddingBottom: collapsedRooms[room.id] ? '0' : '1rem',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      {/* Collapse/Expand Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={() => setCollapsedRooms(prev => ({ ...prev, [room.id]: !prev[room.id] }))}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '0.25rem',
+                          borderRadius: '0.25rem',
+                          transition: 'all 0.15s ease',
+                          marginRight: '-0.25rem'
+                        }}
+                        title={collapsedRooms[room.id] ? "Expand Room" : "Collapse Room"}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <ChevronDown
+                          size={18}
+                          style={{
+                            transform: collapsedRooms[room.id] ? 'rotate(-90deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.25s ease',
+                            color: '#64748b'
+                          }}
+                        />
+                      </button>
+
+                      <div style={{ padding: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem' }}>
+                        <DoorOpen size={20} color="var(--primary)" />
+                      </div>
+                      <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>{room.name}</h3>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-main)', padding: '0.25rem 0.6rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+                        {room.seats?.length || 0} Seats
+                      </span>
+
+
+                      {/* Room Specific Search Bar (Left side) */}
+                      <div style={{ position: 'relative', width: '220px', marginLeft: '0.5rem' }}>
+                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                        <input
+                          type="text"
+                          placeholder="Search seat or student..."
+                          value={roomSearches[room.id] || ''}
+                          onChange={(e) => setRoomSearches(prev => ({ ...prev, [room.id]: e.target.value }))}
+                          style={{
+                            width: '100%',
+                            padding: '0.35rem 0.75rem 0.35rem 2rem',
+                            fontSize: '0.8rem',
+                            borderRadius: '0.375rem',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: '#ffffff',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                            transition: 'all 0.15s ease',
+                            height: '32px',
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = 'var(--primary)';
+                            e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.15)';
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = 'var(--border-color)';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
+                        {(roomSearches[room.id] || '') && (
+                          <button
+                            type="button"
+                            onClick={() => setRoomSearches(prev => ({ ...prev, [room.id]: '' }))}
+                            style={{
+                              position: 'absolute',
+                              right: '8px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: '#94a3b8',
+                              fontSize: '1rem',
+                              fontWeight: 'bold',
+                              padding: '0 4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            &times;
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Search Matches Count badge */}
+                      {query && (
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          color: matchCount > 0 ? 'var(--success)' : 'var(--danger)',
+                          backgroundColor: matchCount > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                          padding: '0.25rem 0.6rem',
+                          borderRadius: '1rem',
+                          border: matchCount > 0 ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {matchCount} {matchCount === 1 ? 'match' : 'matches'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {isFloorVisualization ? (
+                        activeRoomEditingId === room.id ? (
                         <>
                           <Button
                             variant="primary"
@@ -1012,6 +1150,26 @@ export default function Seats() {
                           <Plus size={14} /> Add Seat
                         </Button>
                         <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedRoomToEdit(room);
+                            setEditRoomName(room.name);
+                            setOpenEditRoomModal(true);
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', borderRadius: '0.25rem', transition: 'all 0.15s ease' }}
+                          title="Edit Room Name"
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.color = 'var(--primary)';
+                            e.currentTarget.style.backgroundColor = 'rgba(37, 99, 235, 0.08)';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.color = '#64748b';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
                           onClick={() => handleDeleteRoom(room.id)}
                           style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', borderRadius: '0.25rem' }}
                           title="Delete Room"
@@ -1025,7 +1183,9 @@ export default function Seats() {
                   </div>
                 </div>
 
-                {/* Clean, Modern White Seats Grid / Visual Map */}
+                {!collapsedRooms[room.id] && (
+                  <>
+                    {/* Clean, Modern White Seats Grid / Visual Map */}
                 {isFloorVisualization ? (
                   <div style={{
                     position: 'relative',
@@ -1085,6 +1245,16 @@ export default function Seats() {
                       const formattedEnd = activeAllocation?.endDate 
                         ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
                         : 'N/A';
+
+                      const query = (roomSearches[room.id] || '').trim().toLowerCase();
+                      const matchesSearch = !query || 
+                        seat.number.toLowerCase().includes(query) ||
+                        (isOccupied && (
+                          activeAllocation?.studentProfile?.user?.name?.toLowerCase().includes(query) ||
+                          activeAllocation?.studentProfile?.user?.email?.toLowerCase().includes(query) ||
+                          activeAllocation?.studentProfile?.user?.mobile?.includes(query)
+                        ));
+
                       return (
                         <div
                           key={seat.id}
@@ -1114,20 +1284,24 @@ export default function Seats() {
                             borderTop: `4px solid ${style.accent}`,
                             borderRadius: '0.5rem',
                             cursor: isEditingThisRoom ? 'move' : 'pointer',
-                            boxShadow: isEditingThisRoom ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-                            transition: isEditingThisRoom ? 'none' : 'transform 0.15s ease, box-shadow 0.15s ease',
+                            boxShadow: query && matchesSearch 
+                              ? '0 0 0 3px rgba(37, 99, 235, 0.45), var(--shadow-md)' 
+                              : isEditingThisRoom ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+                            transition: isEditingThisRoom ? 'none' : 'all 0.15s ease',
                             touchAction: 'none',
                             userSelect: 'none',
                             zIndex: isEditingThisRoom ? 5 : 2,
+                            opacity: query && !matchesSearch ? 0.3 : 1,
+                            transform: query && matchesSearch ? 'scale(1.05)' : 'none',
                           }}
                           onMouseOver={(e) => {
-                            if (!isEditingThisRoom) {
+                            if (!isEditingThisRoom && !query) {
                               e.currentTarget.style.transform = 'translateY(-2px)';
                               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
                             }
                           }}
                           onMouseOut={(e) => {
-                            if (!isEditingThisRoom) {
+                            if (!isEditingThisRoom && !query) {
                               e.currentTarget.style.transform = 'translateY(0)';
                               e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                             }
@@ -1189,6 +1363,16 @@ export default function Seats() {
                       const formattedEnd = activeAllocation?.endDate 
                         ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
                         : 'N/A';
+
+                      const query = (roomSearches[room.id] || '').trim().toLowerCase();
+                      const matchesSearch = !query || 
+                        seat.number.toLowerCase().includes(query) ||
+                        (isOccupied && (
+                          activeAllocation?.studentProfile?.user?.name?.toLowerCase().includes(query) ||
+                          activeAllocation?.studentProfile?.user?.email?.toLowerCase().includes(query) ||
+                          activeAllocation?.studentProfile?.user?.mobile?.includes(query)
+                        ));
+
                       return (
                         <div
                           key={seat.id}
@@ -1206,18 +1390,20 @@ export default function Seats() {
                             borderTop: `4px solid ${style.accent}`,
                             borderRadius: '0.5rem',
                             cursor: 'pointer',
-                            boxShadow: 'var(--shadow-sm)',
+                            boxShadow: query && matchesSearch ? '0 0 0 3px rgba(37, 99, 235, 0.45), var(--shadow-md)' : 'var(--shadow-sm)',
                             transition: 'all 0.15s ease',
-                            position: 'relative'
+                            position: 'relative',
+                            opacity: query && !matchesSearch ? 0.3 : 1,
+                            transform: query && matchesSearch ? 'scale(1.05)' : 'none',
                           }}
                           onMouseOver={(e) => {
-                            if (!isExpiringSoon) {
+                            if (!isExpiringSoon && !query) {
                               e.currentTarget.style.transform = 'translateY(-2px)';
                               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
                             }
                           }}
                           onMouseOut={(e) => {
-                            if (!isExpiringSoon) {
+                            if (!isExpiringSoon && !query) {
                               e.currentTarget.style.transform = 'translateY(0)';
                               e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                             }
@@ -1253,8 +1439,11 @@ export default function Seats() {
                     })}
                   </div>
                 )}
+                  </>
+                )}
               </Card>
-            ))}
+            );
+          })}
           </div>
         </div>
       )}
@@ -2419,6 +2608,77 @@ export default function Seats() {
           </div>
         </div>
       </Modal>
+
+      {/* Edit Room Name Modal */}
+      <Modal
+        isOpen={openEditRoomModal}
+        onClose={() => setOpenEditRoomModal(false)}
+        title="Edit Room Name"
+        maxWidth="sm"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div>
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
+              Room Name
+            </label>
+            <Input
+              type="text"
+              value={editRoomName}
+              onChange={(e) => setEditRoomName(e.target.value)}
+              placeholder="e.g. Room A"
+              autoFocus
+            />
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={() => setOpenEditRoomModal(false)}
+              style={{
+                backgroundColor: 'transparent',
+                border: 'none',
+                color: '#475569',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                padding: '0.5rem 1.125rem',
+                borderRadius: '0.375rem',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.color = '#0f172a'}
+              onMouseOut={(e) => e.currentTarget.style.color = '#475569'}
+            >
+              Cancel
+            </button>
+            <Button
+              variant="primary"
+              disabled={!editRoomName.trim()}
+              onClick={async () => {
+                if (selectedRoomToEdit && editRoomName.trim()) {
+                  try {
+                    await updateRoom({ id: selectedRoomToEdit.id, name: editRoomName.trim() }).unwrap();
+                    setOpenEditRoomModal(false);
+                    showAlert('Room name updated successfully!', { title: 'Success' });
+                  } catch (err: any) {
+                    showAlert(err.data?.message || 'Failed to update room name');
+                  }
+                }
+              }}
+              style={{
+                backgroundColor: 'var(--primary)',
+                borderColor: 'var(--primary)',
+                borderRadius: '0.5rem',
+                padding: '0.625rem 1.25rem',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+              }}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
 
       {/* Invoice Receipt Modal */}
       <Modal
