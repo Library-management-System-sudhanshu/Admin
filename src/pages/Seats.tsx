@@ -24,7 +24,6 @@ import {
   useCreatePaymentMutation,
   useGetPlansQuery,
 } from '../store/api';
-import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
@@ -39,12 +38,25 @@ import {
   Loader2,
   Search,
   ChevronDown,
+  ChevronRight,
   Edit2,
   UserCog,
   LogOut,
   Clock,
   Map,
-  LayoutGrid
+  LayoutGrid,
+  Bell,
+  CheckCircle,
+  Users,
+  Wrench,
+  Sparkles,
+  SlidersHorizontal,
+  X,
+  History,
+  FileText,
+  MoreVertical,
+  HelpCircle,
+  Building
 } from 'lucide-react';
 
 const getDaysRemainingText = (endDateStr: string) => {
@@ -57,19 +69,23 @@ const getDaysRemainingText = (endDateStr: string) => {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   if (diffDays < 0) return 'Expired';
   if (diffDays === 0) return 'Ends today';
-  return `Ends in ${diffDays} days`;
+  return `${diffDays} days remaining`;
 };
 
 export default function Seats() {
   const { showAlert } = useAlert();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
+  
+  // Branches API
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const [selectedBranch, setSelectedBranch] = useState('');
 
+  // Seat Map API
   const { data: seatMap, isLoading: isMapLoading } = useGetSeatMapQuery(selectedBranch, {
     skip: !selectedBranch,
   });
+  
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: studentsData } = useGetStudentsQuery({ status: 'APPROVED' });
   const { data: plans } = useGetPlansQuery(user?.workspaceId, { skip: !user?.workspaceId });
@@ -78,12 +94,40 @@ export default function Seats() {
   const [activeFloorTab, setActiveFloorTab] = useState(0);
   const currentFloor = seatMap?.[activeFloorTab];
 
-  // Dialog states
-  const [openAllocate, setOpenAllocate] = useState(false);
-  const [openTransfer, setOpenTransfer] = useState(false);
+  // Drawer Panel & Selection States
   const [selectedSeat, setSelectedSeat] = useState<any>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerActiveSection, setDrawerActiveSection] = useState<'DETAILS' | 'TRANSFER' | 'RENEW'>('DETAILS');
 
-  // Allocation forms
+  // Search filter inputs
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [highlightedSeatId, setHighlightedSeatId] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [roomSearches, setRoomSearches] = useState<Record<string, string>>({});
+  const [collapsedRooms, setCollapsedRooms] = useState<Record<string, boolean>>({});
+
+  // Sorting & Filtering states inside rooms
+  const [statusFilters, setStatusFilters] = useState<Record<string, string>>({}); // roomId -> status filter
+  const [sortOptions, setSortOptions] = useState<Record<string, string>>({});     // roomId -> sort mode
+
+  // Creator form modals
+  const [openCreator, setOpenCreator] = useState(false);
+  const [creatorType, setCreatorType] = useState<'floor' | 'room' | 'seat'>('floor');
+  const [parentId, setParentId] = useState<string>('');
+  const [creatorName, setCreatorName] = useState('');
+  const [isFabOpen, setIsFabOpen] = useState(false);
+
+  // Edit Room Modal
+  const [openEditRoomModal, setOpenEditRoomModal] = useState(false);
+  const [editRoomName, setEditRoomName] = useState('');
+  const [selectedRoomToEdit, setSelectedRoomToEdit] = useState<any>(null);
+
+  // Edit Floor Modal
+  const [openEditFloorModal, setOpenEditFloorModal] = useState(false);
+  const [editFloorName, setEditFloorName] = useState('');
+  const [selectedFloorToEdit, setSelectedFloorToEdit] = useState<any>(null);
+
+  // Allocation variables
   const [studentProfileId, setStudentProfileId] = useState('');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
@@ -91,19 +135,17 @@ export default function Seats() {
   const [shiftId, setShiftId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [durationMode, setDurationMode] = useState<number | 'flex'>(1); // 1-6 months, or 'flex'
-
-  // Billing/Invoice states
+  const [durationMode, setDurationMode] = useState<number | 'flex'>(1);
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
 
-  // Success Invoice Receipt Modal states
+  // Success Receipt Modal
   const [openInvoiceReceipt, setOpenInvoiceReceipt] = useState(false);
   const [createdInvoiceData, setCreatedInvoiceData] = useState<any>(null);
 
-  // Renewal form states
+  // Renewal form
   const [renewPlanId, setRenewPlanId] = useState('');
   const [renewShiftId, setRenewShiftId] = useState('');
   const [renewStartDate, setRenewStartDate] = useState('');
@@ -112,99 +154,20 @@ export default function Seats() {
   const [renewAmount, setRenewAmount] = useState('');
   const [isRenewing, setIsRenewing] = useState(false);
 
-  // Edit current allocation states
+  // Edit dates inline
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
-  const [roomSearches, setRoomSearches] = useState<Record<string, string>>({});
-  const [collapsedRooms, setCollapsedRooms] = useState<Record<string, boolean>>({});
-
-
-  useEffect(() => {
-    if (renewPlanId && plans) {
-      const plan = plans.find((p: any) => p.id === renewPlanId);
-      if (plan && renewStartDate) {
-        const start = new Date(renewStartDate);
-        if (!isNaN(start.getTime())) {
-          start.setDate(start.getDate() + (plan.durationDays || 30));
-          setRenewEndDate(start.toISOString().split('T')[0]);
-          setRenewAmount(plan.price.toString());
-        }
-      }
-    }
-  }, [renewPlanId, renewStartDate, plans]);
-
-  useEffect(() => {
-    if (durationMode === 'flex') {
-      return;
-    }
-    if (startDate && typeof durationMode === 'number') {
-      const date = new Date(startDate);
-      if (!isNaN(date.getTime())) {
-        date.setMonth(date.getMonth() + durationMode);
-        setEndDate(date.toISOString().split('T')[0]);
-      }
-    } else {
-      setEndDate('');
-    }
-  }, [startDate, durationMode]);
-
-  // Calculate auto-filled amount based on shift and duration
-  const calculatedBaseAmount = useMemo(() => {
-    if (!shiftId || !shifts) return 0;
-    const shift = shifts.find((s: any) => s.id === shiftId);
-    if (!shift) return 0;
-
-    const basePrice = shift.price || 0;
-
-    if (typeof durationMode === 'number') {
-      return basePrice * durationMode;
-    } else if (durationMode === 'flex' && startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-        const diffTime = end.getTime() - start.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays > 0) {
-          return Math.round(basePrice * (diffDays / 30));
-        }
-      }
-    }
-    return basePrice;
-  }, [shiftId, shifts, durationMode, startDate, endDate]);
-
-  useEffect(() => {
-    if (calculatedBaseAmount > 0) {
-      setInvoiceAmount(calculatedBaseAmount.toString());
-    } else {
-      setInvoiceAmount('');
-    }
-  }, [calculatedBaseAmount]);
 
   // Transfer forms
   const [targetSeatId, setTargetSeatId] = useState('');
   const [targetFloorId, setTargetFloorId] = useState('');
   const [targetRoomId, setTargetRoomId] = useState('');
 
-  // Creator forms
-  const [openCreator, setOpenCreator] = useState(false);
-  const [creatorType, setCreatorType] = useState<'floor' | 'room' | 'seat'>('floor');
-  const [parentId, setParentId] = useState<string>('');
-  const [creatorName, setCreatorName] = useState('');
+  // Room Header actions dropdown
+  const [activeRoomMenuId, setActiveRoomMenuId] = useState<string | null>(null);
 
-  const [openMaintenance, setOpenMaintenance] = useState(false);
-
-  // Edit/Delete Floor states
-  const [isFloorDropdownOpen, setIsFloorDropdownOpen] = useState(false);
-  const [openEditFloorModal, setOpenEditFloorModal] = useState(false);
-  const [editFloorName, setEditFloorName] = useState('');
-  const [selectedFloorToEdit, setSelectedFloorToEdit] = useState<any>(null);
-
-  // Edit Room states
-  const [openEditRoomModal, setOpenEditRoomModal] = useState(false);
-  const [editRoomName, setEditRoomName] = useState('');
-  const [selectedRoomToEdit, setSelectedRoomToEdit] = useState<any>(null);
-
+  // API mutations
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
   const [createPayment, { isLoading: isCreatingPayment }] = useCreatePaymentMutation();
   const [transferSeat, { isLoading: isTransferring }] = useTransferSeatMutation();
@@ -221,12 +184,12 @@ export default function Seats() {
   const [updateRoom] = useUpdateRoomMutation();
   const [updateSeatLayout, { isLoading: isUpdatingLayout }] = useUpdateSeatLayoutMutation();
 
-  // Floor Visualization layout states
+  // Floor coordinate visualization
   const [isFloorVisualization, setIsFloorVisualization] = useState(false);
   const [tempLayout, setTempLayout] = useState<Record<string, { x: number; y: number }>>({});
   const [activeRoomEditingId, setActiveRoomEditingId] = useState<string | null>(null);
 
-  // Helper to calculate default layout coordinates if null (spread in rows of 10)
+  // Default coordinate helpers
   const getSeatPosition = (seat: any, index: number) => {
     if (tempLayout[seat.id]) {
       return tempLayout[seat.id];
@@ -242,7 +205,7 @@ export default function Seats() {
     return { x, y };
   };
 
-  // Pointer drag handler
+  // Pointer drag visual layout coordinate snappings
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, seatId: string) => {
     if (activeRoomEditingId === null) return;
     e.preventDefault();
@@ -293,7 +256,7 @@ export default function Seats() {
 
     try {
       await updateSeatLayout({ roomId: room.id, layout: layoutPayload }).unwrap();
-      showAlert('Seat positions saved successfully!');
+      showAlert('Seat positions saved successfully!', { title: 'Success' });
       setActiveRoomEditingId(null);
       setTempLayout({});
     } catch (err: any) {
@@ -301,6 +264,14 @@ export default function Seats() {
     }
   };
 
+  // Branch defaulting
+  useEffect(() => {
+    if (branches && branches.length > 0 && !selectedBranch) {
+      setSelectedBranch(branches[0].id);
+    }
+  }, [branches, selectedBranch]);
+
+  // Statistics summaries
   const seatCounts = useMemo(() => {
     if (!seatMap) return { available: 0, occupied: 0, maintenance: 0, total: 0 };
     let available = 0, occupied = 0, maintenance = 0;
@@ -316,12 +287,85 @@ export default function Seats() {
     return { available, occupied, maintenance, total: available + occupied + maintenance };
   }, [seatMap]);
 
-  useEffect(() => {
-    if (branches && branches.length > 0 && !selectedBranch) {
-      setSelectedBranch(branches[0].id);
-    }
-  }, [branches, selectedBranch]);
+  // Expiring seats listing for notifications popover
+  const expiringSeatsList = useMemo(() => {
+    if (!seatMap) return [];
+    const list: any[] = [];
+    seatMap.forEach((floor: any) => {
+      floor.rooms?.forEach((room: any) => {
+        room.seats?.forEach((seat: any) => {
+          if (seat.status === 'OCCUPIED') {
+            const activeAlloc = seat.allocations?.find((a: any) => a.isActive);
+            if (activeAlloc?.endDate) {
+              const end = new Date(activeAlloc.endDate);
+              const today = new Date();
+              end.setHours(0, 0, 0, 0);
+              today.setHours(0, 0, 0, 0);
+              const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              if (diffDays >= 0 && diffDays <= 7) {
+                list.push({
+                  seatId: seat.id,
+                  seatNumber: seat.number,
+                  studentName: activeAlloc.studentProfile?.user?.name,
+                  daysLeft: diffDays,
+                  roomName: room.name,
+                  floorName: floor.name
+                });
+              }
+            }
+          }
+        });
+      });
+    });
+    return list.sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [seatMap]);
 
+  // Global search highlighting and auto-scroll logic
+  useEffect(() => {
+    const query = globalSearchQuery.trim().toLowerCase();
+    if (query && seatMap) {
+      let matchedSeat: any = null;
+      for (const floor of seatMap) {
+        for (const room of floor.rooms) {
+          for (const seat of room.seats) {
+            const activeAlloc = seat.allocations?.find((a: any) => a.isActive);
+            const isOccupied = seat.status === 'OCCUPIED';
+            const match = seat.number.toLowerCase().includes(query) ||
+              (isOccupied && activeAlloc?.studentProfile?.user?.name?.toLowerCase().includes(query));
+            if (match) {
+              matchedSeat = seat;
+              break;
+            }
+          }
+          if (matchedSeat) break;
+        }
+        if (matchedSeat) break;
+      }
+      if (matchedSeat) {
+        setHighlightedSeatId(matchedSeat.id);
+        // Automatically expand the room card containing this seat
+        const targetRoom = seatMap[activeFloorTab]?.rooms?.find((r: any) => 
+          r.seats?.some((s: any) => s.id === matchedSeat.id)
+        );
+        if (targetRoom) {
+          setCollapsedRooms(prev => ({ ...prev, [targetRoom.id]: false }));
+        }
+      }
+    } else {
+      setHighlightedSeatId(null);
+    }
+  }, [globalSearchQuery, seatMap, activeFloorTab]);
+
+  useEffect(() => {
+    if (highlightedSeatId) {
+      const element = document.getElementById(`seat-${highlightedSeatId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [highlightedSeatId]);
+
+  // Student list search inside Allocate form
   const filteredStudents = useMemo(() => {
     if (!studentsData?.students) return [];
     const query = studentSearchQuery.trim().toLowerCase();
@@ -339,47 +383,25 @@ export default function Seats() {
     return filteredStudents.slice(0, 8);
   }, [filteredStudents]);
 
-  useEffect(() => {
-    if (!openAllocate) {
+  // Handle seat clicks
+  const handleSeatClick = (seat: any) => {
+    setSelectedSeat(seat);
+    setDrawerActiveSection('DETAILS');
+    setIsDrawerOpen(true);
+
+    if (seat.status === 'AVAILABLE') {
+      const today = new Date().toISOString().split('T')[0];
+      setStartDate(today);
       setStudentProfileId('');
       setStudentSearchQuery('');
-      setShowStudentDropdown(false);
-      setShiftId('');
-      setStartDate('');
-      setEndDate('');
+      if (shifts && shifts.length > 0) {
+        setShiftId(shifts[0].id);
+      }
       setDurationMode(1);
       setShouldGenerateInvoice(true);
       setSelectedPlanId('');
       setInvoiceAmount('');
       setPaymentMethod('CASH');
-    } else {
-      const today = new Date().toISOString().split('T')[0];
-      setStartDate(today);
-      if (shifts && shifts.length > 0) {
-        setShiftId(shifts[0].id);
-      }
-    }
-  }, [openAllocate, shifts]);
-
-  useEffect(() => {
-    if (openTransfer) {
-      if (currentFloor) {
-        setTargetFloorId(currentFloor.id);
-        if (currentFloor.rooms && currentFloor.rooms.length > 0) {
-          setTargetRoomId(currentFloor.rooms[0].id);
-        }
-      }
-    } else {
-      setTargetFloorId('');
-      setTargetRoomId('');
-      setTargetSeatId('');
-    }
-  }, [openTransfer, currentFloor]);
-
-  const handleSeatClick = (seat: any) => {
-    setSelectedSeat(seat);
-    if (seat.status === 'AVAILABLE') {
-      setOpenAllocate(true);
     } else if (seat.status === 'OCCUPIED') {
       const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
       if (activeAllocation) {
@@ -395,63 +417,126 @@ export default function Seats() {
       setRenewEndDate('');
       setRenewAmount('');
       setRenewPaymentMethod('UPI');
-      setOpenTransfer(true);
-    } else if (seat.status === 'BLOCKED') {
-      setOpenMaintenance(true);
     }
   };
 
-  const handleRenewSeat = async (e: React.FormEvent) => {
+  // Duration modes calculations
+  useEffect(() => {
+    if (durationMode === 'flex') return;
+    if (startDate && typeof durationMode === 'number') {
+      const date = new Date(startDate);
+      if (!isNaN(date.getTime())) {
+        date.setMonth(date.getMonth() + durationMode);
+        setEndDate(date.toISOString().split('T')[0]);
+      }
+    } else {
+      setEndDate('');
+    }
+  }, [startDate, durationMode]);
+
+  const calculatedBaseAmount = useMemo(() => {
+    if (!shiftId || !shifts) return 0;
+    const shift = shifts.find((s: any) => s.id === shiftId);
+    if (!shift) return 0;
+
+    const basePrice = shift.price || 0;
+    if (typeof durationMode === 'number') {
+      return basePrice * durationMode;
+    } else if (durationMode === 'flex' && startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const diffTime = end.getTime() - start.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) {
+          return Math.round(basePrice * (diffDays / 30));
+        }
+      }
+    }
+    return basePrice;
+  }, [shiftId, shifts, durationMode, startDate, endDate]);
+
+  useEffect(() => {
+    if (calculatedBaseAmount > 0) {
+      setInvoiceAmount(calculatedBaseAmount.toString());
+    } else {
+      setInvoiceAmount('');
+    }
+  }, [calculatedBaseAmount]);
+
+  useEffect(() => {
+    if (renewPlanId && plans) {
+      const plan = plans.find((p: any) => p.id === renewPlanId);
+      if (plan && renewStartDate) {
+        const start = new Date(renewStartDate);
+        if (!isNaN(start.getTime())) {
+          start.setDate(start.getDate() + (plan.durationDays || 30));
+          setRenewEndDate(start.toISOString().split('T')[0]);
+          setRenewAmount(plan.price.toString());
+        }
+      }
+    }
+  }, [renewPlanId, renewStartDate, plans]);
+
+  // Submit assign seat
+  const handleAllocate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSeat) return;
-    const activeAllocation = selectedSeat.allocations?.find((a: any) => a.isActive);
-    if (!activeAllocation) return;
-
-    setIsRenewing(true);
     try {
-      // 1. Vacate current seat allocation to make it AVAILABLE
-      await vacateSeat(selectedSeat.id).unwrap();
-
-      // 2. Allocate seat to same student with new details
       await allocateSeat({
-        studentProfileId: activeAllocation.studentProfileId,
+        studentProfileId,
         seatId: selectedSeat.id,
-        shiftId: renewShiftId,
-        startDate: renewStartDate,
-        endDate: renewEndDate,
+        shiftId,
+        startDate,
+        endDate,
       }).unwrap();
 
-      // 3. Create payment transaction for renewal
-      const paymentResult = await createPayment({
-        studentProfileId: activeAllocation.studentProfileId,
-        amount: Number(renewAmount),
-        method: renewPaymentMethod,
-        subscriptionPlanId: renewPlanId || undefined,
-      }).unwrap();
+      if (shouldGenerateInvoice) {
+        const paymentResult = await createPayment({
+          studentProfileId,
+          amount: Number(invoiceAmount),
+          method: paymentMethod,
+          subscriptionPlanId: selectedPlanId || undefined,
+        }).unwrap();
 
-      // Show success receipt modal
-      const invoiceInfo = {
-        payment: paymentResult.payment,
-        student: activeAllocation.studentProfile,
-        seatNumber: selectedSeat?.number,
-        shift: shifts?.find((s: any) => s.id === renewShiftId),
-        startDate: renewStartDate,
-        endDate: renewEndDate,
-        branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
-        originalAmount: Number(renewAmount),
-        payableAmount: Number(renewAmount),
-      };
-      setCreatedInvoiceData(invoiceInfo);
-      setOpenTransfer(false);
-      setOpenInvoiceReceipt(true);
-      showAlert('Seat renewed successfully!', { title: 'Success' });
+        const invoiceInfo = {
+          payment: paymentResult.payment,
+          student: studentsData?.students?.find((s: any) => s.id === studentProfileId),
+          seatNumber: selectedSeat?.number,
+          shift: shifts?.find((s: any) => s.id === shiftId),
+          startDate,
+          endDate,
+          branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
+          originalAmount: calculatedBaseAmount,
+          payableAmount: Number(invoiceAmount),
+        };
+        setCreatedInvoiceData(invoiceInfo);
+        setIsDrawerOpen(false);
+        setOpenInvoiceReceipt(true);
+      } else {
+        showAlert('Seat allocated successfully!', { title: 'Success' });
+        setIsDrawerOpen(false);
+      }
     } catch (err: any) {
-      showAlert(err?.data?.message || 'Seat renewal failed', { title: 'Error' });
-    } finally {
-      setIsRenewing(false);
+      showAlert(err.data?.message || 'Seat allocation failed');
     }
   };
 
+  // Submit vacate seat
+  const handleVacateSeat = async () => {
+    if (!selectedSeat) return;
+    const confirmVacate = window.confirm("Are you sure you want to vacate this seat?");
+    if (!confirmVacate) return;
+    try {
+      await vacateSeat(selectedSeat.id).unwrap();
+      setIsDrawerOpen(false);
+      setSelectedSeat(null);
+      showAlert('Seat vacated successfully!', { title: 'Success' });
+    } catch (err: any) {
+      showAlert(err.data?.message || 'Failed to vacate seat');
+    }
+  };
+
+  // Submit update dates
   const handleUpdateAllocationDates = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSeat) return;
@@ -466,61 +551,13 @@ export default function Seats() {
       }).unwrap();
       showAlert('Subscription dates updated successfully!', { title: 'Success' });
       setIsEditingDates(false);
-      setOpenTransfer(false);
+      setIsDrawerOpen(false);
     } catch (err: any) {
       showAlert(err?.data?.message || 'Failed to update subscription dates', { title: 'Error' });
     }
   };
 
-  const handleAllocate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      // 1. Allocate the seat
-      await allocateSeat({
-        studentProfileId,
-        seatId: selectedSeat.id,
-        shiftId,
-        startDate,
-        endDate,
-      }).unwrap();
-
-      // 2. Generate invoice if requested
-      if (shouldGenerateInvoice) {
-        const paymentResult = await createPayment({
-          studentProfileId,
-          amount: Number(invoiceAmount),
-          method: paymentMethod,
-          subscriptionPlanId: selectedPlanId || undefined,
-        }).unwrap();
-
-        // Prepare the detailed receipt data
-        const invoiceInfo = {
-          payment: paymentResult.payment,
-          student: studentsData?.students?.find((s: any) => s.id === studentProfileId),
-          seatNumber: selectedSeat?.number,
-          shift: shifts?.find((s: any) => s.id === shiftId),
-          startDate,
-          endDate,
-          branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
-          originalAmount: calculatedBaseAmount,
-          payableAmount: Number(invoiceAmount),
-        };
-        setCreatedInvoiceData(invoiceInfo);
-        setOpenInvoiceReceipt(true);
-      } else {
-        showAlert('Seat allocated successfully!');
-      }
-
-      setOpenAllocate(false);
-      setStudentProfileId('');
-      setShiftId('');
-      setStartDate('');
-      setEndDate('');
-    } catch (err: any) {
-      showAlert(err.data?.message || 'Seat allocation failed');
-    }
-  };
-
+  // Submit Transfer
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     const activeAllocation = selectedSeat?.allocations?.find((a: any) => a.isActive);
@@ -531,30 +568,70 @@ export default function Seats() {
         allocationId: activeAllocation.id,
         targetSeatId,
       }).unwrap();
-      setOpenTransfer(false);
+      setIsDrawerOpen(false);
       setTargetSeatId('');
+      showAlert('Seat transferred successfully!', { title: 'Success' });
     } catch (err) {
       showAlert('Seat transfer failed');
     }
   };
 
-  const handleVacateSeat = async () => {
+  // Submit Renewal
+  const handleRenewSeat = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!selectedSeat) return;
+    const activeAllocation = selectedSeat.allocations?.find((a: any) => a.isActive);
+    if (!activeAllocation) return;
+
+    setIsRenewing(true);
     try {
       await vacateSeat(selectedSeat.id).unwrap();
-      setOpenTransfer(false);
-      setSelectedSeat(null);
+      await allocateSeat({
+        studentProfileId: activeAllocation.studentProfileId,
+        seatId: selectedSeat.id,
+        shiftId: renewShiftId,
+        startDate: renewStartDate,
+        endDate: renewEndDate,
+      }).unwrap();
+
+      const paymentResult = await createPayment({
+        studentProfileId: activeAllocation.studentProfileId,
+        amount: Number(renewAmount),
+        method: renewPaymentMethod,
+        subscriptionPlanId: renewPlanId || undefined,
+      }).unwrap();
+
+      const invoiceInfo = {
+        payment: paymentResult.payment,
+        student: activeAllocation.studentProfile,
+        seatNumber: selectedSeat?.number,
+        shift: shifts?.find((s: any) => s.id === renewShiftId),
+        startDate: renewStartDate,
+        endDate: renewEndDate,
+        branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
+        originalAmount: Number(renewAmount),
+        payableAmount: Number(renewAmount),
+      };
+      setCreatedInvoiceData(invoiceInfo);
+      setIsDrawerOpen(false);
+      setOpenInvoiceReceipt(true);
+      showAlert('Seat renewed successfully!', { title: 'Success' });
     } catch (err: any) {
-      showAlert(err.data?.message || 'Failed to vacate seat');
+      showAlert(err?.data?.message || 'Seat renewal failed', { title: 'Error' });
+    } finally {
+      setIsRenewing(false);
     }
   };
 
+  // Creator handler (New Floor, Room, Seat)
   const handleCreate = async () => {
     try {
       if (creatorType === 'floor') {
         await addFloor({ branchId: selectedBranch, name: creatorName }).unwrap();
+        showAlert('Floor created successfully!', { title: 'Success' });
       } else if (creatorType === 'room') {
         await addRoom({ floorId: parentId, name: creatorName }).unwrap();
+        showAlert('Room created successfully!', { title: 'Success' });
       } else if (creatorType === 'seat') {
         if (creatorName.includes('-')) {
           const [startStr, endStr] = creatorName.split('-');
@@ -564,11 +641,14 @@ export default function Seats() {
             for (let i = start; i <= end; i++) {
               await addSeat({ roomId: parentId, number: i.toString() }).unwrap();
             }
+            showAlert(`Seats ${start} to ${end} created!`, { title: 'Success' });
           } else {
             await addSeat({ roomId: parentId, number: creatorName }).unwrap();
+            showAlert('Seat created!', { title: 'Success' });
           }
         } else {
           await addSeat({ roomId: parentId, number: creatorName }).unwrap();
+          showAlert('Seat created!', { title: 'Success' });
         }
       }
       setOpenCreator(false);
@@ -594,1172 +674,1027 @@ export default function Seats() {
     if (!confirmed) return;
     try {
       await deleteRoom(id).unwrap();
+      showAlert('Room deleted successfully!', { title: 'Success' });
     } catch (err: any) {
       showAlert(err.data?.message || 'Failed to delete room');
     }
   };
 
   const handleDeleteSeat = async (id: string) => {
-    const confirmed = await showAlert('Are you sure you want to delete this seat?', { type: 'danger' });
+    const confirmed = window.confirm("Are you sure you want to delete this seat?");
     if (!confirmed) return;
     try {
       await deleteSeat(id).unwrap();
-      setOpenAllocate(false);
+      setIsDrawerOpen(false);
+      showAlert('Seat deleted successfully!', { title: 'Success' });
     } catch (err: any) {
       showAlert(err.data?.message || 'Failed to delete seat');
     }
   };
 
-  // Modern, clean status design logic (white background, colored accent)
-  const getSeatStyle = (status: string) => {
-    switch (status) {
-      case 'AVAILABLE':
-        return { accent: 'var(--success)', iconColor: 'var(--success)' };
-      case 'OCCUPIED':
-        return { accent: 'var(--primary)', iconColor: 'var(--primary)' };
-      case 'RESERVED':
-        return { accent: 'var(--warning)', iconColor: 'var(--warning)' };
-      default:
-        return { accent: 'var(--text-muted)', iconColor: 'var(--text-muted)' };
+  // Sorting & Filtering logic per room
+  const getSortedSeats = (seats: any[], roomId: string) => {
+    const roomFilter = statusFilters[roomId] || 'ALL';
+    const roomSort = sortOptions[roomId] || 'NUMBER';
+
+    // Search query per room
+    const rSearch = (roomSearches[roomId] || '').trim().toLowerCase();
+
+    let filtered = seats || [];
+    
+    // Apply search filter
+    if (rSearch) {
+      filtered = filtered.filter((seat: any) => {
+        const isOccupied = seat.status === 'OCCUPIED';
+        const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
+        return seat.number.toLowerCase().includes(rSearch) ||
+          (isOccupied && (
+            activeAllocation?.studentProfile?.user?.name?.toLowerCase().includes(rSearch) ||
+            activeAllocation?.studentProfile?.user?.email?.toLowerCase().includes(rSearch) ||
+            activeAllocation?.studentProfile?.user?.mobile?.includes(rSearch)
+          ));
+      });
     }
+
+    // Apply status filter
+    if (roomFilter !== 'ALL') {
+      filtered = filtered.filter((s: any) => s.status === roomFilter);
+    }
+
+    // Apply Sorting
+    return [...filtered].sort((a: any, b: any) => {
+      if (roomSort === 'NUMBER') {
+        return a.number.localeCompare(b.number, undefined, { numeric: true });
+      }
+      if (roomSort === 'NAME') {
+        const aAlloc = a.allocations?.find((al: any) => al.isActive);
+        const bAlloc = b.allocations?.find((al: any) => al.isActive);
+        const aName = aAlloc?.studentProfile?.user?.name || '';
+        const bName = bAlloc?.studentProfile?.user?.name || '';
+        if (!aName && bName) return 1;
+        if (aName && !bName) return -1;
+        return aName.localeCompare(bName);
+      }
+      if (roomSort === 'RECENT') {
+        const aAlloc = a.allocations?.find((al: any) => al.isActive);
+        const bAlloc = b.allocations?.find((al: any) => al.isActive);
+        const aTime = aAlloc ? new Date(aAlloc.createdAt).getTime() : 0;
+        const bTime = bAlloc ? new Date(bAlloc.createdAt).getTime() : 0;
+        return bTime - aTime;
+      }
+      return 0;
+    });
+  };
+
+  // Render Seat card helper
+  const renderSeatCard = (seat: any) => {
+    const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
+    const isOccupied = seat.status === 'OCCUPIED';
+
+    let isExpiringSoon = false;
+    let daysLeft = 0;
+    let isCritical = false;
+    if (isOccupied && activeAllocation?.endDate) {
+      const end = new Date(activeAllocation.endDate);
+      const today = new Date();
+      end.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      const diffTime = end.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays >= 0 && diffDays <= 7) {
+        isExpiringSoon = true;
+        daysLeft = diffDays;
+        isCritical = diffDays <= 3;
+      }
+    }
+
+    const formattedEnd = activeAllocation?.endDate 
+      ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
+      : 'N/A';
+
+    const isHighlighted = highlightedSeatId === seat.id;
+    const seatClass = seat.status.toLowerCase();
+
+
+    return (
+      <div
+        key={seat.id}
+        id={`seat-${seat.id}`}
+        className={`seat-tile ${seatClass}`}
+        onClick={() => handleSeatClick(seat)}
+        style={{
+          width: '78px',
+          height: '78px',
+          border: isHighlighted ? '2px solid var(--accent-blue)' : undefined,
+          boxShadow: isHighlighted ? '0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-hover)' : undefined,
+          transform: isHighlighted ? 'scale(1.05)' : undefined,
+        }}
+      >
+        <div className="seat-tile-accent" />
+        
+        {/* Seat Number */}
+        <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', zIndex: 1 }}>
+          {seat.number}
+        </span>
+
+        {/* Occupant/Status indicator */}
+        {isOccupied && activeAllocation ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, marginTop: '4px' }}>
+            <span style={{
+              fontSize: '0.55rem',
+              fontWeight: 600,
+              color: 'var(--text-slate)',
+              maxWidth: '68px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {activeAllocation.studentProfile?.user?.name?.split(' ')[0]}
+            </span>
+          </div>
+        ) : seat.status === 'BLOCKED' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, marginTop: '4px', gap: '2px' }}>
+            <Wrench size={10} style={{ color: 'var(--status-amber)' }} />
+            <span style={{ fontSize: '0.525rem', fontWeight: 700, color: 'var(--status-amber)' }}>MAINT</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, marginTop: '4px', gap: '2px' }}>
+            <span className="seat-dot available" />
+            <span style={{ fontSize: '0.525rem', fontWeight: 600, color: 'var(--status-emerald)' }}>FREE</span>
+          </div>
+        )}
+
+        {/* Expiration badge */}
+        {isExpiringSoon && (
+          <span className={`expiring-badge ${isCritical ? 'critical' : 'warning'}`}>
+            {daysLeft}d
+          </span>
+        )}
+
+        <div className="custom-tooltip">
+          {isOccupied && activeAllocation ? (
+            <>
+              <strong>{activeAllocation.studentProfile?.user?.name}</strong>
+              <span>Ends: {formattedEnd}</span>
+            </>
+          ) : seat.status === 'BLOCKED' ? (
+            <strong>Maintenance</strong>
+          ) : (
+            <strong>Available</strong>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Render classroom study hall grid layout representation
+  const renderStudyHallGrid = (room: any) => {
+    const sortedAndFiltered = getSortedSeats(room.seats, room.id);
+    if (sortedAndFiltered.length === 0) {
+      return (
+        <div className="empty-state-container" style={{ padding: '24px' }}>
+          <SlidersHorizontal size={24} style={{ color: '#94a3b8', marginBottom: '8px' }} />
+          <h4 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-navy)' }}>No matching seats</h4>
+          <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-slate)' }}>Try clearing your active filters or changing your query</p>
+        </div>
+      );
+    }
+
+    // Group seats by letter prefix if available, otherwise numeric chunks of 10
+    const rows: Record<string, any[]> = {};
+    sortedAndFiltered.forEach((seat: any) => {
+      const match = seat.number.match(/^([A-Za-z]+)/);
+      const prefix = match ? match[1].toUpperCase() : 'NUM';
+      if (!rows[prefix]) {
+        rows[prefix] = [];
+      }
+      rows[prefix].push(seat);
+    });
+
+    const rowKeys = Object.keys(rows).sort();
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
+        <div className="study-hall-desk">
+          📖 STUDY SPACE ENTRANCE / DESK AREA
+        </div>
+
+        {rowKeys.map((rowKey, idx) => {
+          const rowSeats = rows[rowKey];
+          if (rowKey === 'NUM') {
+            const chunks: any[][] = [];
+            for (let i = 0; i < rowSeats.length; i += 10) {
+              chunks.push(rowSeats.slice(i, i + 10));
+            }
+            return (
+              <React.Fragment key={rowKey}>
+                {chunks.map((chunk, chunkIdx) => (
+                  <React.Fragment key={chunkIdx}>
+                    <div className="study-hall-row">
+                      <div className="study-hall-row-label">Row {chunkIdx + 1}</div>
+                      <div className="study-hall-row-grid">
+                        {chunk.map(renderSeatCard)}
+                      </div>
+                    </div>
+                    {chunkIdx < chunks.length - 1 && (
+                      <div className="walkway-separator">Walkway Gap</div>
+                    )}
+                  </React.Fragment>
+                ))}
+              </React.Fragment>
+            );
+          }
+
+          return (
+            <React.Fragment key={rowKey}>
+              <div className="study-hall-row">
+                <div className="study-hall-row-label">Row {rowKey}</div>
+                <div className="study-hall-row-grid">
+                  {rowSeats.map(renderSeatCard)}
+                </div>
+              </div>
+              {idx < rowKeys.length - 1 && (
+                <div className="walkway-separator">Walkway Gap</div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
-    <div style={{ width: '100%' }}>      {/* Header & Controls in one sleek row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+    <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#F7F8FA', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* 1. TOP HEADER SECTION */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '16px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <h1 className="page-title" style={{ margin: 0 }}>Interactive Seat Map</h1>
-            
-            <Select
+          <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.025em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Interactive Seat Map <Sparkles size={20} color="var(--accent-blue)" />
+          </h1>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: '#475569', fontWeight: 500 }}>
+            Manage branches, floors, rooms and student seating visually.
+          </p>
+        </div>
+
+        {/* Right side controls (Selectors & User) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', boxShadow: 'var(--shadow-soft)' }}>
+            <Building size={14} color="#64748B" />
+            <select
               value={selectedBranch}
-              onChange={(val) => {
-                setSelectedBranch(val);
+              onChange={(e) => {
+                setSelectedBranch(e.target.value);
                 setActiveFloorTab(0);
               }}
-              placeholder="Select Branch"
-              style={{ width: '200px' }}
-              options={branches?.map((b: any) => ({
-                value: b.id,
-                label: b.name,
-              })) || []}
+              style={{ border: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)', outline: 'none', cursor: 'pointer' }}
+            >
+              {branches?.map((b: any) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {selectedBranch && seatMap && seatMap.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', boxShadow: 'var(--shadow-soft)' }}>
+              <Layers size={14} color="#64748B" />
+              <select
+                value={activeFloorTab}
+                onChange={(e) => {
+                  setActiveFloorTab(Number(e.target.value));
+                }}
+                style={{ border: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)', outline: 'none', cursor: 'pointer' }}
+              >
+                {seatMap.map((floor: any, idx: number) => (
+                  <option key={floor.id} value={idx}>{floor.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => {
+                  if (currentFloor) {
+                    setEditFloorName(currentFloor.name);
+                    setSelectedFloorToEdit(currentFloor);
+                    setOpenEditFloorModal(true);
+                  }
+                }}
+                style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', color: 'var(--text-slate)', display: 'flex', alignItems: 'center' }}
+                title="Edit Floor"
+              >
+                <Edit2 size={12} />
+              </button>
+            </div>
+          )}
+
+          {/* Global search */}
+          <div style={{ position: 'relative', width: '220px' }}>
+            <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+            <input
+              type="text"
+              placeholder="Search seat, student..."
+              value={globalSearchQuery}
+              onChange={(e) => setGlobalSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px 8px 32px',
+                fontSize: '0.8rem',
+                borderRadius: '20px',
+                border: '1px solid rgba(15, 23, 42, 0.05)',
+                backgroundColor: '#ffffff',
+                boxShadow: 'var(--shadow-soft)',
+                outline: 'none',
+                color: 'var(--text-navy)',
+                transition: 'all 150ms ease'
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--accent-blue)'}
+              onBlur={(e) => e.target.style.borderColor = 'rgba(15, 23, 42, 0.05)'}
             />
+            {globalSearchQuery && (
+              <button
+                onClick={() => setGlobalSearchQuery('')}
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: '1rem', padding: '4px' }}
+              >
+                &times;
+              </button>
+            )}
+          </div>
 
-            {/* Custom Floor Selector Dropdown */}
-            {selectedBranch && seatMap && seatMap.length > 0 && (
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsFloorDropdownOpen(!isFloorDropdownOpen)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                    padding: '0.4rem 0.75rem',
-                    fontSize: '0.875rem',
-                    backgroundColor: '#ffffff',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '0.5rem',
-                    cursor: 'pointer',
-                    width: '180px',
-                    height: '34px',
-                    fontWeight: 500,
-                    color: '#0f172a',
-                    textAlign: 'left'
-                  }}
-                >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {seatMap[activeFloorTab]?.name || 'Select Floor'}
-                  </span>
-                  <ChevronDown size={16} style={{ color: '#64748b', flexShrink: 0 }} />
-                </button>
+          {/* Notification bell */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                backgroundColor: '#ffffff',
+                border: '1px solid rgba(15, 23, 42, 0.05)',
+                boxShadow: 'var(--shadow-soft)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'var(--text-navy)',
+                position: 'relative'
+              }}
+            >
+              <Bell size={18} />
+              {expiringSeatsList.length > 0 && (
+                <span style={{ position: 'absolute', top: '-2px', right: '-2px', backgroundColor: 'var(--status-red)', color: 'white', fontSize: '0.6rem', fontWeight: 800, borderRadius: '50%', minWidth: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '2px solid white' }}>
+                  {expiringSeatsList.length}
+                </span>
+              )}
+            </button>
 
-                {isFloorDropdownOpen && (
-                  <>
-                    <div 
-                      onClick={() => setIsFloorDropdownOpen(false)}
-                      style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 999,
-                        background: 'transparent'
-                      }}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      backgroundColor: '#ffffff',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '0.5rem',
-                      boxShadow: 'var(--shadow-lg)',
-                      zIndex: 1000,
-                      marginTop: '0.25rem',
-                      maxHeight: '200px',
-                      overflowY: 'auto',
-                    }}>
-                      {seatMap.map((floor: any, idx: number) => (
+            {/* Notification Popover Box */}
+            {showNotifications && (
+              <>
+                <div onClick={() => setShowNotifications(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} />
+                <div className="glass-card animate-fade-in" style={{ position: 'absolute', right: 0, top: '44px', width: '300px', padding: '12px', zIndex: 999, border: '1px solid var(--border-card)', maxHeight: '350px', overflowY: 'auto' }}>
+                  <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-navy)', borderBottom: '1px solid var(--border-card)', paddingBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Expiring Subscriptions</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)' }}>Next 7 days</span>
+                  </h4>
+                  {expiringSeatsList.length === 0 ? (
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-slate)', textAlign: 'center', padding: '16px 0' }}>No seats expiring soon!</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {expiringSeatsList.map((notif: any) => (
                         <div
-                          key={floor.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '0.5rem 0.75rem',
-                            cursor: 'pointer',
-                            backgroundColor: activeFloorTab === idx ? 'var(--bg-surface-hover)' : 'transparent',
-                            transition: 'all 0.15s ease',
+                          key={notif.seatId}
+                          onClick={() => {
+                            const seatObj = seatMap[activeFloorTab]?.rooms
+                              ?.flatMap((r: any) => r.seats)
+                              ?.find((s: any) => s.id === notif.seatId);
+                            if (seatObj) {
+                              handleSeatClick(seatObj);
+                              setShowNotifications(false);
+                            }
                           }}
-                          onMouseOver={(e) => {
-                            if (activeFloorTab !== idx) e.currentTarget.style.backgroundColor = '#f8fafc';
-                          }}
-                          onMouseOut={(e) => {
-                            if (activeFloorTab !== idx) e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
+                          style={{ padding: '8px', borderRadius: '8px', background: '#f8fafc', border: '1px solid #f1f5f9', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '2px' }}
                         >
-                          <span
-                            onClick={() => {
-                              setActiveFloorTab(idx);
-                              setIsFloorDropdownOpen(false);
-                            }}
-                            style={{
-                              flex: 1,
-                              fontSize: '0.875rem',
-                              color: activeFloorTab === idx ? 'var(--primary)' : '#0f172a',
-                              fontWeight: activeFloorTab === idx ? 600 : 400,
-                            }}
-                          >
-                            {floor.name}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent choosing floor when clicking edit
-                              setEditFloorName(floor.name);
-                              setSelectedFloorToEdit(floor);
-                              setOpenEditFloorModal(true);
-                              setIsFloorDropdownOpen(false);
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#64748b',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              padding: '0.25rem',
-                              borderRadius: '0.25rem',
-                              transition: 'all 0.15s ease',
-                            }}
-                            onMouseOver={(e) => {
-                              e.currentTarget.style.color = 'var(--primary)';
-                              e.currentTarget.style.backgroundColor = 'rgba(37, 99, 235, 0.08)';
-                            }}
-                            onMouseOut={(e) => {
-                              e.currentTarget.style.color = '#64748b';
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                            title="Edit Floor"
-                          >
-                            <Edit2 size={12} />
-                          </button>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-navy)' }}>Seat {notif.seatNumber}</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: notif.daysLeft <= 3 ? 'var(--status-red)' : 'var(--status-amber)' }}>
+                              {notif.daysLeft}d left
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)' }}>{notif.studentName} ({notif.roomName})</span>
                         </div>
                       ))}
                     </div>
-                  </>
-                )}
-              </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
-          
-          {/* Seat Summary Component */}
-          {selectedBranch && seatMap && (
-            <div style={{
+
+          {/* User profile avatar */}
+          <div
+            onClick={() => navigate('/profile')}
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--accent-blue)',
+              color: 'white',
+              fontSize: '0.9rem',
+              fontWeight: 700,
               display: 'flex',
-              gap: '1rem',
-              marginTop: '1.25rem',
-              marginBottom: '1rem',
-              width: '100%',
-              flexWrap: 'nowrap'
-            }}>
-              {/* Total Seats */}
-              <Card
-                elevation="sm"
-                style={{
-                  padding: '1rem 1.25rem',
-                  border: '1px solid var(--border-color)',
-                  borderTop: '4px solid #64748b',
-                  backgroundColor: 'var(--bg-surface)',
-                  borderRadius: '0.75rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.35rem',
-                  flex: 1,
-                  minWidth: 0
-                }}
-              >
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Total Seats</span>
-                <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>{seatCounts.total}</span>
-              </Card>
-
-              {/* Available */}
-              <Card
-                elevation="sm"
-                style={{
-                  padding: '1rem 1.25rem',
-                  border: '1px solid var(--border-color)',
-                  borderTop: '4px solid var(--success)',
-                  backgroundColor: 'var(--bg-surface)',
-                  borderRadius: '0.75rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.35rem',
-                  flex: 1,
-                  minWidth: 0
-                }}
-              >
-                <span style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Available</span>
-                <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--success)', lineHeight: 1.1 }}>{seatCounts.available}</span>
-              </Card>
-
-              {/* Occupied */}
-              <Card
-                elevation="sm"
-                style={{
-                  padding: '1rem 1.25rem',
-                  border: '1px solid var(--border-color)',
-                  borderTop: '4px solid var(--primary)',
-                  backgroundColor: 'var(--bg-surface)',
-                  borderRadius: '0.75rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.35rem',
-                  flex: 1,
-                  minWidth: 0
-                }}
-              >
-                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Occupied</span>
-                <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1 }}>{seatCounts.occupied}</span>
-              </Card>
-
-              {/* Maintenance */}
-              <Card
-                elevation="sm"
-                style={{
-                  padding: '1rem 1.25rem',
-                  border: '1px solid var(--border-color)',
-                  borderTop: '4px solid var(--text-muted)',
-                  backgroundColor: 'var(--bg-surface)',
-                  borderRadius: '0.75rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.35rem',
-                  flex: 1,
-                  minWidth: 0
-                }}
-              >
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Maintenance</span>
-                <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-muted)', lineHeight: 1.1 }}>{seatCounts.maintenance}</span>
-              </Card>
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          {selectedBranch && seatMap && seatMap.length > 0 && (
-            <Button
-              variant={isFloorVisualization ? "primary" : "outline"}
-              size="sm"
-              onClick={() => {
-                if (activeRoomEditingId) {
-                  const confirm = window.confirm("You have unsaved layout changes. Are you sure you want to exit visualization mode?");
-                  if (!confirm) return;
-                  setActiveRoomEditingId(null);
-                  setTempLayout({});
-                }
-                setIsFloorVisualization(!isFloorVisualization);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                backgroundColor: isFloorVisualization ? '#14213d' : '#ffffff',
-                color: isFloorVisualization ? '#ffffff' : '#0f172a',
-                borderColor: '#cbd5e1'
-              }}
-            >
-              {isFloorVisualization ? <LayoutGrid size={16} /> : <Map size={16} />}
-              {isFloorVisualization ? "Grid View" : "Floor Visualization"}
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setCreatorType('floor');
-              setOpenCreator(true);
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            <Layers size={16} /> + Floor
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setCreatorType('room');
-              setOpenCreator(true);
-            }}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            <DoorOpen size={16} /> + Room
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            style={{ backgroundColor: '#14213d', borderColor: '#14213d', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-            onClick={() => {
-              setCreatorType('seat');
-              setOpenCreator(true);
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: 'var(--shadow-soft)'
             }}
           >
-            <Plus size={16} /> Add Seat
-          </Button>
+            {user?.name?.charAt(0).toUpperCase() || 'U'}
+          </div>
         </div>
       </div>
 
-      {/* Map Loader */}
+      {/* Row of Action Buttons (Pills with icons) */}
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <button
+          onClick={() => { setCreatorType('floor'); setOpenCreator(true); }}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', backgroundColor: '#ffffff', color: 'var(--text-navy)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-soft)', transition: 'background 150ms ease' }}
+          onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
+          onMouseOut={(e) => e.currentTarget.style.background = '#ffffff'}
+        >
+          <Layers size={14} color="var(--accent-blue)" /> + Floor
+        </button>
+        <button
+          onClick={() => {
+            if (currentFloor) {
+              setParentId(currentFloor.id);
+              setCreatorType('room');
+              setOpenCreator(true);
+            }
+          }}
+          disabled={!currentFloor}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', backgroundColor: '#ffffff', color: 'var(--text-navy)', fontSize: '0.8rem', fontWeight: 600, cursor: currentFloor ? 'pointer' : 'not-allowed', opacity: currentFloor ? 1 : 0.6, boxShadow: 'var(--shadow-soft)', transition: 'background 150ms ease' }}
+          onMouseOver={(e) => { if (currentFloor) e.currentTarget.style.background = '#f8fafc'; }}
+          onMouseOut={(e) => { if (currentFloor) e.currentTarget.style.background = '#ffffff'; }}
+        >
+          <DoorOpen size={14} color="var(--accent-blue)" /> + Room
+        </button>
+        <button
+          onClick={() => {
+            if (currentFloor?.rooms && currentFloor.rooms.length > 0) {
+              setParentId(currentFloor.rooms[0].id);
+              setCreatorType('seat');
+              setOpenCreator(true);
+            }
+          }}
+          disabled={!currentFloor?.rooms || currentFloor.rooms.length === 0}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', backgroundColor: '#ffffff', color: 'var(--text-navy)', fontSize: '0.8rem', fontWeight: 600, cursor: currentFloor?.rooms?.length ? 'pointer' : 'not-allowed', opacity: currentFloor?.rooms?.length ? 1 : 0.6, boxShadow: 'var(--shadow-soft)', transition: 'background 150ms ease' }}
+          onMouseOver={(e) => { if (currentFloor?.rooms?.length) e.currentTarget.style.background = '#f8fafc'; }}
+          onMouseOut={(e) => { if (currentFloor?.rooms?.length) e.currentTarget.style.background = '#ffffff'; }}
+        >
+          <Plus size={14} color="var(--accent-blue)" /> + Seat
+        </button>
+
+        {selectedBranch && seatMap && seatMap.length > 0 && (
+          <button
+            onClick={() => {
+              if (activeRoomEditingId) {
+                const exit = window.confirm("Exit visualization mode? Unsaved layouts will be discarded.");
+                if (!exit) return;
+                setActiveRoomEditingId(null);
+                setTempLayout({});
+              }
+              setIsFloorVisualization(!isFloorVisualization);
+            }}
+            style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', backgroundColor: isFloorVisualization ? 'var(--accent-blue)' : '#ffffff', color: isFloorVisualization ? '#ffffff' : 'var(--text-navy)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-soft)' }}
+          >
+            {isFloorVisualization ? <LayoutGrid size={14} /> : <Map size={14} />}
+            {isFloorVisualization ? "Grid View" : "Floor Visualizer"}
+          </button>
+        )}
+      </div>
+
+      {/* 2. STATS SECTION (Premium Analytics Grid) */}
+      {selectedBranch && seatMap && (
+        <div className="stats-premium-grid">
+          {/* Card 1: Total */}
+          <div className="glass-card stats-premium-card" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Capacity</span>
+              <Building size={16} color="var(--accent-blue)" style={{ opacity: 0.8 }} />
+            </div>
+            <div style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--text-navy)' }}>{seatCounts.total}</div>
+            <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)', fontWeight: 500 }}>Configured study hall limits</span>
+          </div>
+
+          {/* Card 2: Available */}
+          <div className="glass-card stats-premium-card emerald" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--status-emerald)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Available</span>
+              <CheckCircle size={16} color="var(--status-emerald)" style={{ opacity: 0.8 }} />
+            </div>
+            <div style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--text-navy)' }}>{seatCounts.available}</div>
+            <span style={{ fontSize: '0.675rem', color: 'var(--status-emerald)', fontWeight: 700 }}>
+              {seatCounts.total > 0 ? Math.round((seatCounts.available / seatCounts.total) * 100) : 0}% available slots
+            </span>
+          </div>
+
+          {/* Card 3: Occupied */}
+          <div className="glass-card stats-premium-card red" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--status-red)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Occupied</span>
+              <Users size={16} color="var(--status-red)" style={{ opacity: 0.8 }} />
+            </div>
+            <div style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--text-navy)' }}>{seatCounts.occupied}</div>
+            <span style={{ fontSize: '0.675rem', color: 'var(--status-red)', fontWeight: 700 }}>
+              {seatCounts.total > 0 ? Math.round((seatCounts.occupied / seatCounts.total) * 100) : 0}% live utilization
+            </span>
+          </div>
+
+          {/* Card 4: Maintenance */}
+          <div className="glass-card stats-premium-card amber" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--status-amber)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Maintenance</span>
+              <Wrench size={16} color="var(--status-amber)" style={{ opacity: 0.8 }} />
+            </div>
+            <div style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--text-navy)' }}>{seatCounts.maintenance}</div>
+            <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)', fontWeight: 500 }}>Blocked / Out of service</span>
+          </div>
+        </div>
+      )}
+
+      {/* 3. MAIN CONTENT WORKSPACE (Accordion System) */}
       {isMapLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem', color: 'var(--primary)' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '64px', color: 'var(--accent-blue)' }}>
           <Loader2 className="spinner" size={40} />
         </div>
       ) : !seatMap || seatMap.length === 0 ? (
-        <div style={{ padding: '4rem 2rem', textAlign: 'center', backgroundColor: 'var(--bg-surface)', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
-          <p className="text-muted">No floor configuration found for this branch.</p>
+        <div className="empty-state-container">
+          <HelpCircle size={48} style={{ color: '#94a3b8', marginBottom: '16px' }} />
+          <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-navy)' }}>No floors configured</h3>
+          <p style={{ margin: '8px 0 16px 0', fontSize: '0.875rem', color: 'var(--text-slate)', maxWidth: '400px' }}>
+            You haven't added any floors or seat layouts in this branch yet. Create one to get started.
+          </p>
+          <Button onClick={() => { setCreatorType('floor'); setOpenCreator(true); }} variant="primary" style={{ backgroundColor: 'var(--accent-blue)' }}>
+            Add Your First Floor
+          </Button>
         </div>
       ) : (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {currentFloor?.rooms?.map((room: any) => {
+            const isExpanded = !collapsedRooms[room.id];
+            
+            const total = room.seats?.length || 0;
+            const occupied = room.seats?.filter((s: any) => s.status === 'OCCUPIED').length || 0;
+            const percent = total > 0 ? Math.round((occupied / total) * 100) : 0;
 
-
-          {/* Rooms Grid */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {currentFloor?.rooms.map((room: any) => {
-              const query = (roomSearches[room.id] || '').trim().toLowerCase();
-              let matchCount = 0;
-              if (query) {
-                matchCount = room.seats?.filter((seat: any) => {
-                  const isOccupied = seat.status === 'OCCUPIED';
-                  const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
-                  return seat.number.toLowerCase().includes(query) ||
-                    (isOccupied && (
-                      activeAllocation?.studentProfile?.user?.name?.toLowerCase().includes(query) ||
-                      activeAllocation?.studentProfile?.user?.email?.toLowerCase().includes(query) ||
-                      activeAllocation?.studentProfile?.user?.mobile?.includes(query)
-                    ));
-                }).length || 0;
-              }
-
-              return (
-                <Card key={room.id} elevation="sm" style={{ padding: '1.5rem', border: '1px solid var(--border-color)', overflow: 'visible' }}>
+            return (
+              <div key={room.id} className={`room-accordion ${isExpanded ? 'expanded' : ''}`}>
+                
+                {/* ROOM ACCORDION HEADER */}
+                <div 
+                  className="room-accordion-header"
+                  onClick={() => setCollapsedRooms(prev => ({ ...prev, [room.id]: !prev[room.id] }))}
+                >
                   
-                  {/* Room Header & Actions */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: collapsedRooms[room.id] ? '0' : '1.5rem',
-                    borderBottom: collapsedRooms[room.id] ? 'none' : '1px solid var(--border-color)',
-                    paddingBottom: collapsedRooms[room.id] ? '0' : '1rem',
-                    flexWrap: 'wrap',
-                    gap: '1rem',
-                    transition: 'all 0.2s ease'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      {/* Collapse/Expand Toggle Button */}
-                      <button
-                        type="button"
-                        onClick={() => setCollapsedRooms(prev => ({ ...prev, [room.id]: !prev[room.id] }))}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: '0.25rem',
-                          borderRadius: '0.25rem',
-                          transition: 'all 0.15s ease',
-                          marginRight: '-0.25rem'
-                        }}
-                        title={collapsedRooms[room.id] ? "Expand Room" : "Collapse Room"}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)'}
-                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <ChevronDown
-                          size={18}
-                          style={{
-                            transform: collapsedRooms[room.id] ? 'rotate(-90deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.25s ease',
-                            color: '#64748b'
-                          }}
-                        />
-                      </button>
-
-                      <div style={{ padding: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '0.5rem' }}>
-                        <DoorOpen size={20} color="var(--primary)" />
-                      </div>
-                      <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>{room.name}</h3>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-main)', padding: '0.25rem 0.6rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
-                        {room.seats?.length || 0} Seats
-                      </span>
-
-
-                      {/* Room Specific Search Bar (Left side) */}
-                      <div style={{ position: 'relative', width: '220px', marginLeft: '0.5rem' }}>
-                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-                        <input
-                          type="text"
-                          placeholder="Search seat or student..."
-                          value={roomSearches[room.id] || ''}
-                          onChange={(e) => setRoomSearches(prev => ({ ...prev, [room.id]: e.target.value }))}
-                          style={{
-                            width: '100%',
-                            padding: '0.35rem 0.75rem 0.35rem 2rem',
-                            fontSize: '0.8rem',
-                            borderRadius: '0.375rem',
-                            border: '1px solid var(--border-color)',
-                            backgroundColor: '#ffffff',
-                            color: 'var(--text-primary)',
-                            outline: 'none',
-                            transition: 'all 0.15s ease',
-                            height: '32px',
-                          }}
-                          onFocus={(e) => {
-                            e.target.style.borderColor = 'var(--primary)';
-                            e.target.style.boxShadow = '0 0 0 2px rgba(37, 99, 235, 0.15)';
-                          }}
-                          onBlur={(e) => {
-                            e.target.style.borderColor = 'var(--border-color)';
-                            e.target.style.boxShadow = 'none';
-                          }}
-                        />
-                        {(roomSearches[room.id] || '') && (
-                          <button
-                            type="button"
-                            onClick={() => setRoomSearches(prev => ({ ...prev, [room.id]: '' }))}
-                            style={{
-                              position: 'absolute',
-                              right: '8px',
-                              top: '50%',
-                              transform: 'translateY(-50%)',
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              color: '#94a3b8',
-                              fontSize: '1rem',
-                              fontWeight: 'bold',
-                              padding: '0 4px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            &times;
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Search Matches Count badge */}
-                      {query && (
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          color: matchCount > 0 ? 'var(--success)' : 'var(--danger)',
-                          backgroundColor: matchCount > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: '1rem',
-                          border: matchCount > 0 ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
-                          whiteSpace: 'nowrap',
-                        }}>
-                          {matchCount} {matchCount === 1 ? 'match' : 'matches'}
-                        </span>
-                      )}
-                    </div>
+                  {/* Left Controls */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                    <ChevronDown size={18} className="room-chevron-icon" />
                     
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {isFloorVisualization ? (
-                        activeRoomEditingId === room.id ? (
-                        <>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            style={{ backgroundColor: 'var(--success)', borderColor: 'var(--success)' }}
-                            onClick={() => handleSaveLayout(room)}
-                            disabled={isUpdatingLayout}
-                          >
-                            {isUpdatingLayout ? <Loader2 className="spinner" size={14} /> : "Save Layout"}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setActiveRoomEditingId(null);
-                              setTempLayout({});
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </>
-                      ) : (
-                        activeRoomEditingId === null && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setActiveRoomEditingId(room.id);
-                              const initialLayout: Record<string, { x: number; y: number }> = {};
-                              room.seats?.forEach((seat: any, idx: number) => {
-                                initialLayout[seat.id] = getSeatPosition(seat, idx);
-                              });
-                              setTempLayout(initialLayout);
-                            }}
-                          >
-                            Arrange Seats
-                          </Button>
-                        )
-                      )
-                    ) : (
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(37, 99, 235, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', flexShrink: 0 }}>
+                      <DoorOpen size={18} />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {room.name}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                        <span style={{ fontSize: '0.675rem', fontWeight: 600, color: '#64748B', background: '#F1F5F9', padding: '1px 6px', borderRadius: '4px' }}>
+                          {total} Seats
+                        </span>
+                        <span className={`status-pill ${percent >= 80 ? 'occupied' : 'available'}`} style={{ padding: '1px 6px', fontSize: '0.65rem' }}>
+                          {percent}% Occupancy
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Center Progress Bar */}
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', padding: '0 24px', maxWidth: '300px' }}>
+                    <div className="room-progress-track">
+                      <div className="room-progress-fill" style={{ width: `${percent}%` }} />
+                    </div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)' }}>{percent}%</span>
+                  </div>
+
+                  {/* Right Actions */}
+                  <div 
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}
+                    onClick={(e) => e.stopPropagation()} // stop expanding accordion when clicking actions
+                  >
+                    
+                    {/* Inline Room Search */}
+                    <div style={{ position: 'relative', width: '160px' }}>
+                      <Search size={12} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                      <input
+                        type="text"
+                        placeholder="Search room..."
+                        value={roomSearches[room.id] || ''}
+                        onChange={(e) => setRoomSearches(prev => ({ ...prev, [room.id]: e.target.value }))}
+                        style={{
+                          width: '100%',
+                          padding: '6px 10px 6px 26px',
+                          fontSize: '0.75rem',
+                          borderRadius: '16px',
+                          border: '1px solid rgba(15, 23, 42, 0.05)',
+                          outline: 'none',
+                          color: 'var(--text-navy)'
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setParentId(room.id);
+                        setCreatorType('seat');
+                        setOpenCreator(true);
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', border: '1px solid rgba(15, 23, 42, 0.05)', background: '#ffffff', borderRadius: '16px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)', cursor: 'pointer', transition: 'background 150ms ease' }}
+                      onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
+                      onMouseOut={(e) => e.currentTarget.style.background = '#ffffff'}
+                    >
+                      <Plus size={12} /> Add Seat
+                    </button>
+
+                    {/* Room dropdown actions */}
+                    <button
+                      onClick={() => setActiveRoomMenuId(activeRoomMenuId === room.id ? null : room.id)}
+                      style={{ border: 'none', background: 'none', color: '#64748B', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+
+                    {/* Action dropdown popup */}
+                    {activeRoomMenuId === room.id && (
                       <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setParentId(room.id);
-                            setCreatorType('seat');
-                            setOpenCreator(true);
-                          }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}
-                        >
-                          <Plus size={14} /> Add Seat
-                        </Button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedRoomToEdit(room);
-                            setEditRoomName(room.name);
-                            setOpenEditRoomModal(true);
-                          }}
-                          style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', borderRadius: '0.25rem', transition: 'all 0.15s ease' }}
-                          title="Edit Room Name"
-                          onMouseOver={(e) => {
-                            e.currentTarget.style.color = 'var(--primary)';
-                            e.currentTarget.style.backgroundColor = 'rgba(37, 99, 235, 0.08)';
-                          }}
-                          onMouseOut={(e) => {
-                            e.currentTarget.style.color = '#64748b';
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRoom(room.id)}
-                          style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', borderRadius: '0.25rem' }}
-                          title="Delete Room"
-                          onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-                          onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div 
+                          onClick={() => setActiveRoomMenuId(null)}
+                          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 }}
+                        />
+                        <div style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: '100%',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid var(--border-card)',
+                          borderRadius: '8px',
+                          boxShadow: 'var(--shadow-hover)',
+                          zIndex: 101,
+                          minWidth: '120px',
+                          padding: '4px 0',
+                          display: 'flex',
+                          flexDirection: 'column'
+                        }}>
+                          <button
+                            onClick={() => {
+                              setSelectedRoomToEdit(room);
+                              setEditRoomName(room.name);
+                              setOpenEditRoomModal(true);
+                              setActiveRoomMenuId(null);
+                            }}
+                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-navy)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            <Edit2 size={12} /> Rename
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleDeleteRoom(room.id);
+                              setActiveRoomMenuId(null);
+                            }}
+                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left', cursor: 'pointer', color: 'var(--status-red)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            <Trash2 size={12} /> Delete
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
                 </div>
 
-                {!collapsedRooms[room.id] && (
-                  <>
-                    {/* Clean, Modern White Seats Grid / Visual Map */}
-                {isFloorVisualization ? (
-                  <div style={{
-                    position: 'relative',
-                    width: '100%',
-                    height: '450px',
-                    backgroundColor: '#f8fafc',
-                    border: activeRoomEditingId === room.id ? '2px dashed var(--primary)' : '1px solid var(--border-color)',
-                    borderRadius: '0.75rem',
-                    backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
-                    backgroundSize: '20px 20px',
-                    overflow: 'visible',
-                    transition: 'all 0.2s ease',
-                  }}>
-                    {activeRoomEditingId === room.id && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '12px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                        color: '#ffffff',
-                        padding: '0.4rem 0.8rem',
-                        borderRadius: '0.375rem',
-                        fontSize: '0.75rem',
-                        fontWeight: 500,
-                        zIndex: 10,
-                        pointerEvents: 'none',
-                        boxShadow: 'var(--shadow-md)',
-                      }}>
-                        💡 Drag seats to arrange. They snap to grid lines.
+                {/* ACCORDION BODY (Visible when expanded) */}
+                {isExpanded && (
+                  <div className="room-accordion-body">
+                    
+                    {/* BREADCRUMB */}
+                    <div className="breadcrumb-container">
+                      <span className="breadcrumb-item">{branches?.find((b: any) => b.id === selectedBranch)?.name}</span>
+                      <ChevronRight size={10} />
+                      <span className="breadcrumb-item">{currentFloor?.name}</span>
+                      <ChevronRight size={10} />
+                      <span style={{ color: 'var(--text-navy)', fontWeight: 600 }}>{room.name}</span>
+                    </div>
+
+                    {/* FILTER AND SORT BAR */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '16px', borderBottom: '1px solid rgba(15, 23, 42, 0.04)', paddingBottom: '12px' }}>
+                      {/* Status selectors */}
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {['ALL', 'AVAILABLE', 'OCCUPIED', 'BLOCKED'].map((status) => {
+                          const activeFilter = statusFilters[room.id] || 'ALL';
+                          const isSelected = activeFilter === status;
+                          return (
+                            <button
+                              key={status}
+                              onClick={() => setStatusFilters(prev => ({ ...prev, [room.id]: status }))}
+                              style={{
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '16px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                background: isSelected ? 'var(--accent-blue)' : 'transparent',
+                                color: isSelected ? '#ffffff' : 'var(--text-slate)',
+                                cursor: 'pointer',
+                                transition: 'all 150ms ease'
+                              }}
+                            >
+                              {status === 'ALL' ? 'All Seats' : status === 'BLOCKED' ? 'Maintenance' : status.charAt(0) + status.slice(1).toLowerCase()}
+                            </button>
+                          );
+                        })}
                       </div>
+
+                      {/* Sort Dropdown */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-slate)' }}>Sort By:</span>
+                        <select
+                          value={sortOptions[room.id] || 'NUMBER'}
+                          onChange={(e) => setSortOptions(prev => ({ ...prev, [room.id]: e.target.value }))}
+                          style={{
+                            border: '1px solid rgba(15, 23, 42, 0.05)',
+                            borderRadius: '12px',
+                            padding: '4px 8px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: 'var(--text-navy)',
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="NUMBER">Seat Number</option>
+                          <option value="NAME">Occupant Name</option>
+                          <option value="RECENT">Recently Assigned</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* SEAT GRID / MAP SECTION */}
+                    {isFloorVisualization ? (
+                      // Absolute layout Canvas
+                      <div style={{
+                        position: 'relative',
+                        width: '100%',
+                        height: '450px',
+                        backgroundColor: '#f8fafc',
+                        border: activeRoomEditingId === room.id ? '2px dashed var(--accent-blue)' : '1px solid var(--border-card)',
+                        borderRadius: '16px',
+                        backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
+                        backgroundSize: '20px 20px',
+                        overflow: 'visible',
+                        transition: 'all 0.2s ease',
+                      }}>
+                        {activeRoomEditingId === room.id ? (
+                          <div style={{ position: 'absolute', top: '12px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#ffffff', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500, zIndex: 10, pointerEvents: 'none' }}>
+                            💡 Drag seats to arrange snapped to grid.
+                          </div>
+                        ) : (
+                          activeRoomEditingId === null && (
+                            <button
+                              onClick={() => {
+                                setActiveRoomEditingId(room.id);
+                                const initialLayout: Record<string, { x: number; y: number }> = {};
+                                room.seats?.forEach((seat: any, idx: number) => {
+                                  initialLayout[seat.id] = getSeatPosition(seat, idx);
+                                });
+                                setTempLayout(initialLayout);
+                              }}
+                              style={{ position: 'absolute', top: '12px', right: '12px', padding: '6px 12px', borderRadius: '12px', border: '1px solid var(--border-card)', background: '#ffffff', fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-blue)', cursor: 'pointer', zIndex: 10 }}
+                            >
+                              Arrange Seats
+                            </button>
+                          )
+                        )}
+                        
+                        {activeRoomEditingId === room.id && (
+                          <div style={{ position: 'absolute', bottom: '12px', right: '12px', display: 'flex', gap: '8px', zIndex: 10 }}>
+                            <Button variant="outline" size="sm" onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); }}>Cancel</Button>
+                            <Button variant="primary" size="sm" style={{ backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }} onClick={() => handleSaveLayout(room)} disabled={isUpdatingLayout}>Save Layout</Button>
+                          </div>
+                        )}
+
+                        {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
+                          const position = getSeatPosition(seat, idx);
+                          const isEditingThisRoom = activeRoomEditingId === room.id;
+                          const matchesFilter = statusFilters[room.id] === 'ALL' || !statusFilters[room.id] || seat.status === statusFilters[room.id];
+                          if (!matchesFilter) return null;
+
+                          return (
+                            <div
+                              key={seat.id}
+                              onPointerDown={(e) => { if (isEditingThisRoom) handlePointerDown(e, seat.id); }}
+                              onClick={() => { if (!isEditingThisRoom) handleSeatClick(seat); }}
+                              style={{
+                                position: 'absolute',
+                                left: `${position.x}%`,
+                                top: `${position.y}%`,
+                                touchAction: 'none',
+                                cursor: isEditingThisRoom ? 'move' : 'pointer',
+                                zIndex: isEditingThisRoom ? 5 : 2,
+                                transition: isEditingThisRoom ? 'none' : 'all 0.15s ease'
+                              }}
+                            >
+                              {renderSeatCard(seat)}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      // Grid View resembling study hall layout
+                      renderStudyHallGrid(room)
                     )}
-                    {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
-                      const position = getSeatPosition(seat, idx);
-                      const style = getSeatStyle(seat.status);
-                      const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
-                      const isOccupied = seat.status === 'OCCUPIED';
-                      const isEditingThisRoom = activeRoomEditingId === room.id;
-                      
-                      let isExpiringSoon = false;
-                      let daysLeft = 0;
-                      let isCritical = false;
-                      if (isOccupied && activeAllocation?.endDate) {
-                        const end = new Date(activeAllocation.endDate);
-                        const today = new Date();
-                        end.setHours(0, 0, 0, 0);
-                        today.setHours(0, 0, 0, 0);
-                        const diffTime = end.getTime() - today.getTime();
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                        if (diffDays >= 0 && diffDays <= 7) {
-                          isExpiringSoon = true;
-                          daysLeft = diffDays;
-                          isCritical = diffDays <= 3;
-                        }
-                      }
 
-                      const formattedEnd = activeAllocation?.endDate 
-                        ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
-                        : 'N/A';
-
-                      const query = (roomSearches[room.id] || '').trim().toLowerCase();
-                      const matchesSearch = !query || 
-                        seat.number.toLowerCase().includes(query) ||
-                        (isOccupied && (
-                          activeAllocation?.studentProfile?.user?.name?.toLowerCase().includes(query) ||
-                          activeAllocation?.studentProfile?.user?.email?.toLowerCase().includes(query) ||
-                          activeAllocation?.studentProfile?.user?.mobile?.includes(query)
-                        ));
-
-                      return (
-                        <div
-                          key={seat.id}
-                          className="seat-container-hover"
-                          onPointerDown={(e) => {
-                            if (isEditingThisRoom) {
-                              handlePointerDown(e, seat.id);
-                            }
-                          }}
-                          onClick={() => {
-                            if (!isEditingThisRoom) {
-                              handleSeatClick(seat);
-                            }
-                          }}
-                          style={{
-                            position: 'absolute',
-                            left: `${position.x}%`,
-                            top: `${position.y}%`,
-                            width: '64px',
-                            height: '64px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#ffffff',
-                            border: isEditingThisRoom ? `2px dashed ${style.accent}` : `1px solid var(--border-color)`,
-                            borderTop: `4px solid ${style.accent}`,
-                            borderRadius: '0.5rem',
-                            cursor: isEditingThisRoom ? 'move' : 'pointer',
-                            boxShadow: query && matchesSearch 
-                              ? '0 0 0 3px rgba(37, 99, 235, 0.45), var(--shadow-md)' 
-                              : isEditingThisRoom ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-                            transition: isEditingThisRoom ? 'none' : 'all 0.15s ease',
-                            touchAction: 'none',
-                            userSelect: 'none',
-                            zIndex: isEditingThisRoom ? 5 : 2,
-                            opacity: query && !matchesSearch ? 0.3 : 1,
-                            transform: query && matchesSearch ? 'scale(1.05)' : 'none',
-                          }}
-                          onMouseOver={(e) => {
-                            if (!isEditingThisRoom && !query) {
-                              e.currentTarget.style.transform = 'translateY(-2px)';
-                              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                            }
-                          }}
-                          onMouseOut={(e) => {
-                            if (!isEditingThisRoom && !query) {
-                              e.currentTarget.style.transform = 'translateY(0)';
-                              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                            }
-                          }}
-                        >
-                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: isOccupied && activeAllocation ? '0.1rem' : '0' }}>
-                            {seat.number}
-                          </span>
-                          {isOccupied && activeAllocation && (
-                            <span style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '58px', textAlign: 'center' }}>
-                              {activeAllocation.studentProfile?.user?.name?.split(' ')[0] || 'N/A'}
-                            </span>
-                          )}
-                          {isExpiringSoon && (
-                            <span className={`expiring-badge ${isCritical ? 'critical' : 'warning'}`}>
-                              {daysLeft}d
-                            </span>
-                          )}
-                          <div className="custom-tooltip">
-                            {isOccupied && activeAllocation ? (
-                              <>
-                                <strong>{activeAllocation.studentProfile?.user?.name}</strong>
-                                <span>Ends: {formattedEnd}</span>
-                              </>
-                            ) : seat.status === 'BLOCKED' ? (
-                              <strong>Maintenance</strong>
-                            ) : (
-                              <strong>Available</strong>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any) => {
-                      const style = getSeatStyle(seat.status);
-                      const isOccupied = seat.status === 'OCCUPIED';
-                      const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
-
-                      let isExpiringSoon = false;
-                      let daysLeft = 0;
-                      let isCritical = false;
-                      if (isOccupied && activeAllocation?.endDate) {
-                        const end = new Date(activeAllocation.endDate);
-                        const today = new Date();
-                        end.setHours(0, 0, 0, 0);
-                        today.setHours(0, 0, 0, 0);
-                        const diffTime = end.getTime() - today.getTime();
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                        if (diffDays >= 0 && diffDays <= 7) {
-                          isExpiringSoon = true;
-                          daysLeft = diffDays;
-                          isCritical = diffDays <= 3;
-                        }
-                      }
-
-                      const formattedEnd = activeAllocation?.endDate 
-                        ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
-                        : 'N/A';
-
-                      const query = (roomSearches[room.id] || '').trim().toLowerCase();
-                      const matchesSearch = !query || 
-                        seat.number.toLowerCase().includes(query) ||
-                        (isOccupied && (
-                          activeAllocation?.studentProfile?.user?.name?.toLowerCase().includes(query) ||
-                          activeAllocation?.studentProfile?.user?.email?.toLowerCase().includes(query) ||
-                          activeAllocation?.studentProfile?.user?.mobile?.includes(query)
-                        ));
-
-                      return (
-                        <div
-                          key={seat.id}
-                          className="seat-container-hover"
-                          onClick={() => handleSeatClick(seat)}
-                          style={{
-                            width: '72px',
-                            height: '72px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#ffffff',
-                            border: `1px solid var(--border-color)`,
-                            borderTop: `4px solid ${style.accent}`,
-                            borderRadius: '0.5rem',
-                            cursor: 'pointer',
-                            boxShadow: query && matchesSearch ? '0 0 0 3px rgba(37, 99, 235, 0.45), var(--shadow-md)' : 'var(--shadow-sm)',
-                            transition: 'all 0.15s ease',
-                            position: 'relative',
-                            opacity: query && !matchesSearch ? 0.3 : 1,
-                            transform: query && matchesSearch ? 'scale(1.05)' : 'none',
-                          }}
-                          onMouseOver={(e) => {
-                            if (!isExpiringSoon && !query) {
-                              e.currentTarget.style.transform = 'translateY(-2px)';
-                              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                            }
-                          }}
-                          onMouseOut={(e) => {
-                            if (!isExpiringSoon && !query) {
-                              e.currentTarget.style.transform = 'translateY(0)';
-                              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                            }
-                          }}
-                        >
-                          <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: isOccupied && activeAllocation ? '0.15rem' : '0' }}>
-                            {seat.number}
-                          </span>
-                          {isOccupied && activeAllocation && (
-                            <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '64px', textAlign: 'center' }}>
-                              {activeAllocation.studentProfile?.user?.name?.split(' ')[0] || 'N/A'}
-                            </span>
-                          )}
-                          {isExpiringSoon && (
-                            <span className={`expiring-badge ${isCritical ? 'critical' : 'warning'}`}>
-                              {daysLeft}d
-                            </span>
-                          )}
-                          <div className="custom-tooltip">
-                            {isOccupied && activeAllocation ? (
-                              <>
-                                <strong>{activeAllocation.studentProfile?.user?.name}</strong>
-                                <span>Ends: {formattedEnd}</span>
-                              </>
-                            ) : seat.status === 'BLOCKED' ? (
-                              <strong>Maintenance</strong>
-                            ) : (
-                              <strong>Available</strong>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
                 )}
-                  </>
-                )}
-              </Card>
+              </div>
             );
           })}
-          </div>
         </div>
       )}
 
-      {/* Allocation Modal */}
-      <Modal
-        isOpen={openAllocate}
-        onClose={() => setOpenAllocate(false)}
-        title={`Allocate Seat ${selectedSeat?.number}`}
-        maxWidth="md"
-      >
-        <form onSubmit={handleAllocate}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            
-            {/* Search Student Input */}
-            {(!studentsData?.students || studentsData.students.length === 0) ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.5rem', border: '1px dashed var(--border-color)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-surface-hover)' }}>
-                <p className="text-muted" style={{ margin: 0 }}>No unallocated students available.</p>
-                <Button variant="outline" size="sm" onClick={() => navigate('/students')} type="button">
-                  <Plus size={16} style={{ marginRight: '0.25rem' }} /> Add Student
-                </Button>
+      {/* 4. RIGHT SLIDING DRAWER PANEL */}
+      <div 
+        className={`drawer-backdrop ${isDrawerOpen ? 'open' : ''}`}
+        onClick={() => setIsDrawerOpen(false)}
+      />
+      <div className={`right-drawer-panel ${isDrawerOpen ? 'open' : ''}`}>
+        
+        {/* Drawer Header */}
+        <div className="drawer-header">
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Seat {selectedSeat?.number}
+              {selectedSeat && (
+                <span className={`status-pill ${selectedSeat.status.toLowerCase()}`}>
+                  {selectedSeat.status === 'BLOCKED' ? 'Maintenance' : selectedSeat.status.charAt(0) + selectedSeat.status.slice(1).toLowerCase()}
+                </span>
+              )}
+            </h3>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Branch: {branches?.find((b: any) => b.id === selectedBranch)?.name} • Floor: {currentFloor?.name}</span>
+          </div>
+          <button 
+            onClick={() => setIsDrawerOpen(false)}
+            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-slate)', padding: '4px' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Drawer Body content depends on Status */}
+        <div className="drawer-body">
+          {selectedSeat?.status === 'AVAILABLE' && (
+            <form onSubmit={handleAllocate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
+                <Sparkles size={16} />
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Assign Student Seat</h4>
               </div>
-            ) : (
+
+              {/* Student autocomplete search */}
               <div style={{ position: 'relative' }}>
-                <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
-                  Search Student
-                </label>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  backgroundColor: '#f1f5f9',
-                  borderRadius: '0.5rem',
-                  padding: '0.25rem 0.75rem',
-                  border: isSearchFocused ? '1px solid var(--primary)' : '1px solid transparent',
-                  boxShadow: isSearchFocused ? '0 0 0 3px var(--primary-light)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}>
-                  <Search size={18} style={{ color: '#94a3b8', marginRight: '0.5rem' }} />
+                <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Search Student</label>
+                <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: '12px', padding: '4px 12px', border: isSearchFocused ? '1px solid var(--accent-blue)' : '1px solid transparent', transition: 'all 150ms ease' }}>
+                  <Search size={16} style={{ color: '#94a3b8', marginRight: '6px' }} />
                   <input
                     type="text"
-                    placeholder="Name or Registration ID"
+                    placeholder="Name, email, phone..."
                     value={studentSearchQuery}
                     onChange={(e) => {
                       setStudentSearchQuery(e.target.value);
                       setShowStudentDropdown(true);
                       if (studentProfileId) setStudentProfileId('');
                     }}
-                    onFocus={() => {
-                      setShowStudentDropdown(true);
-                      setIsSearchFocused(true);
-                    }}
-                    onBlur={() => {
-                      setIsSearchFocused(false);
-                      setTimeout(() => setShowStudentDropdown(false), 200);
-                    }}
-                    style={{
-                      border: 'none',
-                      background: 'transparent',
-                      outline: 'none',
-                      width: '100%',
-                      padding: '0.5rem 0',
-                      fontSize: '0.875rem',
-                      color: '#0f172a',
-                    }}
+                    onFocus={() => { setShowStudentDropdown(true); setIsSearchFocused(true); }}
+                    onBlur={() => { setIsSearchFocused(false); setTimeout(() => setShowStudentDropdown(false), 250); }}
+                    style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', padding: '6px 0', fontSize: '0.85rem', color: 'var(--text-navy)' }}
                   />
                 </div>
 
-                {/* Dropdown list of students */}
                 {showStudentDropdown && displayedStudents.length > 0 && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    backgroundColor: '#ffffff',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '0.5rem',
-                    boxShadow: 'var(--shadow-lg)',
-                    zIndex: 1000,
-                    marginTop: '0.25rem',
-                    maxHeight: '200px',
-                    overflowY: 'auto',
-                  }}>
-                    {displayedStudents.map((student: any) => (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '12px', boxShadow: 'var(--shadow-hover)', zIndex: 1000, marginTop: '4px', maxHeight: '180px', overflowY: 'auto' }}>
+                    {displayedStudents.map((st: any) => (
                       <div
-                        key={student.id}
+                        key={st.id}
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          setStudentProfileId(student.id);
-                          setStudentSearchQuery(student.user?.name || '');
+                          setStudentProfileId(st.id);
+                          setStudentSearchQuery(st.user?.name || '');
                           setShowStudentDropdown(false);
                         }}
-                        style={{
-                          padding: '0.75rem 1rem',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          borderBottom: '1px solid #f1f5f9',
-                          transition: 'background-color 0.15s ease',
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', borderBottom: '1px solid #f1f5f9' }}
                       >
-                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
-                          {student.user?.name}
-                        </span>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                          {student.user?.email || 'No Email'} • {student.user?.mobile || 'No Mobile'}
-                        </span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{st.user?.name}</span>
+                        <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{st.user?.email || 'No email'} • {st.user?.mobile || 'No mobile'}</span>
                       </div>
                     ))}
                   </div>
                 )}
-                {showStudentDropdown && studentSearchQuery.trim() !== '' && displayedStudents.length === 0 && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    backgroundColor: '#ffffff',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '0.5rem',
-                    boxShadow: 'var(--shadow-lg)',
-                    zIndex: 1000,
-                    marginTop: '0.25rem',
-                    padding: '1rem',
-                    textAlign: 'center',
-                    color: '#64748b',
-                    fontSize: '0.875rem',
-                  }}>
-                    No students found
-                  </div>
-                )}
               </div>
-            )}
 
-            {/* Shift & Duration Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              
-              {/* Shift Selection */}
+              {/* Shift select */}
               <div>
-                <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
-                  Shift
-                </label>
-                {(!shifts || shifts.length === 0) ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', border: '1px dashed var(--border-color)', borderRadius: '0.5rem', backgroundColor: '#f8fafc' }}>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>No shifts configured.</span>
-                    <Button variant="outline" size="sm" onClick={() => navigate('/settings')} type="button" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}>
-                      + Add Shift
-                    </Button>
-                  </div>
-                ) : (
+                <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Shift Schedule</label>
+                {shifts && (
                   <Select
                     value={shiftId}
                     onChange={(val) => setShiftId(val)}
-                    placeholder="Select shift"
-                    options={shifts.map((shift: any) => ({
-                      value: shift.id,
-                      label: `${shift.name} (${shift.startTime} - ${shift.endTime})`,
+                    placeholder="Select schedule shift"
+                    options={shifts.map((s: any) => ({
+                      value: s.id,
+                      label: `${s.name} (${s.startTime} - ${s.endTime})`,
                     }))}
                   />
                 )}
               </div>
 
-              {/* Duration Selector */}
+              {/* Duration mode */}
               <div>
-                <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
-                  Duration
-                </label>
-                <div style={{
-                  display: 'flex',
-                  gap: '0.5rem',
-                  height: '38px',
-                }}>
-                  {/* Months Dropdown */}
+                <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Duration</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <Select
                     value={typeof durationMode === 'number' ? durationMode : ''}
-                    onChange={(val) => setDurationMode(val)}
-                    placeholder="Select months"
-                    style={{
-                      flex: 2,
-                    }}
+                    onChange={(val) => setDurationMode(Number(val))}
+                    placeholder="Months"
+                    style={{ flex: 1 }}
                     options={[
                       { value: 1, label: '1 Month' },
                       { value: 2, label: '2 Months' },
                       { value: 3, label: '3 Months' },
-                      { value: 4, label: '4 Months' },
-                      { value: 5, label: '5 Months' },
-                      { value: 6, label: '6 Months' },
+                      { value: 6, label: '6 Months' }
                     ]}
                   />
-
-                  {/* Flex Button */}
                   <button
                     type="button"
                     onClick={() => setDurationMode('flex')}
                     style={{
-                      flex: 1,
-                      border: durationMode === 'flex' ? '2px solid #2f2fd1' : '1px solid #cbd5e1',
-                      borderRadius: '0.5rem',
-                      background: durationMode === 'flex' ? '#2f2fd1' : '#ffffff',
-                      color: durationMode === 'flex' ? '#ffffff' : '#0f172a',
+                      padding: '8px 16px',
+                      borderRadius: '12px',
+                      border: durationMode === 'flex' ? '2px solid var(--accent-blue)' : '1px solid rgba(15, 23, 42, 0.05)',
+                      backgroundColor: durationMode === 'flex' ? 'var(--accent-blue)' : '#ffffff',
+                      color: durationMode === 'flex' ? '#ffffff' : 'var(--text-navy)',
+                      fontSize: '0.8rem',
                       fontWeight: 600,
-                      fontSize: '0.875rem',
                       cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      height: '38px',
+                      transition: 'all 150ms ease'
                     }}
                   >
-                    Flex
+                    Flex Dates
                   </button>
                 </div>
               </div>
-            </div>
 
-            {/* Start Date & End Date Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              
-              {/* Start Date Input */}
-              <div>
-                <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
-                  Start Date
-                </label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <input
-                    type="date"
-                    required
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="custom-input"
-                    style={{
-                      borderRadius: '0.5rem',
-                      fontSize: '0.875rem',
-                      padding: '0.625rem 0.75rem',
-                      borderColor: '#cbd5e1',
-                      color: '#0f172a',
-                      width: '100%',
-                    }}
-                  />
+              {/* Dates Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Start Date</label>
+                  <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>End Date</label>
+                  <input type="date" required disabled={durationMode !== 'flex'} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: durationMode !== 'flex' ? '#f1f5f9' : '#ffffff', cursor: durationMode !== 'flex' ? 'not-allowed' : 'text' }} />
                 </div>
               </div>
 
-              {/* End Date Input */}
-              <div>
-                <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
-                  End Date
+              {/* Generate Fee Invoice checkbox toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0' }}>
+                <input
+                  type="checkbox"
+                  id="generate-invoice-drawer"
+                  checked={shouldGenerateInvoice}
+                  onChange={(e) => setShouldGenerateInvoice(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <label htmlFor="generate-invoice-drawer" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)', cursor: 'pointer' }}>
+                  Generate invoice & fee receipt
                 </label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <input
-                    type="date"
-                    required
-                    disabled={durationMode !== 'flex'}
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="custom-input"
-                    style={{
-                      borderRadius: '0.5rem',
-                      fontSize: '0.875rem',
-                      padding: '0.625rem 0.75rem',
-                      borderColor: '#cbd5e1',
-                      color: '#0f172a',
-                      width: '100%',
-                      backgroundColor: durationMode !== 'flex' ? '#f1f5f9' : '#ffffff',
-                      cursor: durationMode !== 'flex' ? 'not-allowed' : 'text',
-                    }}
-                  />
-                </div>
               </div>
-            </div>
 
-            {/* Billing & Subscription Details section */}
-            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '0.5rem 0' }} />
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input
-                type="checkbox"
-                id="generate-invoice-checkbox"
-                checked={shouldGenerateInvoice}
-                onChange={(e) => setShouldGenerateInvoice(e.target.checked)}
-                style={{
-                  width: '18px',
-                  height: '18px',
-                  borderRadius: '0.25rem',
-                  border: '1px solid #cbd5e1',
-                  cursor: 'pointer',
-                }}
-              />
-              <label
-                htmlFor="generate-invoice-checkbox"
-                style={{
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  color: '#0f172a',
-                  cursor: 'pointer',
-                }}
-              >
-                Generate Fee Invoice for this booking
-              </label>
-            </div>
-
-            {shouldGenerateInvoice && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  {/* Select Plan */}
+              {/* Invoicing details fields */}
+              {shouldGenerateInvoice && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px dashed rgba(15, 23, 42, 0.05)' }}>
                   <div>
-                    <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
-                      Link Subscription Plan
-                    </label>
+                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Link Plan</label>
                     <Select
                       value={selectedPlanId}
                       onChange={(val) => {
                         setSelectedPlanId(val);
-                        const plan = plans?.find((p: any) => p.id === val);
-                        if (plan) {
-                          setInvoiceAmount(plan.price.toString());
-                        }
+                        const p = plans?.find((plan: any) => plan.id === val);
+                        if (p) setInvoiceAmount(p.price.toString());
                       }}
                       placeholder="Select plan (Optional)"
                       options={[
@@ -1767,658 +1702,438 @@ export default function Seats() {
                         ...(plans?.map((p: any) => ({
                           value: p.id,
                           label: `${p.name} (₹${p.price})`,
-                        })) || []),
+                        })) || [])
                       ]}
                     />
                   </div>
 
-                  {/* Payment Channel */}
-                  <div>
-                    <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
-                      Payment Channel
-                    </label>
-                    <Select
-                      value={paymentMethod}
-                      onChange={(val: any) => setPaymentMethod(val)}
-                      placeholder="Select channel"
-                      options={[
-                        { value: 'CASH', label: 'Cash Deposit' },
-                        { value: 'UPI', label: 'UPI Transfer' },
-                        { value: 'RAZORPAY', label: 'Razorpay Portal (Online)' },
-                      ]}
-                    />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Amount (₹)</label>
+                      <input type="number" required={shouldGenerateInvoice} placeholder="e.g. 1500" value={invoiceAmount} onChange={(e) => setInvoiceAmount(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', width: '100%', outline: 'none' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Method</label>
+                      <Select
+                        value={paymentMethod}
+                        onChange={(val: any) => setPaymentMethod(val)}
+                        placeholder="Select channel"
+                        options={[
+                          { value: 'CASH', label: 'Cash' },
+                          { value: 'UPI', label: 'UPI' },
+                          { value: 'RAZORPAY', label: 'Online' }
+                        ]}
+                      />
+                    </div>
                   </div>
                 </div>
+              )}
 
-                {/* Amount field */}
-                <div>
-                  <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
-                    Billing Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    required={shouldGenerateInvoice}
-                    placeholder="e.g. 1500"
-                    value={invoiceAmount}
-                    onChange={(e) => setInvoiceAmount(e.target.value)}
-                    className="custom-input"
-                    style={{
-                      borderRadius: '0.5rem',
-                      fontSize: '0.875rem',
-                      padding: '0.625rem 0.75rem',
-                      borderColor: '#cbd5e1',
-                      color: '#0f172a',
-                      width: '100%',
-                    }}
-                  />
-                </div>
+              {/* Submit / Cancel actions */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <Button type="submit" variant="primary" style={{ flex: 1, backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }} disabled={!studentProfileId || !shiftId || !startDate || !endDate || (shouldGenerateInvoice && !invoiceAmount)} isLoading={isAllocating || isCreatingPayment}>
+                  Assign Student
+                </Button>
               </div>
-            )}
-          </div>
 
-          {/* Dialog Footer */}
-          <div className="modal-form-footer" style={{
-            margin: '2rem -1.5rem -1.5rem -1.5rem',
-            padding: '1.25rem 1.5rem',
-            backgroundColor: '#f8f9fd',
-            borderTop: '1px solid var(--border-color)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}>
-            {/* Delete / Maintenance actions on the left side, styled very subtly */}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={() => handleDeleteSeat(selectedSeat?.id)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--danger)',
-                  cursor: 'pointer',
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '0.25rem',
-                  transition: 'background-color 0.15s ease',
-                }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                Delete Seat
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await updateSeatStatus({ id: selectedSeat?.id, status: 'BLOCKED' }).unwrap();
-                    setOpenAllocate(false);
-                    setSelectedSeat(null);
-                  } catch (err: any) {
-                    showAlert(err.data?.message || 'Failed to mark seat as maintenance');
-                  }
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '0.25rem',
-                  transition: 'background-color 0.15s ease',
-                }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(71, 85, 105, 0.08)'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                Mark Maintenance
-              </button>
-            </div>
+              {/* Delete Seat / Mark Maintenance actions */}
+              <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-card)', paddingTop: '12px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteSeat(selectedSeat?.id)}
+                  style={{ flex: 1, background: 'none', border: '1px solid rgba(239, 68, 68, 0.15)', color: 'var(--status-red)', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 600, padding: '8px', cursor: 'pointer' }}
+                >
+                  Delete Seat
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await updateSeatStatus({ id: selectedSeat?.id, status: 'BLOCKED' }).unwrap();
+                      setIsDrawerOpen(false);
+                      showAlert('Seat marked under maintenance!', { title: 'Success' });
+                    } catch (err: any) {
+                      showAlert('Failed to block seat');
+                    }
+                  }}
+                  style={{ flex: 1, background: 'none', border: '1px solid rgba(245, 158, 11, 0.15)', color: 'var(--status-amber)', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 600, padding: '8px', cursor: 'pointer' }}
+                >
+                  Block Seat
+                </button>
+              </div>
+            </form>
+          )}
 
-            {/* Cancel & Assign Seat actions on the right side */}
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={() => setOpenAllocate(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#475569',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  padding: '0.5rem 1.125rem',
-                  borderRadius: '0.375rem',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseOver={(e) => e.currentTarget.style.color = '#0f172a'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#475569'}
-              >
-                Cancel
-              </button>
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={isAllocating || isCreatingPayment}
-                disabled={!studentProfileId || !shiftId || !startDate || !endDate || (shouldGenerateInvoice && !invoiceAmount)}
-                style={{
-                  backgroundColor: '#2f2fd1',
-                  borderColor: '#2f2fd1',
-                  borderRadius: '0.5rem',
-                  padding: '0.625rem 1.25rem',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  boxShadow: '0 4px 6px -1px rgba(47, 47, 209, 0.2), 0 2px 4px -2px rgba(47, 47, 209, 0.2)',
-                }}
-              >
-                Assign Seat
-              </Button>
-            </div>
-          </div>
-        </form>
-      </Modal>
+          {selectedSeat?.status === 'OCCUPIED' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {(() => {
+                const activeAllocation = selectedSeat.allocations?.find((a: any) => a.isActive);
+                if (!activeAllocation) return <p style={{ fontSize: '0.8rem', color: 'var(--text-slate)' }}>Error: Active allocation details not found.</p>;
+                
+                const nameInit = activeAllocation.studentProfile?.user?.name?.charAt(0).toUpperCase() || 'S';
+                const latestPayment = activeAllocation.studentProfile?.payments && activeAllocation.studentProfile.payments.length > 0
+                  ? [...activeAllocation.studentProfile.payments].sort((a: any, b: any) => new Date(b.paidAt || b.createdAt).getTime() - new Date(a.paidAt || a.createdAt).getTime())[0]
+                  : null;
 
-      {/* Maintenance Modal */}
-      <Modal
-        isOpen={openMaintenance}
-        onClose={() => setOpenMaintenance(false)}
-        title={`Seat ${selectedSeat?.number} - Maintenance`}
-        maxWidth="sm"
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <p className="text-muted" style={{ margin: 0 }}>This seat is currently under maintenance. You can mark it as available or delete it.</p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <Button type="button" variant="text" style={{ color: 'var(--danger)' }} onClick={() => handleDeleteSeat(selectedSeat?.id)}>
-              Delete Seat
-            </Button>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <Button type="button" variant="text" onClick={() => setOpenMaintenance(false)}>Close</Button>
-              <Button 
-                type="button" 
-                variant="primary" 
-                onClick={async () => {
-                  try {
-                    await updateSeatStatus({ id: selectedSeat?.id, status: 'AVAILABLE' }).unwrap();
-                    setOpenMaintenance(false);
-                    setSelectedSeat(null);
-                  } catch (err: any) {
-                    showAlert(err.data?.message || 'Failed to mark seat as available');
-                  }
-                }}
-              >
-                Mark Available
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Manage Seat / Transfer / Renewal Modal */}
-      <Modal
-        isOpen={openTransfer}
-        onClose={() => setOpenTransfer(false)}
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <UserCog size={20} style={{ color: 'var(--primary)' }} />
-            <span>Manage Seat {selectedSeat?.number}</span>
-          </div>
-        }
-        maxWidth="lg"
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '2rem', minHeight: '400px' }}>
-          
-          {/* Left Side: Occupant Details & Last Payment */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', borderRight: '1px solid var(--border-color)', paddingRight: '2rem' }}>
-            {(() => {
-              const activeAllocation = selectedSeat?.allocations?.find((a: any) => a.isActive);
-              if (!activeAllocation) return null;
-              const currentRoomName = currentFloor?.rooms?.find((r: any) => r.seats?.some((s: any) => s.id === selectedSeat?.id))?.name || 'N/A';
-              const nameInitials = activeAllocation.studentProfile?.user?.name?.charAt(0).toUpperCase() || 'U';
-
-              const latestPayment = activeAllocation.studentProfile?.payments && activeAllocation.studentProfile.payments.length > 0
-                ? [...activeAllocation.studentProfile.payments].sort((a: any, b: any) => new Date(b.paidAt || b.createdAt).getTime() - new Date(a.paidAt || a.createdAt).getTime())[0]
-                : null;
-
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
-                  {/* Occupant Card */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1.25rem',
-                    padding: '1.25rem',
-                    backgroundColor: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '0.75rem',
-                  }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '56px',
-                      height: '56px',
-                      borderRadius: '50%',
-                      backgroundColor: '#3b82f6',
-                      color: '#ffffff',
-                      fontWeight: 700,
-                      fontSize: '1.25rem',
-                      border: '2px solid #ffffff',
-                    }}>
-                      {nameInitials}
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '1rem', fontWeight: 700, color: '#1e3a8a' }}>
-                          {activeAllocation.studentProfile?.user?.name}
-                        </span>
-                        <span style={{
-                          fontSize: '0.625rem',
-                          fontWeight: 700,
-                          color: '#ffffff',
-                          backgroundColor: '#10b981',
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '0.25rem',
-                          textTransform: 'uppercase',
-                        }}>
-                          Active
-                        </span>
-                      </div>
-                      <span style={{ fontSize: '0.75rem', color: '#1e40af' }}>
-                        Reg: STD-{activeAllocation.studentProfile?.id?.slice(0, 4).toUpperCase() || 'XXXX'}
-                      </span>
-                      <span style={{ fontSize: '0.75rem', color: '#1e40af', opacity: 0.8 }}>
-                        {activeAllocation.shift?.name || 'N/A'} Shift • {currentRoomName}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Allocation Dates */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', margin: 0 }}>
-                        Current Subscription
-                      </h4>
-                      {!isEditingDates && (
+                return (
+                  <>
+                    {/* Drawer sub-tab selectors */}
+                    <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+                      {['DETAILS', 'TRANSFER', 'RENEW'].map((tab: any) => (
                         <button
-                          type="button"
-                          onClick={() => setIsEditingDates(true)}
+                          key={tab}
+                          onClick={() => setDrawerActiveSection(tab)}
                           style={{
-                            background: 'none',
+                            flex: 1,
                             border: 'none',
-                            color: 'var(--primary)',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            padding: '0.25rem 0.5rem',
-                            borderRadius: '0.25rem',
-                            backgroundColor: 'var(--primary-light)',
-                          }}
-                        >
-                          Edit Dates
-                        </button>
-                      )}
-                    </div>
-
-                    {isEditingDates ? (
-                      <form onSubmit={handleUpdateAllocationDates} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'var(--bg-main)', padding: '1rem', borderRadius: '0.5rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                              Start Date
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              value={editStartDate}
-                              onChange={(e) => setEditStartDate(e.target.value)}
-                              className="custom-input"
-                              style={{ padding: '0.375rem', fontSize: '0.8rem' }}
-                            />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                              End Date
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              value={editEndDate}
-                              onChange={(e) => setEditEndDate(e.target.value)}
-                              className="custom-input"
-                              style={{ padding: '0.375rem', fontSize: '0.8rem' }}
-                            />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsEditingDates(false);
-                              setEditStartDate(activeAllocation.startDate ? activeAllocation.startDate.split('T')[0] : '');
-                              setEditEndDate(activeAllocation.endDate ? activeAllocation.endDate.split('T')[0] : '');
-                            }}
-                            style={{
-                              backgroundColor: '#ffffff',
-                              border: '1px solid #cbd5e1',
-                              color: '#475569',
-                              cursor: 'pointer',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              padding: '0.35rem 0.75rem',
-                              borderRadius: '0.375rem',
-                            }}
-                          >
-                            Cancel
-                          </button>
-                          <Button
-                            type="submit"
-                            variant="primary"
-                            isLoading={isUpdatingAllocation}
-                            style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', borderRadius: '0.375rem' }}
-                          >
-                            Save
-                          </Button>
-                        </div>
-                      </form>
-                    ) : (
-                      <>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', backgroundColor: 'var(--bg-main)', padding: '1rem', borderRadius: '0.5rem' }}>
-                          <div>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>START DATE</span>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{activeAllocation.startDate ? new Date(activeAllocation.startDate).toLocaleDateString() : 'N/A'}</span>
-                          </div>
-                          <div>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>END DATE</span>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{activeAllocation.endDate ? new Date(activeAllocation.endDate).toLocaleDateString() : 'N/A'}</span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', color: '#2563eb', fontSize: '0.8rem', fontWeight: 600, marginTop: '0.5rem', paddingLeft: '0.25rem' }}>
-                          <Clock size={14} style={{ marginRight: '0.25rem' }} />
-                          <span>{getDaysRemainingText(activeAllocation.endDate)}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Last Payment Details */}
-                  <div>
-                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                      Last Payment Details
-                    </h4>
-                    {latestPayment ? (
-                      <div style={{ backgroundColor: 'var(--bg-main)', padding: '1rem', borderRadius: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Amount Paid:</span>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>₹{latestPayment.amount}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Method:</span>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--primary)' }}>{latestPayment.method}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Date:</span>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                            {latestPayment.paidAt ? new Date(latestPayment.paidAt).toLocaleDateString() : new Date(latestPayment.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Status:</span>
-                          <span style={{
+                            padding: '6px',
+                            borderRadius: '8px',
                             fontSize: '0.75rem',
                             fontWeight: 700,
-                            color: latestPayment.status === 'PAID' ? 'var(--success)' : 'var(--warning)',
-                          }}>{latestPayment.status}</span>
+                            background: drawerActiveSection === tab ? '#ffffff' : 'transparent',
+                            color: drawerActiveSection === tab ? 'var(--text-navy)' : 'var(--text-slate)',
+                            cursor: 'pointer',
+                            transition: 'all 150ms ease'
+                          }}
+                        >
+                          {tab === 'DETAILS' ? 'Details' : tab === 'TRANSFER' ? 'Transfer' : 'Renew'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {drawerActiveSection === 'DETAILS' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* Student Details Card */}
+                        <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#eff6ff', borderColor: 'rgba(37, 99, 235, 0.15)' }}>
+                          <div style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', color: 'white', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {nameInit}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeAllocation.studentProfile?.user?.name}</span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)' }}>ID: STD-{activeAllocation.studentProfile?.id?.slice(0, 4).toUpperCase()}</span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)' }}>{activeAllocation.studentProfile?.user?.mobile}</span>
+                          </div>
+                        </div>
+
+                        {/* Subscription Info and dates */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase' }}>Subscription Dates</h5>
+                            <button
+                              onClick={() => {
+                                setIsEditingDates(!isEditingDates);
+                                setEditStartDate(activeAllocation.startDate ? activeAllocation.startDate.split('T')[0] : '');
+                                setEditEndDate(activeAllocation.endDate ? activeAllocation.endDate.split('T')[0] : '');
+                              }}
+                              style={{ border: 'none', background: 'none', color: 'var(--accent-blue)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Edit2 size={12} /> {isEditingDates ? 'Cancel' : 'Edit'}
+                            </button>
+                          </div>
+
+                          {isEditingDates ? (
+                            <form onSubmit={handleUpdateAllocationDates} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#F8FAFC', padding: '10px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                <div>
+                                  <label style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '2px' }}>Start</label>
+                                  <input type="date" required value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} style={{ padding: '6px', fontSize: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%' }} />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '2px' }}>End</label>
+                                  <input type="date" required value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} style={{ padding: '6px', fontSize: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%' }} />
+                                </div>
+                              </div>
+                              <Button type="submit" size="sm" variant="primary" style={{ backgroundColor: 'var(--accent-blue)', width: '100%', marginTop: '4px' }} isLoading={isUpdatingAllocation}>Save Dates</Button>
+                            </form>
+                          ) : (
+                            <div style={{ background: '#ffffff', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Start date:</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>{new Date(activeAllocation.startDate).toLocaleDateString()}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>End date:</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>{new Date(activeAllocation.endDate).toLocaleDateString()}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-blue)', fontSize: '0.75rem', fontWeight: 700, marginTop: '4px', borderTop: '1px solid #f1f5f9', paddingTop: '6px' }}>
+                                <Clock size={12} />
+                                <span>{getDaysRemainingText(activeAllocation.endDate)}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Last payment status details */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase' }}>Last Invoice Payment</h5>
+                          {latestPayment ? (
+                            <div style={{ background: '#ffffff', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Amount:</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-navy)' }}>₹{latestPayment.amount}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Method:</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>{latestPayment.method}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Status:</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: latestPayment.status === 'PAID' ? 'var(--status-emerald)' : 'var(--status-red)' }}>{latestPayment.status}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-slate)' }}>No payment record found</p>
+                          )}
+                        </div>
+
+                        {/* Vacate Seat Button */}
+                        <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '16px', marginTop: '16px' }}>
+                          <button
+                            type="button"
+                            onClick={handleVacateSeat}
+                            disabled={isVacating}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              padding: '10px',
+                              borderRadius: '12px',
+                              border: '1px solid rgba(239, 68, 68, 0.2)',
+                              backgroundColor: '#fef2f2',
+                              color: 'var(--status-red)',
+                              fontSize: '0.85rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'background 150ms ease'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
+                          >
+                            <LogOut size={14} style={{ transform: 'rotate(180deg)' }} /> Vacate Seat Pod
+                          </button>
                         </div>
                       </div>
-                    ) : (
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No payment history found.</p>
                     )}
-                  </div>
 
-                  {/* Vacate Button at the bottom */}
-                  <div style={{ marginTop: 'auto', paddingTop: '1rem' }}>
-                    <Button
-                      type="button"
-                      onClick={handleVacateSeat}
-                      isLoading={isVacating}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.5rem',
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #fca5a5',
-                        color: 'var(--danger)',
-                        fontSize: '0.875rem',
-                        fontWeight: 600,
-                        padding: '0.625rem',
-                        borderRadius: '0.5rem',
-                        boxShadow: 'none',
-                      }}
-                    >
-                      <LogOut size={16} style={{ transform: 'rotate(180deg)' }} />
-                      Vacate Seat
-                    </Button>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+                    {drawerActiveSection === 'TRANSFER' && (
+                      <form onSubmit={handleTransfer} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
+                          <UserCog size={16} />
+                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Transfer Student Location</h4>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-slate)' }}>Transfer this student allocation to another empty seat within the branch.</p>
 
-          {/* Right Side: Quick Action Forms (Transfer & Renew) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-            
-            {/* Action 1: Transfer Seat */}
-            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                Transfer Seat
-              </h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                Move student to an available seat in any floor or room.
-              </p>
+                        <div>
+                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Floor</label>
+                          <Select
+                            value={targetFloorId}
+                            onChange={(val) => {
+                              setTargetFloorId(val);
+                              const fl = seatMap?.find((f: any) => f.id === val);
+                              if (fl?.rooms && fl.rooms.length > 0) {
+                                setTargetRoomId(fl.rooms[0].id);
+                              } else {
+                                setTargetRoomId('');
+                                setTargetSeatId('');
+                              }
+                            }}
+                            placeholder="Select Target Floor"
+                            options={seatMap?.map((f: any) => ({ value: f.id, label: f.name })) || []}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Room</label>
+                          <Select
+                            value={targetRoomId}
+                            onChange={(val) => { setTargetRoomId(val); setTargetSeatId(''); }}
+                            placeholder="Select Target Room"
+                            disabled={!targetFloorId}
+                            options={seatMap?.find((f: any) => f.id === targetFloorId)?.rooms?.map((r: any) => ({ value: r.id, label: r.name })) || []}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Available Seat</label>
+                          <Select
+                            value={targetSeatId}
+                            onChange={(val) => setTargetSeatId(val)}
+                            placeholder="Select Target Seat"
+                            disabled={!targetRoomId}
+                            options={seatMap
+                              ?.find((f: any) => f.id === targetFloorId)
+                              ?.rooms?.find((r: any) => r.id === targetRoomId)
+                              ?.seats?.filter((s: any) => s.status === 'AVAILABLE')
+                              ?.map((s: any) => ({ value: s.id, label: `Seat ${s.number}` })) || []}
+                          />
+                        </div>
+
+                        <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--accent-blue)', width: '100%', marginTop: '6px' }} disabled={!targetSeatId || isTransferring} isLoading={isTransferring}>
+                          Confirm Transfer
+                        </Button>
+                      </form>
+                    )}
+
+                    {drawerActiveSection === 'RENEW' && (
+                      <form onSubmit={handleRenewSeat} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--status-emerald)', marginBottom: '4px' }}>
+                          <History size={16} />
+                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Renew Seat Subscription</h4>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-slate)' }}>Extend the student's booking subscription and auto-generate the renewal payment invoice.</p>
+
+                        <div>
+                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Subscription Plan</label>
+                          <Select
+                            value={renewPlanId}
+                            onChange={(val) => setRenewPlanId(val)}
+                            placeholder="Select Plan"
+                            options={plans?.map((p: any) => ({ value: p.id, label: `${p.name} (₹${p.price})` })) || []}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Shift Schedule</label>
+                          <Select
+                            value={renewShiftId}
+                            onChange={(val) => setRenewShiftId(val)}
+                            placeholder="Select Shift"
+                            options={shifts?.map((s: any) => ({ value: s.id, label: s.name })) || []}
+                          />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <div>
+                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Start Date</label>
+                            <input type="date" required value={renewStartDate} onChange={(e) => setRenewStartDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>End Date</label>
+                            <input type="date" required value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%' }} />
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <div>
+                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Amount (₹)</label>
+                            <input type="number" required value={renewAmount} onChange={(e) => setRenewAmount(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Method</label>
+                            <Select
+                              value={renewPaymentMethod}
+                              onChange={(val: any) => setRenewPaymentMethod(val)}
+                              placeholder="Payment Method"
+                              options={[
+                                { value: 'UPI', label: 'UPI' },
+                                { value: 'CASH', label: 'Cash' },
+                                { value: 'RAZORPAY', label: 'Online' }
+                              ]}
+                            />
+                          </div>
+                        </div>
+
+                        <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)', width: '100%', marginTop: '6px' }} disabled={!renewPlanId || !renewShiftId || !renewStartDate || !renewEndDate || isRenewing} isLoading={isRenewing}>
+                          Confirm Renewal
+                        </Button>
+                      </form>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+          {selectedSeat?.status === 'BLOCKED' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--status-amber)' }}>
+                <Wrench size={18} />
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Seat Under Maintenance</h4>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-slate)' }}>This seat is marked blocked or under maintenance and cannot be assigned to students.</p>
               
-              <form onSubmit={handleTransfer} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                      Floor
-                    </label>
-                    <Select
-                      value={targetFloorId}
-                      onChange={(val) => {
-                        setTargetFloorId(val);
-                        const floorObj = seatMap?.find((f: any) => f.id === val);
-                        if (floorObj?.rooms && floorObj.rooms.length > 0) {
-                          setTargetRoomId(floorObj.rooms[0].id);
-                        } else {
-                          setTargetRoomId('');
-                          setTargetSeatId('');
-                        }
-                      }}
-                      placeholder="Floor"
-                      options={seatMap?.map((floor: any) => ({
-                        value: floor.id,
-                        label: floor.name,
-                      })) || []}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                      Room
-                    </label>
-                    <Select
-                      value={targetRoomId}
-                      onChange={(val) => {
-                        setTargetRoomId(val);
-                        setTargetSeatId('');
-                      }}
-                      placeholder="Room"
-                      disabled={!targetFloorId}
-                      options={seatMap?.find((f: any) => f.id === targetFloorId)?.rooms?.map((room: any) => ({
-                        value: room.id,
-                        label: room.name,
-                      })) || []}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                      Seat
-                    </label>
-                    <Select
-                      value={targetSeatId}
-                      onChange={(val) => setTargetSeatId(val)}
-                      placeholder="Seat"
-                      disabled={!targetRoomId}
-                      options={seatMap
-                        ?.find((f: any) => f.id === targetFloorId)
-                        ?.rooms?.find((r: any) => r.id === targetRoomId)
-                        ?.seats?.filter((s: any) => s.status === 'AVAILABLE')
-                        ?.map((s: any) => ({
-                          value: s.id,
-                          label: s.number,
-                        })) || []}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={!targetSeatId || isTransferring}
-                    isLoading={isTransferring}
-                    style={{ fontSize: '0.8rem', padding: '0.45rem 1.25rem', borderRadius: '0.375rem', backgroundColor: '#2f2fd1', borderColor: '#2f2fd1' }}
-                  >
-                    Confirm Transfer
-                  </Button>
-                </div>
-              </form>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  style={{ backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }}
+                  onClick={async () => {
+                    try {
+                      await updateSeatStatus({ id: selectedSeat?.id, status: 'AVAILABLE' }).unwrap();
+                      setIsDrawerOpen(false);
+                      setSelectedSeat(null);
+                      showAlert('Seat is now available!', { title: 'Success' });
+                    } catch (err: any) {
+                      showAlert('Failed to update status');
+                    }
+                  }}
+                >
+                  Mark Available
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  style={{ color: 'var(--status-red)', borderColor: 'rgba(239,68,68,0.3)' }}
+                  onClick={() => handleDeleteSeat(selectedSeat?.id)}
+                >
+                  Delete Seat Permanently
+                </Button>
+              </div>
             </div>
+          )}
+        </div>
 
-            {/* Action 2: Renew Subscription */}
-            <div>
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                Renew Subscription & Seat
-              </h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                Renew seat allocation and log the payment.
-              </p>
+        {/* Drawer footer close action button */}
+        <div className="drawer-footer">
+          <Button variant="outline" size="sm" onClick={() => setIsDrawerOpen(false)} style={{ borderRadius: '10px' }}>
+            Close Panel
+          </Button>
+        </div>
+      </div>
 
-              <form onSubmit={handleRenewSeat} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.75rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                      Plan
-                    </label>
-                    <Select
-                      value={renewPlanId}
-                      onChange={(val) => setRenewPlanId(val)}
-                      placeholder="Select Plan"
-                      options={plans?.map((p: any) => ({
-                        value: p.id,
-                        label: `${p.name} (₹${p.price})`,
-                      })) || []}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                      Shift
-                    </label>
-                    <Select
-                      value={renewShiftId}
-                      onChange={(val) => setRenewShiftId(val)}
-                      placeholder="Shift"
-                      options={shifts?.map((s: any) => ({
-                        value: s.id,
-                        label: s.name,
-                      })) || []}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={renewStartDate}
-                      onChange={(e) => setRenewStartDate(e.target.value)}
-                      className="custom-input"
-                      style={{ padding: '0.5rem', fontSize: '0.85rem' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={renewEndDate}
-                      onChange={(e) => setRenewEndDate(e.target.value)}
-                      className="custom-input"
-                      style={{ padding: '0.5rem', fontSize: '0.85rem' }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.75rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                      Payment Method
-                    </label>
-                    <Select
-                      value={renewPaymentMethod}
-                      onChange={(val: any) => setRenewPaymentMethod(val)}
-                      placeholder="Payment Method"
-                      options={[
-                        { value: 'UPI', label: 'UPI' },
-                        { value: 'CASH', label: 'Cash' },
-                        { value: 'RAZORPAY', label: 'Razorpay' }
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                      Amount (₹)
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={renewAmount}
-                      onChange={(e) => setRenewAmount(e.target.value)}
-                      className="custom-input"
-                      style={{ padding: '0.5rem', fontSize: '0.85rem' }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={!renewPlanId || !renewShiftId || !renewStartDate || !renewEndDate || isRenewing}
-                    isLoading={isRenewing}
-                    style={{ fontSize: '0.8rem', padding: '0.45rem 1.25rem', borderRadius: '0.375rem', backgroundColor: 'var(--success)', borderColor: 'var(--success)' }}
-                  >
-                    Confirm Renewal
-                  </Button>
-                </div>
-              </form>
-            </div>
-
+      {/* 5. FLOATING QUICK ACTION BUTTON (FAB Menu bottom right) */}
+      {selectedBranch && (
+        <div className={`fab-container ${isFabOpen ? 'expanded' : ''}`}>
+          <div className="fab-menu-options">
+            <button 
+              className="fab-option-btn" 
+              onClick={() => { setCreatorType('floor'); setParentId(''); setOpenCreator(true); setIsFabOpen(false); }}
+            >
+              <Layers size={12} color="var(--accent-blue)" /> New Floor
+            </button>
+            <button 
+              className="fab-option-btn"
+              disabled={!currentFloor}
+              onClick={() => { if (currentFloor) { setCreatorType('room'); setParentId(currentFloor.id); setOpenCreator(true); setIsFabOpen(false); } }}
+            >
+              <DoorOpen size={12} color="var(--accent-blue)" /> New Room
+            </button>
+            <button 
+              className="fab-option-btn"
+              disabled={!currentFloor?.rooms?.length}
+              onClick={() => { if (currentFloor?.rooms?.length) { setCreatorType('seat'); setParentId(currentFloor.rooms[0].id); setOpenCreator(true); setIsFabOpen(false); } }}
+            >
+              <Plus size={12} color="var(--accent-blue)" /> New Seat
+            </button>
+            <button 
+              className="fab-option-btn"
+              onClick={() => { alert("Premium Feature: Import seat layout configurations via Excel/CSV."); setIsFabOpen(false); }}
+            >
+              <FileText size={12} color="var(--accent-blue)" /> Import Seats
+            </button>
           </div>
 
+          <button 
+            className="fab-main-btn" 
+            onClick={() => setIsFabOpen(!isFabOpen)}
+            style={{ transform: isFabOpen ? 'rotate(135deg)' : 'rotate(0)' }}
+          >
+            <Plus size={24} />
+          </button>
         </div>
-      </Modal>
+      )}
 
       {/* Layout Creator Modal */}
       <Modal
@@ -2427,13 +2142,13 @@ export default function Seats() {
         title={creatorType === 'room' ? 'Add Room' : creatorType === 'seat' ? 'Add Seat' : 'Add Floor'}
         maxWidth="sm"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {creatorType === 'room' && (
             (!seatMap || seatMap.length === 0) ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.5rem', border: '1px dashed var(--border-color)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-surface-hover)' }}>
-                <p className="text-muted" style={{ margin: 0 }}>No floors exist yet.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', border: '1px dashed var(--border-card)', borderRadius: '12px', backgroundColor: '#F8FAFC' }}>
+                <p className="text-muted" style={{ margin: 0, fontSize: '0.8rem' }}>No floors exist yet. Create a floor first.</p>
                 <Button variant="outline" size="sm" onClick={() => setCreatorType('floor')}>
-                  <Plus size={16} style={{ marginRight: '0.25rem' }} /> Add Floor
+                  + Add Floor
                 </Button>
               </div>
             ) : (
@@ -2454,10 +2169,10 @@ export default function Seats() {
 
           {creatorType === 'seat' && (
             (!currentFloor?.rooms || currentFloor.rooms.length === 0) ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', padding: '1.5rem', border: '1px dashed var(--border-color)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-surface-hover)' }}>
-                <p className="text-muted" style={{ margin: 0 }}>No rooms exist on this floor.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px', border: '1px dashed var(--border-card)', borderRadius: '12px', backgroundColor: '#F8FAFC' }}>
+                <p className="text-muted" style={{ margin: 0, fontSize: '0.8rem' }}>No rooms exist on this floor. Create a room first.</p>
                 <Button variant="outline" size="sm" onClick={() => setCreatorType('room')}>
-                  <Plus size={16} style={{ marginRight: '0.25rem' }} /> Add Room
+                  + Add Room
                 </Button>
               </div>
             ) : (
@@ -2489,7 +2204,7 @@ export default function Seats() {
             onChange={(e) => setCreatorName(e.target.value)}
           />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-card)' }}>
           <Button
             variant="text"
             onClick={() => {
@@ -2502,7 +2217,7 @@ export default function Seats() {
           >
             {creatorType === 'room' ? 'Proceed to Seat' : 'Cancel'}
           </Button>
-          <Button onClick={handleCreate} variant="primary">
+          <Button onClick={handleCreate} variant="primary" style={{ backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }}>
             Create
           </Button>
         </div>
@@ -2515,7 +2230,7 @@ export default function Seats() {
         title={`Edit Floor - ${selectedFloorToEdit?.name}`}
         maxWidth="sm"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <Input
             label="Floor Name"
             value={editFloorName}
@@ -2525,15 +2240,14 @@ export default function Seats() {
           />
 
           <div style={{
-            margin: '2rem -1.5rem -1.5rem -1.5rem',
-            padding: '1.25rem 1.5rem',
-            backgroundColor: '#f8f9fd',
-            borderTop: '1px solid var(--border-color)',
+            margin: '20px -24px -24px -24px',
+            padding: '16px 24px',
+            backgroundColor: '#F8FAFC',
+            borderTop: '1px solid var(--border-card)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}>
-            {/* Delete Floor Action on the left */}
             <button
               type="button"
               onClick={async () => {
@@ -2542,41 +2256,16 @@ export default function Seats() {
                   await handleDeleteFloor(selectedFloorToEdit.id);
                 }
               }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--danger)',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                padding: '0.5rem 1rem',
-                borderRadius: '0.375rem',
-                transition: 'background-color 0.15s ease',
-              }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              style={{ background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, padding: '6px 12px', borderRadius: '10px' }}
             >
               Delete Floor
             </button>
 
-            {/* Cancel & Save Actions on the right */}
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <button
                 type="button"
                 onClick={() => setOpenEditFloorModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#475569',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  padding: '0.5rem 1.125rem',
-                  borderRadius: '0.375rem',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseOver={(e) => e.currentTarget.style.color = '#0f172a'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#475569'}
+                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, padding: '6px 12px' }}
               >
                 Cancel
               </button>
@@ -2588,19 +2277,13 @@ export default function Seats() {
                     try {
                       await updateFloor({ id: selectedFloorToEdit.id, name: editFloorName.trim() }).unwrap();
                       setOpenEditFloorModal(false);
+                      showAlert('Floor name updated!', { title: 'Success' });
                     } catch (err: any) {
-                      showAlert(err.data?.message || 'Failed to update floor name');
+                      showAlert('Failed to update floor');
                     }
                   }
                 }}
-                style={{
-                  backgroundColor: '#2f2fd1',
-                  borderColor: '#2f2fd1',
-                  borderRadius: '0.5rem',
-                  padding: '0.625rem 1.25rem',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                }}
+                style={{ backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }}
               >
                 Save Changes
               </Button>
@@ -2616,11 +2299,9 @@ export default function Seats() {
         title="Edit Room Name"
         maxWidth="sm"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'block' }}>
-              Room Name
-            </label>
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Room Name</label>
             <Input
               type="text"
               value={editRoomName}
@@ -2630,23 +2311,11 @@ export default function Seats() {
             />
           </div>
           
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
             <button
               type="button"
               onClick={() => setOpenEditRoomModal(false)}
-              style={{
-                backgroundColor: 'transparent',
-                border: 'none',
-                color: '#475569',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                padding: '0.5rem 1.125rem',
-                borderRadius: '0.375rem',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseOver={(e) => e.currentTarget.style.color = '#0f172a'}
-              onMouseOut={(e) => e.currentTarget.style.color = '#475569'}
+              style={{ backgroundColor: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, padding: '6px 12px' }}
             >
               Cancel
             </button>
@@ -2660,25 +2329,17 @@ export default function Seats() {
                     setOpenEditRoomModal(false);
                     showAlert('Room name updated successfully!', { title: 'Success' });
                   } catch (err: any) {
-                    showAlert(err.data?.message || 'Failed to update room name');
+                    showAlert('Failed to update room name');
                   }
                 }
               }}
-              style={{
-                backgroundColor: 'var(--primary)',
-                borderColor: 'var(--primary)',
-                borderRadius: '0.5rem',
-                padding: '0.625rem 1.25rem',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-              }}
+              style={{ backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }}
             >
               Save Changes
             </Button>
           </div>
         </div>
       </Modal>
-
 
       {/* Invoice Receipt Modal */}
       <Modal
@@ -2688,19 +2349,12 @@ export default function Seats() {
         maxWidth="md"
       >
         {createdInvoiceData && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <style dangerouslySetInnerHTML={{ __html: `
               @media print {
-                /* Hide everything in the document */
-                body * {
-                  visibility: hidden !important;
-                }
-                /* Show only the print area and its children */
+                body * { visibility: hidden !important; }
                 #studyflow-invoice-print-area,
-                #studyflow-invoice-print-area * {
-                  visibility: visible !important;
-                }
-                /* Fix print area positioning and remove borders */
+                #studyflow-invoice-print-area * { visibility: visible !important; }
                 #studyflow-invoice-print-area {
                   position: absolute !important;
                   left: 0 !important;
@@ -2715,24 +2369,22 @@ export default function Seats() {
               }
             `}} />
             
-            {/* Printable Area */}
             <div 
               id="studyflow-invoice-print-area"
               style={{
                 backgroundColor: '#ffffff',
-                border: '1px solid var(--border-color)',
-                borderRadius: '0.75rem',
-                padding: '2rem',
+                border: '1px solid var(--border-card)',
+                borderRadius: '12px',
+                padding: '24px',
                 color: '#1e293b',
               }}
             >
-              {/* Header: Company Details & Invoice Info */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #f1f5f9', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #f1f5f9', paddingBottom: '16px', marginBottom: '16px' }}>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.025em' }}>StudyFlow</h2>
-                  <span style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: 500 }}>Library & Study Space Management</span>
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-blue)', letterSpacing: '-0.025em' }}>StudyFlow</h2>
+                  <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>Library & Study Space Management</span>
                   {createdInvoiceData.branchName && (
-                    <div style={{ fontSize: '0.8125rem', color: '#64748b', marginTop: '0.25rem' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
                       <strong>Branch:</strong> {createdInvoiceData.branchName}
                     </div>
                   )}
@@ -2740,74 +2392,72 @@ export default function Seats() {
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ 
                     display: 'inline-block', 
-                    fontSize: '0.75rem', 
+                    fontSize: '0.7rem', 
                     fontWeight: 700, 
                     textTransform: 'uppercase', 
                     backgroundColor: createdInvoiceData.payment.status === 'PAID' ? '#dcfce7' : '#fee2e2',
                     color: createdInvoiceData.payment.status === 'PAID' ? '#15803d' : '#b91c1c',
-                    padding: '0.25rem 0.75rem',
-                    borderRadius: '1rem',
-                    marginBottom: '0.5rem'
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    marginBottom: '8px'
                   }}>
                     {createdInvoiceData.payment.status}
                   </span>
                   <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
                     INV-{createdInvoiceData.payment.id.substring(0, 8).toUpperCase()}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
                     Date: {new Date(createdInvoiceData.payment.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </div>
                 </div>
               </div>
 
-              {/* Bill To & Seat Information Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
                 <div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bill To</h4>
-                  <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#0f172a' }}>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bill To</h4>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
                     {createdInvoiceData.student?.user?.name || 'N/A'}
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.25rem' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px' }}>
                     <strong>Phone:</strong> {createdInvoiceData.student?.user?.mobile || 'N/A'}
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.125rem' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '2px' }}>
                     <strong>Email:</strong> {createdInvoiceData.student?.user?.email || 'No Email'}
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.125rem' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '2px' }}>
                     <strong>Reg ID:</strong> STD-{createdInvoiceData.student?.id?.slice(0, 4).toUpperCase() || 'XXXX'}
                   </div>
                 </div>
                 <div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Booking Details</h4>
-                  <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#0f172a' }}>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Booking Details</h4>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>
                     Seat {createdInvoiceData.seatNumber || 'N/A'}
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.25rem' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px' }}>
                     <strong>Shift:</strong> {createdInvoiceData.shift?.name || 'N/A'} ({createdInvoiceData.shift?.startTime || ''} - {createdInvoiceData.shift?.endTime || ''})
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: '#475569', marginTop: '0.125rem' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '2px' }}>
                     <strong>Duration:</strong> {new Date(createdInvoiceData.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - {new Date(createdInvoiceData.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </div>
                 </div>
               </div>
 
-              {/* Itemized Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '2rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '0.75rem 0', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Description</th>
-                    <th style={{ padding: '0.75rem 0', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', textAlign: 'right' }}>Amount</th>
+                    <th style={{ padding: '8px 0', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Description</th>
+                    <th style={{ padding: '8px 0', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', textAlign: 'right' }}>Amount</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '1rem 0', fontSize: '0.875rem' }}>
+                    <td style={{ padding: '12px 0', fontSize: '0.85rem' }}>
                       <div style={{ fontWeight: 600, color: '#0f172a' }}>Seat Booking Subscription Fee</div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
                         Seat {createdInvoiceData.seatNumber} | {createdInvoiceData.shift?.name} Shift ({createdInvoiceData.startDate} to {createdInvoiceData.endDate})
                       </div>
                     </td>
-                    <td style={{ padding: '1rem 0', fontSize: '0.875rem', fontWeight: 600, color: '#0f172a', textAlign: 'right' }}>
+                    <td style={{ padding: '12px 0', fontSize: '0.85rem', fontWeight: 600, color: '#0f172a', textAlign: 'right' }}>
                       ₹{(createdInvoiceData.originalAmount ?? createdInvoiceData.payment.amount).toFixed(2)}
                     </td>
                   </tr>
@@ -2816,32 +2466,31 @@ export default function Seats() {
                    createdInvoiceData.payableAmount !== undefined && 
                    createdInvoiceData.originalAmount !== createdInvoiceData.payableAmount && (
                     <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '0.75rem 0', fontSize: '0.875rem', color: '#475569' }}>
+                      <td style={{ padding: '8px 0', fontSize: '0.85rem', color: '#475569' }}>
                         Adjustment / Discount
                       </td>
-                      <td style={{ padding: '0.75rem 0', fontSize: '0.875rem', fontWeight: 600, color: createdInvoiceData.payableAmount < createdInvoiceData.originalAmount ? '#15803d' : '#b91c1c', textAlign: 'right' }}>
+                      <td style={{ padding: '8px 0', fontSize: '0.85rem', fontWeight: 600, color: createdInvoiceData.payableAmount < createdInvoiceData.originalAmount ? '#15803d' : '#b91c1c', textAlign: 'right' }}>
                         {createdInvoiceData.payableAmount < createdInvoiceData.originalAmount ? '-' : '+'}₹{Math.abs(createdInvoiceData.originalAmount - createdInvoiceData.payableAmount).toFixed(2)}
                       </td>
                     </tr>
                   )}
 
                   <tr>
-                    <td style={{ padding: '1rem 0 0 0', fontSize: '0.875rem', fontWeight: 700, color: '#0f172a' }}>Total Payable Amount</td>
-                    <td style={{ padding: '1rem 0 0 0', fontSize: '1.125rem', fontWeight: 800, color: 'var(--primary)', textAlign: 'right' }}>
+                    <td style={{ padding: '12px 0 0 0', fontSize: '0.85rem', fontWeight: 700, color: '#0f172a' }}>Total Payable Amount</td>
+                    <td style={{ padding: '12px 0 0 0', fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-blue)', textAlign: 'right' }}>
                       ₹{(createdInvoiceData.payableAmount ?? createdInvoiceData.payment.amount).toFixed(2)}
                     </td>
                   </tr>
                 </tbody>
               </table>
 
-              {/* Footer Terms */}
-              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
                     <strong>Payment Method:</strong> {createdInvoiceData.payment.method}
                   </div>
                   {createdInvoiceData.payment.transactionId && (
-                    <div style={{ fontSize: '0.6875rem', color: '#64748b', marginTop: '0.125rem' }}>
+                    <div style={{ fontSize: '0.675rem', color: '#64748b', marginTop: '2px' }}>
                       <strong>Txn ID:</strong> {createdInvoiceData.payment.transactionId}
                     </div>
                   )}
@@ -2852,12 +2501,11 @@ export default function Seats() {
               </div>
             </div>
 
-            {/* Actions Footer */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
               <Button
                 variant="outline"
                 onClick={() => setOpenInvoiceReceipt(false)}
-                style={{ borderRadius: '0.5rem', fontWeight: 600 }}
+                style={{ borderRadius: '12px' }}
               >
                 Close
               </Button>
@@ -2867,11 +2515,10 @@ export default function Seats() {
                   window.print();
                 }}
                 style={{
-                  backgroundColor: '#2f2fd1',
-                  borderColor: '#2f2fd1',
-                  borderRadius: '0.5rem',
-                  fontWeight: 600,
-                  boxShadow: '0 4px 6px -1px rgba(47, 47, 209, 0.2)',
+                  backgroundColor: 'var(--accent-blue)',
+                  borderColor: 'var(--accent-blue)',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)',
                 }}
               >
                 Print Invoice
@@ -2883,4 +2530,3 @@ export default function Seats() {
     </div>
   );
 }
-
