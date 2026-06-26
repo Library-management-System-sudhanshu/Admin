@@ -941,7 +941,7 @@ export default function Seats() {
           {/* Rooms Grid */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             {currentFloor?.rooms.map((room: any) => (
-              <Card key={room.id} elevation="sm" style={{ padding: '1.5rem', border: '1px solid var(--border-color)' }}>
+              <Card key={room.id} elevation="sm" style={{ padding: '1.5rem', border: '1px solid var(--border-color)', overflow: 'visible' }}>
                 
                 {/* Room Header & Actions */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
@@ -1036,7 +1036,7 @@ export default function Seats() {
                     borderRadius: '0.75rem',
                     backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
                     backgroundSize: '20px 20px',
-                    overflow: 'hidden',
+                    overflow: 'visible',
                     transition: 'all 0.2s ease',
                   }}>
                     {activeRoomEditingId === room.id && (
@@ -1085,14 +1085,10 @@ export default function Seats() {
                       const formattedEnd = activeAllocation?.endDate 
                         ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
                         : 'N/A';
-                      const tooltipText = isOccupied && activeAllocation
-                        ? `Occupant: ${activeAllocation.studentProfile?.user?.name || 'N/A'} (Ends: ${formattedEnd})`
-                        : seat.status === 'BLOCKED' ? `Seat ${seat.number} (Maintenance)` : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
-
                       return (
                         <div
                           key={seat.id}
-                          title={tooltipText}
+                          className="seat-container-hover"
                           onPointerDown={(e) => {
                             if (isEditingThisRoom) {
                               handlePointerDown(e, seat.id);
@@ -1150,6 +1146,18 @@ export default function Seats() {
                               {daysLeft}d
                             </span>
                           )}
+                          <div className="custom-tooltip">
+                            {isOccupied && activeAllocation ? (
+                              <>
+                                <strong>{activeAllocation.studentProfile?.user?.name}</strong>
+                                <span>Ends: {formattedEnd}</span>
+                              </>
+                            ) : seat.status === 'BLOCKED' ? (
+                              <strong>Maintenance</strong>
+                            ) : (
+                              <strong>Available</strong>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -1181,14 +1189,10 @@ export default function Seats() {
                       const formattedEnd = activeAllocation?.endDate 
                         ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
                         : 'N/A';
-                      const tooltipText = isOccupied && activeAllocation
-                        ? `Occupant: ${activeAllocation.studentProfile?.user?.name || 'N/A'} (Ends: ${formattedEnd})`
-                        : seat.status === 'BLOCKED' ? `Seat ${seat.number} (Maintenance)` : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
-
                       return (
                         <div
                           key={seat.id}
-                          title={tooltipText}
+                          className="seat-container-hover"
                           onClick={() => handleSeatClick(seat)}
                           style={{
                             width: '72px',
@@ -1232,6 +1236,18 @@ export default function Seats() {
                               {daysLeft}d
                             </span>
                           )}
+                          <div className="custom-tooltip">
+                            {isOccupied && activeAllocation ? (
+                              <>
+                                <strong>{activeAllocation.studentProfile?.user?.name}</strong>
+                                <span>Ends: {formattedEnd}</span>
+                              </>
+                            ) : seat.status === 'BLOCKED' ? (
+                              <strong>Maintenance</strong>
+                            ) : (
+                              <strong>Available</strong>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
