@@ -764,8 +764,8 @@ export default function Seats() {
       }
       setOpenCreator(false);
       setCreatorName('');
-    } catch (err) {
-      showAlert('Creation failed');
+    } catch (err: any) {
+      showAlert(err.data?.message || 'Creation failed');
     }
   };
 
@@ -892,7 +892,13 @@ export default function Seats() {
         key={seat.id}
         id={`seat-${seat.id}`}
         className={`seat-tile ${seatClass}`}
-        onClick={() => handleSeatClick(seat)}
+        onClick={(e) => {
+          if (activeRoomEditingId !== null) {
+            e.stopPropagation();
+            return;
+          }
+          handleSeatClick(seat);
+        }}
         style={{
           width: '78px',
           height: '78px',
