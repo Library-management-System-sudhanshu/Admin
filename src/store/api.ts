@@ -25,6 +25,7 @@ export const api = createApi({
     'Shifts',
     'Plans',
     'Notices',
+    'Settings',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -345,6 +346,18 @@ export const api = createApi({
       }),
       invalidatesTags: ['Notices'],
     }),
+    getSettings: builder.query({
+      query: (workspaceId) => `workspaces/${workspaceId}/settings`,
+      providesTags: ['Settings'],
+    }),
+    updateSettings: builder.mutation({
+      query: ({ workspaceId, data }) => ({
+        url: `workspaces/${workspaceId}/settings`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: ['Settings'],
+    }),
   }),
 });
 
@@ -395,5 +408,7 @@ export const {
   useGetNoticesQuery,
   useCreateNoticeMutation,
   useDeleteNoticeMutation,
+  useGetSettingsQuery,
+  useUpdateSettingsMutation,
 } = api;
 

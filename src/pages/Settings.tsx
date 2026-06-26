@@ -45,7 +45,14 @@ const formatTo24h = (hour: string, minute: string, period: string) => {
   return `${hhStr}:${mmStr}`;
 };
 import type { RootState } from '../store';
-import { useGetShiftsQuery, useCreateShiftMutation, useUpdateShiftMutation, useDeleteShiftMutation } from '../store/api';
+import {
+  useGetShiftsQuery,
+  useCreateShiftMutation,
+  useUpdateShiftMutation,
+  useDeleteShiftMutation,
+  useGetSettingsQuery,
+  useUpdateSettingsMutation
+} from '../store/api';
 
 export default function Settings() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -53,6 +60,34 @@ export default function Settings() {
   const [createShift] = useCreateShiftMutation();
   const [updateShift] = useUpdateShiftMutation();
   const [deleteShift] = useDeleteShiftMutation();
+
+  const { data: settings } = useGetSettingsQuery(user?.workspaceId, { skip: !user?.workspaceId });
+  const [updateSettings, { isLoading: isSavingSettings }] = useUpdateSettingsMutation();
+
+  const [upiId, setUpiId] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+
+  // Sync state once settings are loaded
+  React.useEffect(() => {
+    if (settings) {
+      setUpiId(settings.upiId || '');
+      setQrCodeUrl(settings.qrCodeUrl || '');
+    }
+  }, [settings]);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.workspaceId) return;
+    try {
+      await updateSettings({
+        workspaceId: user.workspaceId,
+        data: { upiId, qrCodeUrl },
+      }).unwrap();
+      alert('Payment settings updated successfully!');
+    } catch (err) {
+      alert('Failed to save payment settings');
+    }
+  };
 
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -170,6 +205,52 @@ export default function Settings() {
             )}
           </TableBody>
         </Table>
+      </Card>
+
+      {/* Payment Configuration Settings Card */}
+      <Card sx={{ p: 3, border: '1px solid #E2E8F0', boxShadow: 'none', mt: 4 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+          Payment & UPI Configuration
+        </Typography>
+        <form onSubmit={handleSaveSettings}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <TextField
+              label="UPI ID (for student plan renewals)"
+              fullWidth
+              placeholder="e.g. 8840839079@upi"
+              value={upiId}
+              onChange={(e) => setUpiId(e.target.value)}
+            />
+            <TextField
+              label="Custom QR Code Image URL (optional)"
+              fullWidth
+              placeholder="e.g. https://example.com/qr-code.png"
+              value={qrCodeUrl}
+              onChange={(e) => setQrCodeUrl(e.target.value)}
+              helperText="If blank, the system automatically generates a dynamic scan-and-pay QR code based on your UPI ID."
+            />
+            {upiId && (
+              <Box sx={{ mt: 1, p: 2, bgcolor: '#F8FAFC', borderRadius: 2, display: 'inline-flex', flexDirection: 'column', alignItems: 'center', alignSelf: 'flex-start', border: '1px dashed #E2E8F0' }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', mb: 1 }}>
+                  Preview UPI QR Code
+                </Typography>
+                <img
+                  src={qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=StudyFlow&am=1500&cu=INR`)}`}
+                  alt="UPI QR Code Preview"
+                  style={{ width: 150, height: 150, borderRadius: 8, objectFit: 'contain' }}
+                />
+              </Box>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={isSavingSettings}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              {isSavingSettings ? 'Saving...' : 'Save Payment Settings'}
+            </Button>
+          </Box>
+        </form>
       </Card>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
