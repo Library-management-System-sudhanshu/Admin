@@ -151,10 +151,10 @@ export const api = createApi({
       invalidatesTags: ['Seats'],
     }),
     updateSeatLayout: builder.mutation({
-      query: ({ roomId, layout }) => ({
+      query: ({ roomId, layout, canvasWidth, canvasHeight }) => ({
         url: 'seats/layout',
         method: 'PUT',
-        body: { roomId, layout },
+        body: { roomId, layout, canvasWidth, canvasHeight },
       }),
       invalidatesTags: ['Seats'],
     }),

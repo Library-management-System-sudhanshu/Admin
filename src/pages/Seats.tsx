@@ -109,6 +109,8 @@ export default function Seats() {
   // Sorting & Filtering states inside rooms
   const [statusFilters, setStatusFilters] = useState<Record<string, string>>({}); // roomId -> status filter
   const [sortOptions, setSortOptions] = useState<Record<string, string>>({});     // roomId -> sort mode
+  const [visualizerHeights, setVisualizerHeights] = useState<Record<string, number>>({}); // roomId -> height in px
+  const [visualizerWidths, setVisualizerWidths] = useState<Record<string, number>>({});   // roomId -> width in px
 
   // Creator form modals
   const [openCreator, setOpenCreator] = useState(false);
@@ -189,11 +191,8 @@ export default function Seats() {
   const [tempLayout, setTempLayout] = useState<Record<string, { x: number; y: number }>>({});
   const [activeRoomEditingId, setActiveRoomEditingId] = useState<string | null>(null);
 
-  // Default coordinate helpers
+  // Default coordinate helpers (returns percentages for viewing)
   const getSeatPosition = (seat: any, index: number) => {
-    if (tempLayout[seat.id]) {
-      return tempLayout[seat.id];
-    }
     if (seat.x !== null && seat.y !== null && seat.x !== undefined && seat.y !== undefined) {
       return { x: seat.x, y: seat.y };
     }
@@ -205,37 +204,117 @@ export default function Seats() {
     return { x, y };
   };
 
-  // Pointer drag visual layout coordinate snappings
+  // Convert layout coordinates to absolute pixels (for Arrange mode)
+  const getSeatPixelPosition = (seat: any, index: number, canvasWidth: number, canvasHeight: number) => {
+    if (tempLayout[seat.id]) {
+      return tempLayout[seat.id];
+    }
+    if (seat.x !== null && seat.y !== null && seat.x !== undefined && seat.y !== undefined) {
+      return {
+        x: (seat.x / 100) * canvasWidth,
+        y: (seat.y / 100) * canvasHeight
+      };
+    }
+    const cols = 10;
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    const xPct = col * 9 + 5;
+    const yPct = row * 12 + 5;
+    return {
+      x: (xPct / 100) * canvasWidth,
+      y: (yPct / 100) * canvasHeight
+    };
+  };
+
+  // Pointer drag visual layout coordinate snappings (supports auto-growing and auto-scrolling)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, seatId: string) => {
     if (activeRoomEditingId === null) return;
+    const roomId = activeRoomEditingId;
     e.preventDefault();
     const element = e.currentTarget;
     element.setPointerCapture(e.pointerId);
     
     const container = element.parentElement;
     if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const seatRect = element.getBoundingClientRect();
     
+    // We want the scroll container (which has overflow: auto)
+    const scrollContainer = container.parentElement;
+    
+    const seatRect = element.getBoundingClientRect();
     const offsetX = e.clientX - seatRect.left;
     const offsetY = e.clientY - seatRect.top;
     
+    // Lookup room defaults if visualizer state not initialized
+    let roomObj: any = null;
+    seatMap?.forEach((floor: any) => {
+      floor.rooms?.forEach((rm: any) => {
+        if (rm.id === roomId) {
+          roomObj = rm;
+        }
+      });
+    });
+    
     const handlePointerMove = (moveEvent: PointerEvent) => {
-      let newLeftPercent = ((moveEvent.clientX - containerRect.left - offsetX) / containerRect.width) * 100;
-      let newTopPercent = ((moveEvent.clientY - containerRect.top - offsetY) / containerRect.height) * 100;
+      const currentContainerRect = container.getBoundingClientRect();
+      let leftPx = moveEvent.clientX - currentContainerRect.left - offsetX;
+      let topPx = moveEvent.clientY - currentContainerRect.top - offsetY;
       
-      newLeftPercent = Math.max(0, Math.min(92, newLeftPercent));
-      newTopPercent = Math.max(0, Math.min(88, newTopPercent));
+      // Get current canvas size
+      const currentWidth = visualizerWidths[roomId] || roomObj?.canvasWidth || 1000;
+      const currentHeight = visualizerHeights[roomId] || roomObj?.canvasHeight || 450;
       
-      // Grid snapping to 2.5%
-      const snapVal = 2.5;
-      newLeftPercent = Math.round(newLeftPercent / snapVal) * snapVal;
-      newTopPercent = Math.round(newTopPercent / snapVal) * snapVal;
+      // Auto-expand canvas if dragging near/past bounds (80px is seat width/height)
+      let nextWidth = currentWidth;
+      let nextHeight = currentHeight;
+      
+      if (leftPx + 120 > currentWidth) {
+        nextWidth = leftPx + 200;
+      }
+      if (topPx + 120 > currentHeight) {
+        nextHeight = topPx + 200;
+      }
+      
+      if (nextWidth !== currentWidth) {
+        setVisualizerWidths(prev => ({ ...prev, [roomId]: nextWidth }));
+      }
+      if (nextHeight !== currentHeight) {
+        setVisualizerHeights(prev => ({ ...prev, [roomId]: nextHeight }));
+      }
+      
+      // Bound checking (minimum 0, maximum canvas bounds minus seat size)
+      leftPx = Math.max(0, Math.min(nextWidth - 80, leftPx));
+      topPx = Math.max(0, Math.min(nextHeight - 80, topPx));
+      
+      // Grid snapping in pixels (snap to 15px)
+      const snapPx = 15;
+      leftPx = Math.round(leftPx / snapPx) * snapPx;
+      topPx = Math.round(topPx / snapPx) * snapPx;
       
       setTempLayout(prev => ({
         ...prev,
-        [seatId]: { x: newLeftPercent, y: newTopPercent }
+        [seatId]: { x: leftPx, y: topPx }
       }));
+      
+      // Auto-scrolling the viewport
+      if (scrollContainer) {
+        const scrollRect = scrollContainer.getBoundingClientRect();
+        const rightDiff = moveEvent.clientX - scrollRect.right;
+        const leftDiff = moveEvent.clientX - scrollRect.left;
+        const bottomDiff = moveEvent.clientY - scrollRect.bottom;
+        const topDiff = moveEvent.clientY - scrollRect.top;
+        
+        if (rightDiff > -60) {
+          scrollContainer.scrollLeft += 15;
+        } else if (leftDiff < 60) {
+          scrollContainer.scrollLeft -= 15;
+        }
+        
+        if (bottomDiff > -60) {
+          scrollContainer.scrollTop += 15;
+        } else if (topDiff < 60) {
+          scrollContainer.scrollTop -= 15;
+        }
+      }
     };
     
     const handlePointerUp = (upEvent: PointerEvent) => {
@@ -249,16 +328,48 @@ export default function Seats() {
   };
 
   const handleSaveLayout = async (room: any) => {
-    const layoutPayload = room.seats.map((seat: any, idx: number) => {
-      const pos = getSeatPosition(seat, idx);
+    const rWidth = visualizerWidths[room.id] || room.canvasWidth || 1000;
+    const rHeight = visualizerHeights[room.id] || room.canvasHeight || 450;
+    
+    // Find the bounding box of the seats in pixels
+    let maxX = 0;
+    let maxY = 0;
+    
+    const seatPixels = room.seats.map((seat: any, idx: number) => {
+      const pos = getSeatPixelPosition(seat, idx, rWidth, rHeight);
+      if (pos.x > maxX) maxX = pos.x;
+      if (pos.y > maxY) maxY = pos.y;
       return { id: seat.id, x: pos.x, y: pos.y };
+    });
+    
+    // Calculate trimmed bounds
+    // Seat width is 80px, height is 80px. We want some margin (e.g. 120px)
+    const padding = 120;
+    const trimmedWidth = Math.max(800, maxX + padding);
+    const trimmedHeight = Math.max(450, maxY + padding);
+    
+    // Normalize coordinates to percentages of trimmed bounds
+    const layoutPayload = seatPixels.map((sp: any) => {
+      const xPct = Math.max(0, Math.min(95, (sp.x / trimmedWidth) * 100));
+      const yPct = Math.max(0, Math.min(95, (sp.y / trimmedHeight) * 100));
+      return { id: sp.id, x: xPct, y: yPct };
     });
 
     try {
-      await updateSeatLayout({ roomId: room.id, layout: layoutPayload }).unwrap();
-      showAlert('Seat positions saved successfully!', { title: 'Success' });
+      await updateSeatLayout({
+        roomId: room.id,
+        layout: layoutPayload,
+        canvasWidth: trimmedWidth,
+        canvasHeight: trimmedHeight
+      }).unwrap();
+      
+      showAlert('Seat positions and canvas bounds saved successfully!', { title: 'Success' });
       setActiveRoomEditingId(null);
       setTempLayout({});
+      
+      // Update local state to trimmed dimensions
+      setVisualizerWidths(prev => ({ ...prev, [room.id]: trimmedWidth }));
+      setVisualizerHeights(prev => ({ ...prev, [room.id]: trimmedHeight }));
     } catch (err: any) {
       showAlert(err.data?.message || 'Failed to save seat layout');
     }
@@ -1448,73 +1559,103 @@ export default function Seats() {
                     {/* SEAT GRID / MAP SECTION */}
                     {isFloorVisualization ? (
                       // Absolute layout Canvas
-                      <div style={{
-                        position: 'relative',
-                        width: '100%',
-                        height: '450px',
-                        backgroundColor: '#f8fafc',
-                        border: activeRoomEditingId === room.id ? '2px dashed var(--accent-blue)' : '1px solid var(--border-card)',
-                        borderRadius: '16px',
-                        backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
-                        backgroundSize: '20px 20px',
-                        overflow: 'visible',
-                        transition: 'all 0.2s ease',
-                      }}>
-                        {activeRoomEditingId === room.id ? (
-                          <div style={{ position: 'absolute', top: '12px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#ffffff', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500, zIndex: 10, pointerEvents: 'none' }}>
-                            💡 Drag seats to arrange snapped to grid.
-                          </div>
-                        ) : (
-                          activeRoomEditingId === null && (
-                            <button
-                              onClick={() => {
-                                setActiveRoomEditingId(room.id);
-                                const initialLayout: Record<string, { x: number; y: number }> = {};
-                                room.seats?.forEach((seat: any, idx: number) => {
-                                  initialLayout[seat.id] = getSeatPosition(seat, idx);
-                                });
-                                setTempLayout(initialLayout);
-                              }}
-                              style={{ position: 'absolute', top: '12px', right: '12px', padding: '6px 12px', borderRadius: '12px', border: '1px solid var(--border-card)', background: '#ffffff', fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-blue)', cursor: 'pointer', zIndex: 10 }}
-                            >
-                              Arrange Seats
-                            </button>
-                          )
-                        )}
+                      (() => {
+                        const roomWidth = visualizerWidths[room.id] || room.canvasWidth || 1000;
+                        const roomHeight = visualizerHeights[room.id] || room.canvasHeight || 450;
+                        const isEditingThisRoom = activeRoomEditingId === room.id;
                         
-                        {activeRoomEditingId === room.id && (
-                          <div style={{ position: 'absolute', bottom: '12px', right: '12px', display: 'flex', gap: '8px', zIndex: 10 }}>
-                            <Button variant="outline" size="sm" onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); }}>Cancel</Button>
-                            <Button variant="primary" size="sm" style={{ backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }} onClick={() => handleSaveLayout(room)} disabled={isUpdatingLayout}>Save Layout</Button>
-                          </div>
-                        )}
+                        return (
+                          <div style={{
+                            width: '100%',
+                            overflow: 'auto',
+                            borderRadius: '16px',
+                            border: isEditingThisRoom ? '2px dashed var(--accent-blue)' : '1px solid var(--border-card)',
+                            backgroundColor: '#f8fafc',
+                          }}>
+                            <div style={{
+                              position: 'relative',
+                              width: `${roomWidth}px`,
+                              height: `${roomHeight}px`,
+                              backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
+                              backgroundSize: '20px 20px',
+                              overflow: 'visible',
+                              transition: isEditingThisRoom ? 'none' : 'width 150ms ease, height 150ms ease',
+                            }}>
+                              {isEditingThisRoom && (
+                                <div style={{ position: 'absolute', top: '12px', left: '12px', backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#ffffff', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500, zIndex: 10, pointerEvents: 'none' }}>
+                                  💡 Drag seats to arrange. Scroll context active. Canvas grows automatically.
+                                </div>
+                              )}
 
-                        {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
-                          const position = getSeatPosition(seat, idx);
-                          const isEditingThisRoom = activeRoomEditingId === room.id;
-                          const matchesFilter = statusFilters[room.id] === 'ALL' || !statusFilters[room.id] || seat.status === statusFilters[room.id];
-                          if (!matchesFilter) return null;
+                              {/* Canvas Size Info & Arrange Toolbar */}
+                              <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10, background: 'rgba(255,255,255,0.95)', padding: '6px 12px', borderRadius: '12px', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-soft)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-slate)' }}>Canvas Size:</span>
+                                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-navy)' }}>{roomWidth} × {roomHeight} px</span>
+                                  {isEditingThisRoom && (
+                                    <span style={{ fontSize: '0.65rem', color: 'var(--accent-blue)', marginLeft: '4px', fontWeight: 500 }}>
+                                      (Auto-growing)
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {isEditingThisRoom ? (
+                                  <div style={{ display: 'flex', gap: '6px' }}>
+                                    <Button variant="outline" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem' }} onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); }}>Cancel</Button>
+                                    <Button variant="primary" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }} onClick={() => handleSaveLayout(room)} disabled={isUpdatingLayout}>Save</Button>
+                                  </div>
+                                ) : (
+                                  activeRoomEditingId === null && (
+                                    <button
+                                      onClick={() => {
+                                        setActiveRoomEditingId(room.id);
+                                        const currentW = visualizerWidths[room.id] || room.canvasWidth || 1000;
+                                        const currentH = visualizerHeights[room.id] || room.canvasHeight || 450;
+                                        const initialLayout: Record<string, { x: number; y: number }> = {};
+                                        room.seats?.forEach((seat: any, idx: number) => {
+                                          initialLayout[seat.id] = getSeatPixelPosition(seat, idx, currentW, currentH);
+                                        });
+                                        setTempLayout(initialLayout);
+                                      }}
+                                      style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--accent-blue)', background: 'transparent', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer' }}
+                                    >
+                                      Arrange Seats
+                                    </button>
+                                  )
+                                )}
+                              </div>
 
-                          return (
-                            <div
-                              key={seat.id}
-                              onPointerDown={(e) => { if (isEditingThisRoom) handlePointerDown(e, seat.id); }}
-                              onClick={() => { if (!isEditingThisRoom) handleSeatClick(seat); }}
-                              style={{
-                                position: 'absolute',
-                                left: `${position.x}%`,
-                                top: `${position.y}%`,
-                                touchAction: 'none',
-                                cursor: isEditingThisRoom ? 'move' : 'pointer',
-                                zIndex: isEditingThisRoom ? 5 : 2,
-                                transition: isEditingThisRoom ? 'none' : 'all 0.15s ease'
-                              }}
-                            >
-                              {renderSeatCard(seat)}
+                              {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
+                                const isEditingThisRoom = activeRoomEditingId === room.id;
+                                const position = isEditingThisRoom
+                                  ? getSeatPixelPosition(seat, idx, roomWidth, roomHeight)
+                                  : getSeatPosition(seat, idx);
+                                const matchesFilter = statusFilters[room.id] === 'ALL' || !statusFilters[room.id] || seat.status === statusFilters[room.id];
+                                if (!matchesFilter) return null;
+
+                                return (
+                                  <div
+                                    key={seat.id}
+                                    onPointerDown={(e) => { if (isEditingThisRoom) handlePointerDown(e, seat.id); }}
+                                    onClick={() => { if (!isEditingThisRoom) handleSeatClick(seat); }}
+                                    style={{
+                                      position: 'absolute',
+                                      left: isEditingThisRoom ? `${position.x}px` : `${position.x}%`,
+                                      top: isEditingThisRoom ? `${position.y}px` : `${position.y}%`,
+                                      touchAction: 'none',
+                                      cursor: isEditingThisRoom ? 'move' : 'pointer',
+                                      zIndex: isEditingThisRoom ? 5 : 2,
+                                      transition: isEditingThisRoom ? 'none' : 'all 0.15s ease'
+                                    }}
+                                  >
+                                    {renderSeatCard(seat)}
+                                  </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })()
                     ) : (
                       // Grid View resembling study hall layout
                       renderStudyHallGrid(room)
