@@ -12,6 +12,7 @@ import WhatsApp from './pages/WhatsApp';
 import Settings from './pages/Settings';
 import Notices from './pages/Notices';
 import SuperAdmin from './pages/SuperAdmin';
+import Profile from './pages/Profile';
 import { AlertProvider } from './components/ui/AlertContext';
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/notices" element={<Notices />} />
             <Route path="/whatsapp" element={<WhatsApp />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/profile" element={<Profile />} />
 
             {/* Super Admin Restricted */}
             <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>

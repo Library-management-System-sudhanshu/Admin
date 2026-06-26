@@ -8,6 +8,14 @@ interface User {
   role: string;
   workspaceId?: string;
   branchId?: string;
+  workspace?: {
+    id: string;
+    name: string;
+    address: string;
+    pincode?: string;
+    gstNumber?: string;
+    subdomain: string;
+  };
 }
 
 interface AuthState {

@@ -101,7 +101,7 @@ export default function Layout() {
 
         {/* Sidebar Footer - User Profile & Logout */}
         <div className="sidebar-footer">
-          <div className="sidebar-user-profile">
+          <Link to="/profile" className="sidebar-user-profile" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="user-avatar sidebar-avatar">
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
@@ -109,7 +109,7 @@ export default function Layout() {
               <span className="sidebar-user-name">{user?.name}</span>
               <span className="sidebar-user-role">{user?.role}</span>
             </div>
-          </div>
+          </Link>
           <button className="sidebar-logout-btn" onClick={handleLogout}>
             <LogOut size={18} />
             <span>Logout</span>
@@ -142,8 +142,11 @@ export default function Layout() {
                 </button>
                 
                 <div className={`dropdown-menu ${isMenuOpen ? 'show' : ''}`}>
+                  <button className="dropdown-item" onClick={() => { setIsMenuOpen(false); navigate('/profile'); }}>
+                    <Users size={16} style={{ marginRight: '8px' }} /> Profile
+                  </button>
                   <button className="dropdown-item" onClick={handleLogout}>
-                    <LogOut /> Logout
+                    <LogOut size={16} style={{ marginRight: '8px' }} /> Logout
                   </button>
                 </div>
               </div>

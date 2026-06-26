@@ -43,6 +43,18 @@ export const api = createApi({
         body: data,
       }),
     }),
+    getProfile: builder.query({
+      query: () => 'auth/profile',
+      providesTags: ['Settings'],
+    }),
+    updateProfile: builder.mutation({
+      query: (data) => ({
+        url: 'auth/profile',
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: ['Settings'],
+    }),
 
     // Dashboard Metrics
     getMetrics: builder.query({
@@ -127,6 +139,14 @@ export const api = createApi({
         url: `seats/${id}/status`,
         method: 'PATCH',
         body: { status },
+      }),
+      invalidatesTags: ['Seats'],
+    }),
+    updateSeatLayout: builder.mutation({
+      query: ({ roomId, layout }) => ({
+        url: 'seats/layout',
+        method: 'PUT',
+        body: { roomId, layout },
       }),
       invalidatesTags: ['Seats'],
     }),
@@ -364,6 +384,8 @@ export const api = createApi({
 export const {
   useLoginMutation,
   useRegisterTenantMutation,
+  useGetProfileQuery,
+  useUpdateProfileMutation,
   useGetMetricsQuery,
   useGetStudentsQuery,
   useGetStudentByIdQuery,
@@ -376,6 +398,7 @@ export const {
   useTransferSeatMutation,
   useVacateSeatMutation,
   useUpdateSeatStatusMutation,
+  useUpdateSeatLayoutMutation,
   useAddFloorMutation,
   useAddRoomMutation,
   useAddSeatMutation,

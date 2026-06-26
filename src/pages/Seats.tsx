@@ -17,6 +17,7 @@ import {
   useDeleteSeatMutation,
   useVacateSeatMutation,
   useUpdateSeatStatusMutation,
+  useUpdateSeatLayoutMutation,
   useUpdateFloorMutation,
   useCreatePaymentMutation,
   useGetPlansQuery,
@@ -39,7 +40,9 @@ import {
   Edit2,
   UserCog,
   LogOut,
-  Clock
+  Clock,
+  Map,
+  LayoutGrid
 } from 'lucide-react';
 
 const getDaysRemainingText = (endDateStr: string) => {
@@ -176,6 +179,87 @@ export default function Seats() {
   const [deleteSeat] = useDeleteSeatMutation();
   const [updateSeatStatus] = useUpdateSeatStatusMutation();
   const [updateFloor] = useUpdateFloorMutation();
+  const [updateSeatLayout, { isLoading: isUpdatingLayout }] = useUpdateSeatLayoutMutation();
+
+  // Floor Visualization layout states
+  const [isFloorVisualization, setIsFloorVisualization] = useState(false);
+  const [tempLayout, setTempLayout] = useState<Record<string, { x: number; y: number }>>({});
+  const [activeRoomEditingId, setActiveRoomEditingId] = useState<string | null>(null);
+
+  // Helper to calculate default layout coordinates if null (spread in rows of 10)
+  const getSeatPosition = (seat: any, index: number) => {
+    if (tempLayout[seat.id]) {
+      return tempLayout[seat.id];
+    }
+    if (seat.x !== null && seat.y !== null && seat.x !== undefined && seat.y !== undefined) {
+      return { x: seat.x, y: seat.y };
+    }
+    const cols = 10;
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    const x = col * 9 + 5;
+    const y = row * 12 + 5;
+    return { x, y };
+  };
+
+  // Pointer drag handler
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, seatId: string) => {
+    if (activeRoomEditingId === null) return;
+    e.preventDefault();
+    const element = e.currentTarget;
+    element.setPointerCapture(e.pointerId);
+    
+    const container = element.parentElement;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const seatRect = element.getBoundingClientRect();
+    
+    const offsetX = e.clientX - seatRect.left;
+    const offsetY = e.clientY - seatRect.top;
+    
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      let newLeftPercent = ((moveEvent.clientX - containerRect.left - offsetX) / containerRect.width) * 100;
+      let newTopPercent = ((moveEvent.clientY - containerRect.top - offsetY) / containerRect.height) * 100;
+      
+      newLeftPercent = Math.max(0, Math.min(92, newLeftPercent));
+      newTopPercent = Math.max(0, Math.min(88, newTopPercent));
+      
+      // Grid snapping to 2.5%
+      const snapVal = 2.5;
+      newLeftPercent = Math.round(newLeftPercent / snapVal) * snapVal;
+      newTopPercent = Math.round(newTopPercent / snapVal) * snapVal;
+      
+      setTempLayout(prev => ({
+        ...prev,
+        [seatId]: { x: newLeftPercent, y: newTopPercent }
+      }));
+    };
+    
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      element.releasePointerCapture(upEvent.pointerId);
+      element.removeEventListener('pointermove', handlePointerMove);
+      element.removeEventListener('pointerup', handlePointerUp);
+    };
+    
+    element.addEventListener('pointermove', handlePointerMove);
+    element.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const handleSaveLayout = async (room: any) => {
+    const layoutPayload = room.seats.map((seat: any, idx: number) => {
+      const pos = getSeatPosition(seat, idx);
+      return { id: seat.id, x: pos.x, y: pos.y };
+    });
+
+    try {
+      await updateSeatLayout({ roomId: room.id, layout: layoutPayload }).unwrap();
+      showAlert('Seat positions saved successfully!');
+      setActiveRoomEditingId(null);
+      setTempLayout({});
+    } catch (err: any) {
+      showAlert(err.data?.message || 'Failed to save seat layout');
+    }
+  };
 
   const seatCounts = useMemo(() => {
     if (!seatMap) return { available: 0, occupied: 0, maintenance: 0, total: 0 };
@@ -664,6 +748,32 @@ export default function Seats() {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
+          {selectedBranch && seatMap && seatMap.length > 0 && (
+            <Button
+              variant={isFloorVisualization ? "primary" : "outline"}
+              size="sm"
+              onClick={() => {
+                if (activeRoomEditingId) {
+                  const confirm = window.confirm("You have unsaved layout changes. Are you sure you want to exit visualization mode?");
+                  if (!confirm) return;
+                  setActiveRoomEditingId(null);
+                  setTempLayout({});
+                }
+                setIsFloorVisualization(!isFloorVisualization);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                backgroundColor: isFloorVisualization ? '#14213d' : '#ffffff',
+                color: isFloorVisualization ? '#ffffff' : '#0f172a',
+                borderColor: '#cbd5e1'
+              }}
+            >
+              {isFloorVisualization ? <LayoutGrid size={16} /> : <Map size={16} />}
+              {isFloorVisualization ? "Grid View" : "Floor Visualization"}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -731,83 +841,233 @@ export default function Seats() {
                   </div>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setParentId(room.id);
-                        setCreatorType('seat');
-                        setOpenCreator(true);
-                      }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}
-                    >
-                      <Plus size={14} /> Add Seat
-                    </Button>
-                    <button
-                      onClick={() => handleDeleteRoom(room.id)}
-                      style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', borderRadius: '0.25rem' }}
-                      title="Delete Room"
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {isFloorVisualization ? (
+                      activeRoomEditingId === room.id ? (
+                        <>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            style={{ backgroundColor: 'var(--success)', borderColor: 'var(--success)' }}
+                            onClick={() => handleSaveLayout(room)}
+                            disabled={isUpdatingLayout}
+                          >
+                            {isUpdatingLayout ? <Loader2 className="spinner" size={14} /> : "Save Layout"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setActiveRoomEditingId(null);
+                              setTempLayout({});
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        activeRoomEditingId === null && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setActiveRoomEditingId(room.id);
+                              const initialLayout: Record<string, { x: number; y: number }> = {};
+                              room.seats?.forEach((seat: any, idx: number) => {
+                                initialLayout[seat.id] = getSeatPosition(seat, idx);
+                              });
+                              setTempLayout(initialLayout);
+                            }}
+                          >
+                            Arrange Seats
+                          </Button>
+                        )
+                      )
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setParentId(room.id);
+                            setCreatorType('seat');
+                            setOpenCreator(true);
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}
+                        >
+                          <Plus size={14} /> Add Seat
+                        </Button>
+                        <button
+                          onClick={() => handleDeleteRoom(room.id)}
+                          style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center', borderRadius: '0.25rem' }}
+                          title="Delete Room"
+                          onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
+                          onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {/* Clean, Modern White Seats Grid */}
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                  {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any) => {
-                    const style = getSeatStyle(seat.status);
-                    const isOccupied = seat.status === 'OCCUPIED';
-                    const allocation = seat.allocations?.find((a: any) => a.isActive);
-
-                    const tooltipText = isOccupied && allocation
-                      ? `Occupant: ${allocation.studentProfile?.user?.name || 'N/A'} (${allocation.shift?.name || 'N/A'})`
-                      : seat.status === 'BLOCKED' ? `Seat ${seat.number} (Maintenance)` : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
-
-                    return (
-                      <div
-                        key={seat.id}
-                        title={tooltipText}
-                        onClick={() => handleSeatClick(seat)}
-                        style={{
-                          width: '72px',
-                          height: '72px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: '#ffffff',
-                          border: `1px solid var(--border-color)`,
-                          borderTop: `4px solid ${style.accent}`,
-                          borderRadius: '0.5rem',
-                          cursor: 'pointer',
-                          boxShadow: 'var(--shadow-sm)',
-                          transition: 'all 0.15s ease',
-                          position: 'relative'
-                        }}
-                        onMouseOver={(e) => {
-                          e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                        }}
-                        onMouseOut={(e) => {
-                          e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                        }}
-                      >
-                        <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: isOccupied && allocation ? '0.15rem' : '0' }}>
-                          {seat.number}
-                        </span>
-                        {isOccupied && allocation && (
-                          <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '64px', textAlign: 'center' }}>
-                            {allocation.studentProfile?.user?.name?.split(' ')[0] || 'N/A'}
-                          </span>
-                        )}
+                {/* Clean, Modern White Seats Grid / Visual Map */}
+                {isFloorVisualization ? (
+                  <div style={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '450px',
+                    backgroundColor: '#f8fafc',
+                    border: activeRoomEditingId === room.id ? '2px dashed var(--primary)' : '1px solid var(--border-color)',
+                    borderRadius: '0.75rem',
+                    backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
+                    backgroundSize: '20px 20px',
+                    overflow: 'hidden',
+                    transition: 'all 0.2s ease',
+                  }}>
+                    {activeRoomEditingId === room.id && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                        color: '#ffffff',
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '0.375rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                        zIndex: 10,
+                        pointerEvents: 'none',
+                        boxShadow: 'var(--shadow-md)',
+                      }}>
+                        💡 Drag seats to arrange. They snap to grid lines.
                       </div>
-                    );
-                  })}
-                </div>
+                    )}
+                    {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
+                      const position = getSeatPosition(seat, idx);
+                      const style = getSeatStyle(seat.status);
+                      const isOccupied = seat.status === 'OCCUPIED';
+                      const allocation = seat.allocations?.find((a: any) => a.isActive);
+                      const isEditingThisRoom = activeRoomEditingId === room.id;
+
+                      const tooltipText = isOccupied && allocation
+                        ? `Occupant: ${allocation.studentProfile?.user?.name || 'N/A'} (${allocation.shift?.name || 'N/A'})`
+                        : seat.status === 'BLOCKED' ? `Seat ${seat.number} (Maintenance)` : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
+
+                      return (
+                        <div
+                          key={seat.id}
+                          title={tooltipText}
+                          onPointerDown={(e) => {
+                            if (isEditingThisRoom) {
+                              handlePointerDown(e, seat.id);
+                            }
+                          }}
+                          onClick={() => {
+                            if (!isEditingThisRoom) {
+                              handleSeatClick(seat);
+                            }
+                          }}
+                          style={{
+                            position: 'absolute',
+                            left: `${position.x}%`,
+                            top: `${position.y}%`,
+                            width: '64px',
+                            height: '64px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#ffffff',
+                            border: isEditingThisRoom ? `2px dashed ${style.accent}` : `1px solid var(--border-color)`,
+                            borderTop: `4px solid ${style.accent}`,
+                            borderRadius: '0.5rem',
+                            cursor: isEditingThisRoom ? 'move' : 'pointer',
+                            boxShadow: isEditingThisRoom ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+                            transition: isEditingThisRoom ? 'none' : 'transform 0.15s ease, box-shadow 0.15s ease',
+                            touchAction: 'none',
+                            userSelect: 'none',
+                            zIndex: isEditingThisRoom ? 5 : 2,
+                          }}
+                          onMouseOver={(e) => {
+                            if (!isEditingThisRoom) {
+                              e.currentTarget.style.transform = 'translateY(-2px)';
+                              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                            }
+                          }}
+                          onMouseOut={(e) => {
+                            if (!isEditingThisRoom) {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                            }
+                          }}
+                        >
+                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: isOccupied && allocation ? '0.1rem' : '0' }}>
+                            {seat.number}
+                          </span>
+                          {isOccupied && allocation && (
+                            <span style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '58px', textAlign: 'center' }}>
+                              {allocation.studentProfile?.user?.name?.split(' ')[0] || 'N/A'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any) => {
+                      const style = getSeatStyle(seat.status);
+                      const isOccupied = seat.status === 'OCCUPIED';
+                      const allocation = seat.allocations?.find((a: any) => a.isActive);
+
+                      const tooltipText = isOccupied && allocation
+                        ? `Occupant: ${allocation.studentProfile?.user?.name || 'N/A'} (${allocation.shift?.name || 'N/A'})`
+                        : seat.status === 'BLOCKED' ? `Seat ${seat.number} (Maintenance)` : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
+
+                      return (
+                        <div
+                          key={seat.id}
+                          title={tooltipText}
+                          onClick={() => handleSeatClick(seat)}
+                          style={{
+                            width: '72px',
+                            height: '72px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#ffffff',
+                            border: `1px solid var(--border-color)`,
+                            borderTop: `4px solid ${style.accent}`,
+                            borderRadius: '0.5rem',
+                            cursor: 'pointer',
+                            boxShadow: 'var(--shadow-sm)',
+                            transition: 'all 0.15s ease',
+                            position: 'relative'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                          }}
+                        >
+                          <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: isOccupied && allocation ? '0.15rem' : '0' }}>
+                            {seat.number}
+                          </span>
+                          {isOccupied && allocation && (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '64px', textAlign: 'center' }}>
+                              {allocation.studentProfile?.user?.name?.split(' ')[0] || 'N/A'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </Card>
             ))}
           </div>

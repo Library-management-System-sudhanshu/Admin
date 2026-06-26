@@ -82,6 +82,8 @@ export default function Students() {
   const { data, isLoading } = useGetStudentsQuery({
     search,
     branchId: branchId || undefined,
+    filterShiftId: filterShiftId || undefined,
+    filterExpiration: filterExpiration || undefined,
     page,
     limit: 10,
   });
