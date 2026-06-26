@@ -992,9 +992,6 @@ export default function Seats() {
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
-        <div className="study-hall-desk">
-          📖 STUDY SPACE ENTRANCE / DESK AREA
-        </div>
 
         {rowKeys.map((rowKey, idx) => {
           const rowSeats = rows[rowKey];
@@ -1499,66 +1496,76 @@ export default function Seats() {
                 {/* ACCORDION BODY (Visible when expanded) */}
                 {isExpanded && (
                   <div className="room-accordion-body">
-                    
-                    {/* BREADCRUMB */}
-                    <div className="breadcrumb-container">
-                      <span className="breadcrumb-item">{branches?.find((b: any) => b.id === selectedBranch)?.name}</span>
-                      <ChevronRight size={10} />
-                      <span className="breadcrumb-item">{currentFloor?.name}</span>
-                      <ChevronRight size={10} />
-                      <span style={{ color: 'var(--text-navy)', fontWeight: 600 }}>{room.name}</span>
-                    </div>
-
-                    {/* FILTER AND SORT BAR */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '16px', borderBottom: '1px solid rgba(15, 23, 42, 0.04)', paddingBottom: '12px' }}>
-                      {/* Status selectors */}
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {['ALL', 'AVAILABLE', 'OCCUPIED', 'BLOCKED'].map((status) => {
-                          const activeFilter = statusFilters[room.id] || 'ALL';
-                          const isSelected = activeFilter === status;
-                          return (
-                            <button
-                              key={status}
-                              onClick={() => setStatusFilters(prev => ({ ...prev, [room.id]: status }))}
-                              style={{
-                                border: 'none',
-                                padding: '6px 12px',
-                                borderRadius: '16px',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                background: isSelected ? 'var(--accent-blue)' : 'transparent',
-                                color: isSelected ? '#ffffff' : 'var(--text-slate)',
-                                cursor: 'pointer',
-                                transition: 'all 150ms ease'
-                              }}
-                            >
-                              {status === 'ALL' ? 'All Seats' : status === 'BLOCKED' ? 'Maintenance' : status.charAt(0) + status.slice(1).toLowerCase()}
-                            </button>
-                          );
-                        })}
+                                      {/* BREADCRUMBS & FILTERS TOOLBAR */}
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      gap: '16px', 
+                      flexWrap: 'wrap', 
+                      marginBottom: '16px',
+                      borderBottom: '1px solid rgba(15, 23, 42, 0.04)',
+                      paddingBottom: '12px'
+                    }}>
+                      {/* Left: Breadcrumbs */}
+                      <div className="breadcrumb-container" style={{ margin: 0, padding: 0, border: 'none' }}>
+                        <span className="breadcrumb-item">{branches?.find((b: any) => b.id === selectedBranch)?.name}</span>
+                        <ChevronRight size={10} />
+                        <span className="breadcrumb-item">{currentFloor?.name}</span>
+                        <ChevronRight size={10} />
+                        <span style={{ color: 'var(--text-navy)', fontWeight: 600 }}>{room.name}</span>
                       </div>
 
-                      {/* Sort Dropdown */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-slate)' }}>Sort By:</span>
-                        <select
-                          value={sortOptions[room.id] || 'NUMBER'}
-                          onChange={(e) => setSortOptions(prev => ({ ...prev, [room.id]: e.target.value }))}
-                          style={{
-                            border: '1px solid rgba(15, 23, 42, 0.05)',
-                            borderRadius: '12px',
-                            padding: '4px 8px',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: 'var(--text-navy)',
-                            outline: 'none',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <option value="NUMBER">Seat Number</option>
-                          <option value="NAME">Occupant Name</option>
-                          <option value="RECENT">Recently Assigned</option>
-                        </select>
+                      {/* Right: Status Filters & Sort By Dropdown */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        {/* Status Filter Dropdown */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-slate)' }}>Status:</span>
+                          <select
+                            value={statusFilters[room.id] || 'ALL'}
+                            onChange={(e) => setStatusFilters(prev => ({ ...prev, [room.id]: e.target.value }))}
+                            style={{
+                              border: '1px solid rgba(15, 23, 42, 0.05)',
+                              borderRadius: '8px',
+                              padding: '3px 6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              color: 'var(--text-navy)',
+                              outline: 'none',
+                              cursor: 'pointer',
+                              background: '#ffffff'
+                            }}
+                          >
+                            <option value="ALL">All Seats</option>
+                            <option value="AVAILABLE">Available</option>
+                            <option value="OCCUPIED">Occupied</option>
+                            <option value="BLOCKED">Maintenance</option>
+                          </select>
+                        </div>
+
+                        {/* Sort Dropdown */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-slate)' }}>Sort:</span>
+                          <select
+                            value={sortOptions[room.id] || 'NUMBER'}
+                            onChange={(e) => setSortOptions(prev => ({ ...prev, [room.id]: e.target.value }))}
+                            style={{
+                              border: '1px solid rgba(15, 23, 42, 0.05)',
+                              borderRadius: '8px',
+                              padding: '3px 6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              color: 'var(--text-navy)',
+                              outline: 'none',
+                              cursor: 'pointer',
+                              background: '#ffffff'
+                            }}
+                          >
+                            <option value="NUMBER">Number</option>
+                            <option value="NAME">Name</option>
+                            <option value="RECENT">Recent</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 
