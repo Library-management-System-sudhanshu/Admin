@@ -9,6 +9,7 @@ import {
   useGetStudentsQuery,
   useAllocateSeatMutation,
   useTransferSeatMutation,
+  useUpdateAllocationMutation,
   useAddFloorMutation,
   useAddRoomMutation,
   useAddSeatMutation,
@@ -110,6 +111,11 @@ export default function Seats() {
   const [renewAmount, setRenewAmount] = useState('');
   const [isRenewing, setIsRenewing] = useState(false);
 
+  // Edit current allocation states
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+
   useEffect(() => {
     if (renewPlanId && plans) {
       const plan = plans.find((p: any) => p.id === renewPlanId);
@@ -193,6 +199,7 @@ export default function Seats() {
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
   const [createPayment, { isLoading: isCreatingPayment }] = useCreatePaymentMutation();
   const [transferSeat, { isLoading: isTransferring }] = useTransferSeatMutation();
+  const [updateAllocation, { isLoading: isUpdatingAllocation }] = useUpdateAllocationMutation();
   const [vacateSeat, { isLoading: isVacating }] = useVacateSeatMutation();
   const [addFloor] = useAddFloorMutation();
   const [addRoom] = useAddRoomMutation();
@@ -370,7 +377,10 @@ export default function Seats() {
         nextDay.setDate(nextDay.getDate() + 1);
         setRenewStartDate(nextDay.toISOString().split('T')[0]);
         setRenewShiftId(activeAllocation.shiftId || '');
+        setEditStartDate(activeAllocation.startDate ? activeAllocation.startDate.split('T')[0] : '');
+        setEditEndDate(activeAllocation.endDate ? activeAllocation.endDate.split('T')[0] : '');
       }
+      setIsEditingDates(false);
       setRenewPlanId('');
       setRenewEndDate('');
       setRenewAmount('');
@@ -429,6 +439,26 @@ export default function Seats() {
       showAlert(err?.data?.message || 'Seat renewal failed', { title: 'Error' });
     } finally {
       setIsRenewing(false);
+    }
+  };
+
+  const handleUpdateAllocationDates = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSeat) return;
+    const activeAllocation = selectedSeat.allocations?.find((a: any) => a.isActive);
+    if (!activeAllocation) return;
+
+    try {
+      await updateAllocation({
+        id: activeAllocation.id,
+        startDate: editStartDate,
+        endDate: editEndDate,
+      }).unwrap();
+      showAlert('Subscription dates updated successfully!', { title: 'Success' });
+      setIsEditingDates(false);
+      setOpenTransfer(false);
+    } catch (err: any) {
+      showAlert(err?.data?.message || 'Failed to update subscription dates', { title: 'Error' });
     }
   };
 
@@ -1052,8 +1082,11 @@ export default function Seats() {
                         }
                       }
 
+                      const formattedEnd = activeAllocation?.endDate 
+                        ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
+                        : 'N/A';
                       const tooltipText = isOccupied && activeAllocation
-                        ? `Occupant: ${activeAllocation.studentProfile?.user?.name || 'N/A'} (${activeAllocation.shift?.name || 'N/A'})`
+                        ? `Occupant: ${activeAllocation.studentProfile?.user?.name || 'N/A'} (Ends: ${formattedEnd})`
                         : seat.status === 'BLOCKED' ? `Seat ${seat.number} (Maintenance)` : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
 
                       return (
@@ -1145,8 +1178,11 @@ export default function Seats() {
                         }
                       }
 
+                      const formattedEnd = activeAllocation?.endDate 
+                        ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
+                        : 'N/A';
                       const tooltipText = isOccupied && activeAllocation
-                        ? `Occupant: ${activeAllocation.studentProfile?.user?.name || 'N/A'} (${activeAllocation.shift?.name || 'N/A'})`
+                        ? `Occupant: ${activeAllocation.studentProfile?.user?.name || 'N/A'} (Ends: ${formattedEnd})`
                         : seat.status === 'BLOCKED' ? `Seat ${seat.number} (Maintenance)` : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
 
                       return (
@@ -1795,23 +1831,110 @@ export default function Seats() {
 
                   {/* Allocation Dates */}
                   <div>
-                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                      Current Subscription
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', backgroundColor: 'var(--bg-main)', padding: '1rem', borderRadius: '0.5rem' }}>
-                      <div>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>START DATE</span>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{activeAllocation.startDate ? new Date(activeAllocation.startDate).toLocaleDateString() : 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>END DATE</span>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{activeAllocation.endDate ? new Date(activeAllocation.endDate).toLocaleDateString() : 'N/A'}</span>
-                      </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', margin: 0 }}>
+                        Current Subscription
+                      </h4>
+                      {!isEditingDates && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingDates(true)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '0.25rem',
+                            backgroundColor: 'var(--primary-light)',
+                          }}
+                        >
+                          Edit Dates
+                        </button>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', color: '#2563eb', fontSize: '0.8rem', fontWeight: 600, marginTop: '0.5rem', paddingLeft: '0.25rem' }}>
-                      <Clock size={14} style={{ marginRight: '0.25rem' }} />
-                      <span>{getDaysRemainingText(activeAllocation.endDate)}</span>
-                    </div>
+
+                    {isEditingDates ? (
+                      <form onSubmit={handleUpdateAllocationDates} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'var(--bg-main)', padding: '1rem', borderRadius: '0.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                          <div>
+                            <label style={{ fontSize: '0.65rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                              Start Date
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              value={editStartDate}
+                              onChange={(e) => setEditStartDate(e.target.value)}
+                              className="custom-input"
+                              style={{ padding: '0.375rem', fontSize: '0.8rem' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.65rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                              End Date
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              value={editEndDate}
+                              onChange={(e) => setEditEndDate(e.target.value)}
+                              className="custom-input"
+                              style={{ padding: '0.375rem', fontSize: '0.8rem' }}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEditingDates(false);
+                              setEditStartDate(activeAllocation.startDate ? activeAllocation.startDate.split('T')[0] : '');
+                              setEditEndDate(activeAllocation.endDate ? activeAllocation.endDate.split('T')[0] : '');
+                            }}
+                            style={{
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              color: '#475569',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              padding: '0.35rem 0.75rem',
+                              borderRadius: '0.375rem',
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <Button
+                            type="submit"
+                            variant="primary"
+                            isLoading={isUpdatingAllocation}
+                            style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', borderRadius: '0.375rem' }}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', backgroundColor: 'var(--bg-main)', padding: '1rem', borderRadius: '0.5rem' }}>
+                          <div>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>START DATE</span>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{activeAllocation.startDate ? new Date(activeAllocation.startDate).toLocaleDateString() : 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>END DATE</span>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{activeAllocation.endDate ? new Date(activeAllocation.endDate).toLocaleDateString() : 'N/A'}</span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', color: '#2563eb', fontSize: '0.8rem', fontWeight: 600, marginTop: '0.5rem', paddingLeft: '0.25rem' }}>
+                          <Clock size={14} style={{ marginRight: '0.25rem' }} />
+                          <span>{getDaysRemainingText(activeAllocation.endDate)}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Last Payment Details */}
