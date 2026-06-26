@@ -101,6 +101,29 @@ export default function Seats() {
   const [openInvoiceReceipt, setOpenInvoiceReceipt] = useState(false);
   const [createdInvoiceData, setCreatedInvoiceData] = useState<any>(null);
 
+  // Renewal form states
+  const [renewPlanId, setRenewPlanId] = useState('');
+  const [renewShiftId, setRenewShiftId] = useState('');
+  const [renewStartDate, setRenewStartDate] = useState('');
+  const [renewEndDate, setRenewEndDate] = useState('');
+  const [renewPaymentMethod, setRenewPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('UPI');
+  const [renewAmount, setRenewAmount] = useState('');
+  const [isRenewing, setIsRenewing] = useState(false);
+
+  useEffect(() => {
+    if (renewPlanId && plans) {
+      const plan = plans.find((p: any) => p.id === renewPlanId);
+      if (plan && renewStartDate) {
+        const start = new Date(renewStartDate);
+        if (!isNaN(start.getTime())) {
+          start.setDate(start.getDate() + (plan.durationDays || 30));
+          setRenewEndDate(start.toISOString().split('T')[0]);
+          setRenewAmount(plan.price.toString());
+        }
+      }
+    }
+  }, [renewPlanId, renewStartDate, plans]);
+
   useEffect(() => {
     if (durationMode === 'flex') {
       return;
@@ -341,9 +364,71 @@ export default function Seats() {
     if (seat.status === 'AVAILABLE') {
       setOpenAllocate(true);
     } else if (seat.status === 'OCCUPIED') {
+      const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
+      if (activeAllocation) {
+        const nextDay = new Date(activeAllocation.endDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        setRenewStartDate(nextDay.toISOString().split('T')[0]);
+        setRenewShiftId(activeAllocation.shiftId || '');
+      }
+      setRenewPlanId('');
+      setRenewEndDate('');
+      setRenewAmount('');
+      setRenewPaymentMethod('UPI');
       setOpenTransfer(true);
     } else if (seat.status === 'BLOCKED') {
       setOpenMaintenance(true);
+    }
+  };
+
+  const handleRenewSeat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSeat) return;
+    const activeAllocation = selectedSeat.allocations?.find((a: any) => a.isActive);
+    if (!activeAllocation) return;
+
+    setIsRenewing(true);
+    try {
+      // 1. Vacate current seat allocation to make it AVAILABLE
+      await vacateSeat(selectedSeat.id).unwrap();
+
+      // 2. Allocate seat to same student with new details
+      await allocateSeat({
+        studentProfileId: activeAllocation.studentProfileId,
+        seatId: selectedSeat.id,
+        shiftId: renewShiftId,
+        startDate: renewStartDate,
+        endDate: renewEndDate,
+      }).unwrap();
+
+      // 3. Create payment transaction for renewal
+      const paymentResult = await createPayment({
+        studentProfileId: activeAllocation.studentProfileId,
+        amount: Number(renewAmount),
+        method: renewPaymentMethod,
+        subscriptionPlanId: renewPlanId || undefined,
+      }).unwrap();
+
+      // Show success receipt modal
+      const invoiceInfo = {
+        payment: paymentResult.payment,
+        student: activeAllocation.studentProfile,
+        seatNumber: selectedSeat?.number,
+        shift: shifts?.find((s: any) => s.id === renewShiftId),
+        startDate: renewStartDate,
+        endDate: renewEndDate,
+        branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
+        originalAmount: Number(renewAmount),
+        payableAmount: Number(renewAmount),
+      };
+      setCreatedInvoiceData(invoiceInfo);
+      setOpenTransfer(false);
+      setOpenInvoiceReceipt(true);
+      showAlert('Seat renewed successfully!', { title: 'Success' });
+    } catch (err: any) {
+      showAlert(err?.data?.message || 'Seat renewal failed', { title: 'Error' });
+    } finally {
+      setIsRenewing(false);
     }
   };
 
@@ -946,12 +1031,29 @@ export default function Seats() {
                     {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
                       const position = getSeatPosition(seat, idx);
                       const style = getSeatStyle(seat.status);
+                      const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
                       const isOccupied = seat.status === 'OCCUPIED';
-                      const allocation = seat.allocations?.find((a: any) => a.isActive);
                       const isEditingThisRoom = activeRoomEditingId === room.id;
+                      
+                      let isExpiringSoon = false;
+                      let daysLeft = 0;
+                      let isCritical = false;
+                      if (isOccupied && activeAllocation?.endDate) {
+                        const end = new Date(activeAllocation.endDate);
+                        const today = new Date();
+                        end.setHours(0, 0, 0, 0);
+                        today.setHours(0, 0, 0, 0);
+                        const diffTime = end.getTime() - today.getTime();
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays >= 0 && diffDays <= 7) {
+                          isExpiringSoon = true;
+                          daysLeft = diffDays;
+                          isCritical = diffDays <= 3;
+                        }
+                      }
 
-                      const tooltipText = isOccupied && allocation
-                        ? `Occupant: ${allocation.studentProfile?.user?.name || 'N/A'} (${allocation.shift?.name || 'N/A'})`
+                      const tooltipText = isOccupied && activeAllocation
+                        ? `Occupant: ${activeAllocation.studentProfile?.user?.name || 'N/A'} (${activeAllocation.shift?.name || 'N/A'})`
                         : seat.status === 'BLOCKED' ? `Seat ${seat.number} (Maintenance)` : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
 
                       return (
@@ -1002,12 +1104,17 @@ export default function Seats() {
                             }
                           }}
                         >
-                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: isOccupied && allocation ? '0.1rem' : '0' }}>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: isOccupied && activeAllocation ? '0.1rem' : '0' }}>
                             {seat.number}
                           </span>
-                          {isOccupied && allocation && (
+                          {isOccupied && activeAllocation && (
                             <span style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '58px', textAlign: 'center' }}>
-                              {allocation.studentProfile?.user?.name?.split(' ')[0] || 'N/A'}
+                              {activeAllocation.studentProfile?.user?.name?.split(' ')[0] || 'N/A'}
+                            </span>
+                          )}
+                          {isExpiringSoon && (
+                            <span className={`expiring-badge ${isCritical ? 'critical' : 'warning'}`}>
+                              {daysLeft}d
                             </span>
                           )}
                         </div>
@@ -1019,10 +1126,27 @@ export default function Seats() {
                     {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any) => {
                       const style = getSeatStyle(seat.status);
                       const isOccupied = seat.status === 'OCCUPIED';
-                      const allocation = seat.allocations?.find((a: any) => a.isActive);
+                      const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
 
-                      const tooltipText = isOccupied && allocation
-                        ? `Occupant: ${allocation.studentProfile?.user?.name || 'N/A'} (${allocation.shift?.name || 'N/A'})`
+                      let isExpiringSoon = false;
+                      let daysLeft = 0;
+                      let isCritical = false;
+                      if (isOccupied && activeAllocation?.endDate) {
+                        const end = new Date(activeAllocation.endDate);
+                        const today = new Date();
+                        end.setHours(0, 0, 0, 0);
+                        today.setHours(0, 0, 0, 0);
+                        const diffTime = end.getTime() - today.getTime();
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays >= 0 && diffDays <= 7) {
+                          isExpiringSoon = true;
+                          daysLeft = diffDays;
+                          isCritical = diffDays <= 3;
+                        }
+                      }
+
+                      const tooltipText = isOccupied && activeAllocation
+                        ? `Occupant: ${activeAllocation.studentProfile?.user?.name || 'N/A'} (${activeAllocation.shift?.name || 'N/A'})`
                         : seat.status === 'BLOCKED' ? `Seat ${seat.number} (Maintenance)` : `Seat ${seat.number} (${seat.status.toLowerCase()})`;
 
                       return (
@@ -1047,20 +1171,29 @@ export default function Seats() {
                             position: 'relative'
                           }}
                           onMouseOver={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                            if (!isExpiringSoon) {
+                              e.currentTarget.style.transform = 'translateY(-2px)';
+                              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                            }
                           }}
                           onMouseOut={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                            if (!isExpiringSoon) {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                            }
                           }}
                         >
-                          <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: isOccupied && allocation ? '0.15rem' : '0' }}>
+                          <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: isOccupied && activeAllocation ? '0.15rem' : '0' }}>
                             {seat.number}
                           </span>
-                          {isOccupied && allocation && (
+                          {isOccupied && activeAllocation && (
                             <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '64px', textAlign: 'center' }}>
-                              {allocation.studentProfile?.user?.name?.split(' ')[0] || 'N/A'}
+                              {activeAllocation.studentProfile?.user?.name?.split(' ')[0] || 'N/A'}
+                            </span>
+                          )}
+                          {isExpiringSoon && (
+                            <span className={`expiring-badge ${isCritical ? 'critical' : 'warning'}`}>
+                              {daysLeft}d
                             </span>
                           )}
                         </div>
@@ -1580,7 +1713,7 @@ export default function Seats() {
         </div>
       </Modal>
 
-      {/* Transfer Modal */}
+      {/* Manage Seat / Transfer / Renewal Modal */}
       <Modal
         isOpen={openTransfer}
         onClose={() => setOpenTransfer(false)}
@@ -1590,244 +1723,373 @@ export default function Seats() {
             <span>Manage Seat {selectedSeat?.number}</span>
           </div>
         }
-        maxWidth="md"
+        maxWidth="lg"
       >
-        <form onSubmit={handleTransfer}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            
-            {/* Occupant Card */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '2rem', minHeight: '400px' }}>
+          
+          {/* Left Side: Occupant Details & Last Payment */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', borderRight: '1px solid var(--border-color)', paddingRight: '2rem' }}>
             {(() => {
               const activeAllocation = selectedSeat?.allocations?.find((a: any) => a.isActive);
               if (!activeAllocation) return null;
               const currentRoomName = currentFloor?.rooms?.find((r: any) => r.seats?.some((s: any) => s.id === selectedSeat?.id))?.name || 'N/A';
               const nameInitials = activeAllocation.studentProfile?.user?.name?.charAt(0).toUpperCase() || 'U';
 
+              const latestPayment = activeAllocation.studentProfile?.payments && activeAllocation.studentProfile.payments.length > 0
+                ? [...activeAllocation.studentProfile.payments].sort((a: any, b: any) => new Date(b.paidAt || b.createdAt).getTime() - new Date(a.paidAt || a.createdAt).getTime())[0]
+                : null;
+
               return (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1.25rem',
-                  padding: '1.25rem',
-                  backgroundColor: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  borderRadius: '0.75rem',
-                  position: 'relative',
-                }}>
-                  {/* Avatar */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
+                  {/* Occupant Card */}
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '50%',
-                    backgroundColor: '#3b82f6',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '1.5rem',
-                    boxShadow: 'var(--shadow-sm)',
-                    border: '3px solid #ffffff',
+                    gap: '1.25rem',
+                    padding: '1.25rem',
+                    backgroundColor: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '0.75rem',
                   }}>
-                    {nameInitials}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '50%',
+                      backgroundColor: '#3b82f6',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '1.25rem',
+                      border: '2px solid #ffffff',
+                    }}>
+                      {nameInitials}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1rem', fontWeight: 700, color: '#1e3a8a' }}>
+                          {activeAllocation.studentProfile?.user?.name}
+                        </span>
+                        <span style={{
+                          fontSize: '0.625rem',
+                          fontWeight: 700,
+                          color: '#ffffff',
+                          backgroundColor: '#10b981',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '0.25rem',
+                          textTransform: 'uppercase',
+                        }}>
+                          Active
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: '#1e40af' }}>
+                        Reg: STD-{activeAllocation.studentProfile?.id?.slice(0, 4).toUpperCase() || 'XXXX'}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: '#1e40af', opacity: 0.8 }}>
+                        {activeAllocation.shift?.name || 'N/A'} Shift • {currentRoomName}
+                      </span>
+                    </div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '1.125rem', fontWeight: 700, color: '#1e3a8a' }}>
-                        {activeAllocation.studentProfile?.user?.name}
-                      </span>
-                      <span style={{
-                        fontSize: '0.625rem',
-                        fontWeight: 700,
-                        color: '#ffffff',
-                        backgroundColor: '#1d4ed8',
-                        padding: '0.15rem 0.5rem',
-                        borderRadius: '0.25rem',
-                        textTransform: 'uppercase',
-                      }}>
-                        Active
-                      </span>
+                  {/* Allocation Dates */}
+                  <div>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                      Current Subscription
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', backgroundColor: 'var(--bg-main)', padding: '1rem', borderRadius: '0.5rem' }}>
+                      <div>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>START DATE</span>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{activeAllocation.startDate ? new Date(activeAllocation.startDate).toLocaleDateString() : 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>END DATE</span>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{activeAllocation.endDate ? new Date(activeAllocation.endDate).toLocaleDateString() : 'N/A'}</span>
+                      </div>
                     </div>
-                    <span style={{ fontSize: '0.8125rem', color: '#1e40af' }}>
-                      Registration: STD-{activeAllocation.studentProfile?.id?.slice(0, 4).toUpperCase() || 'XXXX'}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: '#1e40af', opacity: 0.8 }}>
-                      {activeAllocation.shift?.name || 'N/A'} Shift • {currentRoomName}
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', color: '#2563eb', fontSize: '0.75rem', fontWeight: 600, marginTop: '0.25rem' }}>
-                      <Clock size={12} style={{ marginRight: '0.25rem' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', color: '#2563eb', fontSize: '0.8rem', fontWeight: 600, marginTop: '0.5rem', paddingLeft: '0.25rem' }}>
+                      <Clock size={14} style={{ marginRight: '0.25rem' }} />
                       <span>{getDaysRemainingText(activeAllocation.endDate)}</span>
                     </div>
+                  </div>
+
+                  {/* Last Payment Details */}
+                  <div>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                      Last Payment Details
+                    </h4>
+                    {latestPayment ? (
+                      <div style={{ backgroundColor: 'var(--bg-main)', padding: '1rem', borderRadius: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Amount Paid:</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>₹{latestPayment.amount}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Method:</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--primary)' }}>{latestPayment.method}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Date:</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {latestPayment.paidAt ? new Date(latestPayment.paidAt).toLocaleDateString() : new Date(latestPayment.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Status:</span>
+                          <span style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            color: latestPayment.status === 'PAID' ? 'var(--success)' : 'var(--warning)',
+                          }}>{latestPayment.status}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No payment history found.</p>
+                    )}
+                  </div>
+
+                  {/* Vacate Button at the bottom */}
+                  <div style={{ marginTop: 'auto', paddingTop: '1rem' }}>
+                    <Button
+                      type="button"
+                      onClick={handleVacateSeat}
+                      isLoading={isVacating}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #fca5a5',
+                        color: 'var(--danger)',
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                        padding: '0.625rem',
+                        borderRadius: '0.5rem',
+                        boxShadow: 'none',
+                      }}
+                    >
+                      <LogOut size={16} style={{ transform: 'rotate(180deg)' }} />
+                      Vacate Seat
+                    </Button>
                   </div>
                 </div>
               );
             })()}
+          </div>
 
-            {/* Transfer Occupant Header */}
-            <div>
-              <label className="custom-input-label" style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: '#475569', textTransform: 'uppercase', marginBottom: '0.75rem', display: 'block' }}>
-                Transfer Occupant
-              </label>
-
-              {/* Cascading selectors in 3-column grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                
-                {/* Target Floor */}
-                <div>
-                  <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                    Target Floor
-                  </span>
-                  <Select
-                    value={targetFloorId}
-                    onChange={(val) => {
-                      setTargetFloorId(val);
-                      const floorObj = seatMap?.find((f: any) => f.id === val);
-                      if (floorObj?.rooms && floorObj.rooms.length > 0) {
-                        setTargetRoomId(floorObj.rooms[0].id);
-                      } else {
-                        setTargetRoomId('');
-                        setTargetSeatId('');
-                      }
-                    }}
-                    placeholder="Select floor"
-                    options={seatMap?.map((floor: any) => ({
-                      value: floor.id,
-                      label: floor.name,
-                    })) || []}
-                  />
-                </div>
-
-                {/* Target Room */}
-                <div>
-                  <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                    Target Room
-                  </span>
-                  <Select
-                    value={targetRoomId}
-                    onChange={(val) => {
-                      setTargetRoomId(val);
-                      setTargetSeatId('');
-                    }}
-                    placeholder="Select room"
-                    disabled={!targetFloorId}
-                    options={seatMap?.find((f: any) => f.id === targetFloorId)?.rooms?.map((room: any) => ({
-                      value: room.id,
-                      label: room.name,
-                    })) || []}
-                  />
-                </div>
-
-                {/* Available Seat */}
-                <div>
-                  <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                    Available Seat
-                  </span>
-                  <Select
-                    value={targetSeatId}
-                    onChange={(val) => setTargetSeatId(val)}
-                    placeholder="Select seat"
-                    disabled={!targetRoomId}
-                    options={seatMap
-                      ?.find((f: any) => f.id === targetFloorId)
-                      ?.rooms?.find((r: any) => r.id === targetRoomId)
-                      ?.seats?.filter((s: any) => s.status === 'AVAILABLE')
-                      ?.map((s: any) => ({
-                        value: s.id,
-                        label: s.number,
+          {/* Right Side: Quick Action Forms (Transfer & Renew) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+            
+            {/* Action 1: Transfer Seat */}
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                Transfer Seat
+              </h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                Move student to an available seat in any floor or room.
+              </p>
+              
+              <form onSubmit={handleTransfer} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                      Floor
+                    </label>
+                    <Select
+                      value={targetFloorId}
+                      onChange={(val) => {
+                        setTargetFloorId(val);
+                        const floorObj = seatMap?.find((f: any) => f.id === val);
+                        if (floorObj?.rooms && floorObj.rooms.length > 0) {
+                          setTargetRoomId(floorObj.rooms[0].id);
+                        } else {
+                          setTargetRoomId('');
+                          setTargetSeatId('');
+                        }
+                      }}
+                      placeholder="Floor"
+                      options={seatMap?.map((floor: any) => ({
+                        value: floor.id,
+                        label: floor.name,
                       })) || []}
-                  />
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                      Room
+                    </label>
+                    <Select
+                      value={targetRoomId}
+                      onChange={(val) => {
+                        setTargetRoomId(val);
+                        setTargetSeatId('');
+                      }}
+                      placeholder="Room"
+                      disabled={!targetFloorId}
+                      options={seatMap?.find((f: any) => f.id === targetFloorId)?.rooms?.map((room: any) => ({
+                        value: room.id,
+                        label: room.name,
+                      })) || []}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                      Seat
+                    </label>
+                    <Select
+                      value={targetSeatId}
+                      onChange={(val) => setTargetSeatId(val)}
+                      placeholder="Seat"
+                      disabled={!targetRoomId}
+                      options={seatMap
+                        ?.find((f: any) => f.id === targetFloorId)
+                        ?.rooms?.find((r: any) => r.id === targetRoomId)
+                        ?.seats?.filter((s: any) => s.status === 'AVAILABLE')
+                        ?.map((s: any) => ({
+                          value: s.id,
+                          label: s.number,
+                        })) || []}
+                    />
+                  </div>
                 </div>
 
-              </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={!targetSeatId || isTransferring}
+                    isLoading={isTransferring}
+                    style={{ fontSize: '0.8rem', padding: '0.45rem 1.25rem', borderRadius: '0.375rem', backgroundColor: '#2f2fd1', borderColor: '#2f2fd1' }}
+                  >
+                    Confirm Transfer
+                  </Button>
+                </div>
+              </form>
             </div>
+
+            {/* Action 2: Renew Subscription */}
+            <div>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                Renew Subscription & Seat
+              </h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                Renew seat allocation and log the payment.
+              </p>
+
+              <form onSubmit={handleRenewSeat} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.75rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                      Plan
+                    </label>
+                    <Select
+                      value={renewPlanId}
+                      onChange={(val) => setRenewPlanId(val)}
+                      placeholder="Select Plan"
+                      options={plans?.map((p: any) => ({
+                        value: p.id,
+                        label: `${p.name} (₹${p.price})`,
+                      })) || []}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                      Shift
+                    </label>
+                    <Select
+                      value={renewShiftId}
+                      onChange={(val) => setRenewShiftId(val)}
+                      placeholder="Shift"
+                      options={shifts?.map((s: any) => ({
+                        value: s.id,
+                        label: s.name,
+                      })) || []}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={renewStartDate}
+                      onChange={(e) => setRenewStartDate(e.target.value)}
+                      className="custom-input"
+                      style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={renewEndDate}
+                      onChange={(e) => setRenewEndDate(e.target.value)}
+                      className="custom-input"
+                      style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.75rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                      Payment Method
+                    </label>
+                    <Select
+                      value={renewPaymentMethod}
+                      onChange={(val: any) => setRenewPaymentMethod(val)}
+                      placeholder="Payment Method"
+                      options={[
+                        { value: 'UPI', label: 'UPI' },
+                        { value: 'CASH', label: 'Cash' },
+                        { value: 'RAZORPAY', label: 'Razorpay' }
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
+                      Amount (₹)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={renewAmount}
+                      onChange={(e) => setRenewAmount(e.target.value)}
+                      className="custom-input"
+                      style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={!renewPlanId || !renewShiftId || !renewStartDate || !renewEndDate || isRenewing}
+                    isLoading={isRenewing}
+                    style={{ fontSize: '0.8rem', padding: '0.45rem 1.25rem', borderRadius: '0.375rem', backgroundColor: 'var(--success)', borderColor: 'var(--success)' }}
+                  >
+                    Confirm Renewal
+                  </Button>
+                </div>
+              </form>
+            </div>
+
           </div>
 
-          {/* Footer block */}
-          <div className="modal-form-footer" style={{
-            margin: '2rem -1.5rem -1.5rem -1.5rem',
-            padding: '1.25rem 1.5rem',
-            backgroundColor: '#f8f9fd',
-            borderTop: '1px solid var(--border-color)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}>
-            {/* Vacate Seat Button */}
-            <Button
-              type="button"
-              onClick={handleVacateSeat}
-              isLoading={isVacating}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                backgroundColor: '#ffffff',
-                border: '1px solid #fca5a5',
-                color: 'var(--danger)',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                padding: '0.5rem 1rem',
-                borderRadius: '0.5rem',
-                transition: 'all 0.15s ease',
-                boxShadow: 'none',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-              }}
-            >
-              <LogOut size={16} style={{ transform: 'rotate(180deg)', marginRight: '0.25rem' }} />
-              Vacate Seat
-            </Button>
-
-            {/* Details & Confirm Buttons */}
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setOpenTransfer(false);
-                  navigate('/students');
-                }}
-                style={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#475569',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  padding: '0.5rem 1.125rem',
-                  borderRadius: '0.5rem',
-                  transition: 'all 0.15s ease',
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.borderColor = '#94a3b8';
-                  e.currentTarget.style.color = '#0f172a';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.borderColor = '#cbd5e1';
-                  e.currentTarget.style.color = '#475569';
-                }}
-              >
-                Details
-              </button>
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={isTransferring}
-                disabled={!targetSeatId}
-                style={{
-                  backgroundColor: '#2f2fd1',
-                  borderColor: '#2f2fd1',
-                  borderRadius: '0.5rem',
-                  padding: '0.625rem 1.25rem',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  boxShadow: '0 4px 6px -1px rgba(47, 209, 209, 0.2), 0 2px 4px -2px rgba(47, 209, 209, 0.2)',
-                }}
-              >
-                Confirm Transfer
-              </Button>
-            </div>
-          </div>
-        </form>
+        </div>
       </Modal>
 
       {/* Layout Creator Modal */}

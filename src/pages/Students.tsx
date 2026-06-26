@@ -89,45 +89,8 @@ export default function Students() {
   });
 
   const filteredStudents = React.useMemo(() => {
-    if (!data?.students) return [];
-
-    return data.students.filter((student: any) => {
-      const activeAllocation = student.allocations?.find((a: any) => a.isActive);
-
-      // Filter by Shift
-      if (filterShiftId) {
-        if (!activeAllocation || activeAllocation.shiftId !== filterShiftId) {
-          return false;
-        }
-      }
-
-      // Filter by Expiration
-      if (filterExpiration) {
-        if (filterExpiration === 'NO_SEAT') {
-          if (activeAllocation) return false;
-        } else {
-          if (!activeAllocation) return false;
-
-          const end = new Date(activeAllocation.endDate);
-          const today = new Date();
-          end.setHours(0, 0, 0, 0);
-          today.setHours(0, 0, 0, 0);
-          const diffTime = end.getTime() - today.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-          if (filterExpiration === 'ACTIVE') {
-            if (diffDays < 0) return false;
-          } else if (filterExpiration === 'EXPIRED') {
-            if (diffDays >= 0) return false;
-          } else if (filterExpiration === 'EXPIRING_SOON') {
-            if (diffDays < 0 || diffDays > 7) return false;
-          }
-        }
-      }
-
-      return true;
-    });
-  }, [data?.students, filterShiftId, filterExpiration]);
+    return data?.students || [];
+  }, [data?.students]);
 
   const [createStudent, { isLoading: isCreating }] = useCreateStudentMutation();
   const [updateStudent, { isLoading: isUpdating }] = useUpdateStudentMutation();
