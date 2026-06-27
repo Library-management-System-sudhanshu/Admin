@@ -8,7 +8,6 @@ import {
   useGetShiftsQuery,
   useGetStudentsQuery,
   useAllocateSeatMutation,
-  useTransferSeatMutation,
   useUpdateAllocationMutation,
   useAddFloorMutation,
   useAddRoomMutation,
@@ -42,7 +41,6 @@ import {
   ChevronUp,
   ChevronRight,
   Edit2,
-  UserCog,
   LogOut,
   Clock,
   Map,
@@ -165,10 +163,6 @@ export default function Seats() {
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
 
-  // Transfer forms
-  const [targetSeatId, setTargetSeatId] = useState('');
-  const [targetFloorId, setTargetFloorId] = useState('');
-  const [targetRoomId, setTargetRoomId] = useState('');
 
   // Room Header actions dropdown
   const [activeRoomMenuId, setActiveRoomMenuId] = useState<string | null>(null);
@@ -176,7 +170,6 @@ export default function Seats() {
   // API mutations
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
   const [createPayment, { isLoading: isCreatingPayment }] = useCreatePaymentMutation();
-  const [transferSeat, { isLoading: isTransferring }] = useTransferSeatMutation();
   const [updateAllocation, { isLoading: isUpdatingAllocation }] = useUpdateAllocationMutation();
   const [vacateSeat, { isLoading: isVacating }] = useVacateSeatMutation();
   const [addFloor] = useAddFloorMutation();
@@ -673,24 +666,7 @@ export default function Seats() {
     }
   };
 
-  // Submit Transfer
-  const handleTransfer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const activeAllocation = selectedSeat?.allocations?.find((a: any) => a.isActive);
-    if (!activeAllocation) return;
 
-    try {
-      await transferSeat({
-        allocationId: activeAllocation.id,
-        targetSeatId,
-      }).unwrap();
-      setIsDrawerOpen(false);
-      setTargetSeatId('');
-      showToast('Seat transferred successfully!', 'success');
-    } catch (err) {
-      showToast('Seat transfer failed', 'error');
-    }
-  };
 
   // Submit Renewal
   const handleRenewSeat = async (e: React.FormEvent) => {
@@ -1942,7 +1918,13 @@ export default function Seats() {
                       {['DETAILS', 'TRANSFER', 'RENEW'].map((tab: any) => (
                         <button
                           key={tab}
-                          onClick={() => setDrawerActiveSection(tab)}
+                          onClick={() => {
+                            if (tab === 'TRANSFER') {
+                              navigate(`/transfer-seat?allocationId=${activeAllocation.id}&studentId=${activeAllocation.studentProfileId}`);
+                            } else {
+                              setDrawerActiveSection(tab);
+                            }
+                          }}
                           style={{
                             flex: 1,
                             border: 'none',
@@ -2128,64 +2110,6 @@ export default function Seats() {
                       </div>
                     )}
 
-                    {drawerActiveSection === 'TRANSFER' && (
-                      <form onSubmit={handleTransfer} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
-                          <UserCog size={16} />
-                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Transfer Student Location</h4>
-                        </div>
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-slate)' }}>Transfer this student allocation to another empty seat within the branch.</p>
-
-                        <div>
-                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Floor</label>
-                          <Select
-                            value={targetFloorId}
-                            onChange={(val) => {
-                              setTargetFloorId(val);
-                              const fl = seatMap?.find((f: any) => f.id === val);
-                              if (fl?.rooms && fl.rooms.length > 0) {
-                                setTargetRoomId(fl.rooms[0].id);
-                              } else {
-                                setTargetRoomId('');
-                                setTargetSeatId('');
-                              }
-                            }}
-                            placeholder="Select Target Floor"
-                            options={seatMap?.map((f: any) => ({ value: f.id, label: f.name })) || []}
-                          />
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Room</label>
-                          <Select
-                            value={targetRoomId}
-                            onChange={(val) => { setTargetRoomId(val); setTargetSeatId(''); }}
-                            placeholder="Select Target Room"
-                            disabled={!targetFloorId}
-                            options={seatMap?.find((f: any) => f.id === targetFloorId)?.rooms?.map((r: any) => ({ value: r.id, label: r.name })) || []}
-                          />
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Available Seat</label>
-                          <Select
-                            value={targetSeatId}
-                            onChange={(val) => setTargetSeatId(val)}
-                            placeholder="Select Target Seat"
-                            disabled={!targetRoomId}
-                            options={seatMap
-                              ?.find((f: any) => f.id === targetFloorId)
-                              ?.rooms?.find((r: any) => r.id === targetRoomId)
-                              ?.seats?.filter((s: any) => s.status === 'AVAILABLE')
-                              ?.map((s: any) => ({ value: s.id, label: `Seat ${s.number}` })) || []}
-                          />
-                        </div>
-
-                        <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--accent-blue)', width: '100%', marginTop: '6px' }} disabled={!targetSeatId || isTransferring} isLoading={isTransferring}>
-                          Confirm Transfer
-                        </Button>
-                      </form>
-                    )}
 
                     {drawerActiveSection === 'RENEW' && (
                       <form onSubmit={handleRenewSeat} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>

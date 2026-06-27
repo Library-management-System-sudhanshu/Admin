@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import {
@@ -11,10 +11,8 @@ import {
   useDeleteStudentMutation,
   useGetBranchesQuery,
   useGetShiftsQuery,
-  useGetSeatMapQuery,
   useGetPlansQuery,
   useVacateSeatMutation,
-  useTransferSeatMutation,
   useAllocateSeatMutation,
   useCreatePaymentMutation,
 } from '../store/api';
@@ -24,6 +22,7 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
+import { useAlert } from '../components/ui/AlertContext';
 import '../components/ui/Globals.css';
 import {
   Plus,
@@ -36,15 +35,16 @@ import {
   Mail,
   Phone,
   Clock,
-  Sparkles,
   History,
   LogOut
 } from 'lucide-react';
 
 export default function Students() {
   const { showToast } = useToast();
+  const { showAlert } = useAlert();
   const { user } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
@@ -88,10 +88,7 @@ export default function Students() {
   // Drawer tab and form states
   const [drawerActiveSection, setDrawerActiveSection] = useState<'DETAILS' | 'TRANSFER' | 'RENEW'>('DETAILS');
 
-  // Transfer states
-  const [targetFloorId, setTargetFloorId] = useState('');
-  const [targetRoomId, setTargetRoomId] = useState('');
-  const [targetSeatId, setTargetSeatId] = useState('');
+
 
   // Renew states
   const [renewPlanId, setRenewPlanId] = useState('');
@@ -151,12 +148,10 @@ export default function Students() {
   const [deleteStudent] = useDeleteStudentMutation();
 
   const [vacateSeat, { isLoading: isVacating }] = useVacateSeatMutation();
-  const [transferSeat, { isLoading: isTransferring }] = useTransferSeatMutation();
   const [allocateSeat] = useAllocateSeatMutation();
   const [createPayment] = useCreatePaymentMutation();
 
   const { data: plans } = useGetPlansQuery(user?.workspaceId, { skip: !user?.workspaceId });
-  const { data: seatMap } = useGetSeatMapQuery(fullStudent?.branchId || '', { skip: !fullStudent?.branchId });
 
   const validateField = (field: string, value: string) => {
     let errorMsg = '';
@@ -410,24 +405,7 @@ export default function Students() {
     }
   };
 
-  // 4. Submit Transfer
-  const handleTransfer = async (e: React.FormEvent, activeAllocationId: string) => {
-    e.preventDefault();
-    if (!targetSeatId) return;
-    try {
-      await transferSeat({
-        allocationId: activeAllocationId,
-        targetSeatId,
-      }).unwrap();
-      setTargetSeatId('');
-      setTargetFloorId('');
-      setTargetRoomId('');
-      setDrawerActiveSection('DETAILS');
-      showToast('Seat transferred successfully!', 'success');
-    } catch (err) {
-      showToast('Seat transfer failed', 'error');
-    }
-  };
+
 
   // 5. Submit Renewal
   const handleRenewSeat = async (e: React.FormEvent, activeAllocation: any) => {
@@ -1034,27 +1012,40 @@ export default function Students() {
 
               {/* Main Tab Selector at the Top */}
               <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
-                {['DETAILS', 'TRANSFER', 'RENEW'].map((tab: any) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setDrawerActiveSection(tab)}
-                    style={{
-                      flex: 1,
-                      border: 'none',
-                      padding: '8px',
-                      borderRadius: '8px',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      background: drawerActiveSection === tab ? '#ffffff' : 'transparent',
-                      color: drawerActiveSection === tab ? 'var(--text-navy)' : 'var(--text-slate)',
-                      cursor: 'pointer',
-                      transition: 'all 150ms ease'
-                    }}
-                  >
-                    {tab === 'DETAILS' ? 'Details' : tab === 'TRANSFER' ? 'Transfer' : 'Renew'}
-                  </button>
-                ))}
+                {['DETAILS', 'TRANSFER', 'RENEW'].map((tab: any) => {
+                  const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => {
+                        if (tab === 'TRANSFER') {
+                          if (activeAllocation) {
+                            navigate(`/transfer-seat?allocationId=${activeAllocation.id}&studentId=${fullStudent.id}`);
+                          } else {
+                            showAlert('No active seat allocation to transfer', { title: 'Error' });
+                          }
+                        } else {
+                          setDrawerActiveSection(tab);
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        border: 'none',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        background: drawerActiveSection === tab ? '#ffffff' : 'transparent',
+                        color: drawerActiveSection === tab ? 'var(--text-navy)' : 'var(--text-slate)',
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease'
+                      }}
+                    >
+                      {tab === 'DETAILS' ? 'Details' : tab === 'TRANSFER' ? 'Transfer' : 'Renew'}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Tab Content */}
@@ -1161,77 +1152,7 @@ export default function Students() {
                 </>
               )}
 
-              {drawerActiveSection === 'TRANSFER' && (
-                <div>
-                  {(() => {
-                    const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
-                    if (!activeAllocation) {
-                      return (
-                        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px dashed var(--border-card)', textAlign: 'center', color: 'var(--text-slate)', fontSize: '0.8rem' }}>
-                          No active seat allocation to transfer
-                        </div>
-                      );
-                    }
-                    return (
-                      <form onSubmit={(e) => handleTransfer(e, activeAllocation.id)} style={{ background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
-                          <Sparkles size={16} />
-                          <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700 }}>Transfer Student Seat</h4>
-                        </div>
 
-                        <div>
-                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Floor</label>
-                          <Select
-                            value={targetFloorId}
-                            onChange={(val) => {
-                              setTargetFloorId(val);
-                              const fl = seatMap?.find((f: any) => f.id === val);
-                              if (fl?.rooms && fl.rooms.length > 0) {
-                                setTargetRoomId(fl.rooms[0].id);
-                              } else {
-                                setTargetRoomId('');
-                                setTargetSeatId('');
-                              }
-                            }}
-                            placeholder="Select Target Floor"
-                            options={seatMap?.map((f: any) => ({ value: f.id, label: f.name })) || []}
-                          />
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Room</label>
-                          <Select
-                            value={targetRoomId}
-                            onChange={(val) => { setTargetRoomId(val); setTargetSeatId(''); }}
-                            placeholder="Select Target Room"
-                            disabled={!targetFloorId}
-                            options={seatMap?.find((f: any) => f.id === targetFloorId)?.rooms?.map((r: any) => ({ value: r.id, label: r.name })) || []}
-                          />
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Available Seat</label>
-                          <Select
-                            value={targetSeatId}
-                            onChange={(val) => setTargetSeatId(val)}
-                            placeholder="Select Target Seat"
-                            disabled={!targetRoomId}
-                            options={seatMap
-                              ?.find((f: any) => f.id === targetFloorId)
-                              ?.rooms?.find((r: any) => r.id === targetRoomId)
-                              ?.seats?.filter((s: any) => s.status === 'AVAILABLE')
-                              ?.map((s: any) => ({ value: s.id, label: `Seat ${s.number}` })) || []}
-                          />
-                        </div>
-
-                        <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--accent-blue)', width: '100%', marginTop: '6px' }} disabled={!targetSeatId || isTransferring} isLoading={isTransferring}>
-                          Confirm Transfer
-                        </Button>
-                      </form>
-                    );
-                  })()}
-                </div>
-              )}
 
               {drawerActiveSection === 'RENEW' && (
                 <div>

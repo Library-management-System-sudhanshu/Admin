@@ -382,6 +382,13 @@ export const api = createApi({
       }),
       invalidatesTags: ['Notices'],
     }),
+    triggerSafetyAlarm: builder.mutation({
+      query: (data) => ({
+        url: 'safety/alarm',
+        method: 'POST',
+        body: data,
+      }),
+    }),
     getSettings: builder.query({
       query: (workspaceId) => `workspaces/${workspaceId}/settings`,
       providesTags: ['Settings'],
@@ -451,5 +458,6 @@ export const {
   useDeleteNoticeMutation,
   useGetSettingsQuery,
   useUpdateSettingsMutation,
+  useTriggerSafetyAlarmMutation,
 } = api;
 

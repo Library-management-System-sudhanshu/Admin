@@ -13,6 +13,7 @@ import Settings from './pages/Settings';
 import Notices from './pages/Notices';
 import SuperAdmin from './pages/SuperAdmin';
 import Profile from './pages/Profile';
+import TransferSeat from './pages/TransferSeat';
 import { AlertProvider } from './components/ui/AlertContext';
 import { ToastProvider } from './components/ui/ToastContext';
 
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/whatsapp" element={<WhatsApp />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/transfer-seat" element={<TransferSeat />} />
 
               {/* Super Admin Restricted */}
               <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
