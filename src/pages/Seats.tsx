@@ -29,6 +29,7 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { useAlert } from '../components/ui/AlertContext';
+import { useToast } from '../components/ui/ToastContext';
 import '../components/ui/Globals.css';
 import {
   Plus,
@@ -38,6 +39,7 @@ import {
   Loader2,
   Search,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Edit2,
   UserCog,
@@ -74,6 +76,7 @@ const getDaysRemainingText = (endDateStr: string) => {
 
 export default function Seats() {
   const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
   
@@ -98,6 +101,7 @@ export default function Seats() {
   const [selectedSeat, setSelectedSeat] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerActiveSection, setDrawerActiveSection] = useState<'DETAILS' | 'TRANSFER' | 'RENEW'>('DETAILS');
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
 
   // Search filter inputs
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
@@ -363,7 +367,7 @@ export default function Seats() {
         canvasHeight: trimmedHeight
       }).unwrap();
       
-      showAlert('Seat positions and canvas bounds saved successfully!', { title: 'Success' });
+      showToast('Seat positions and canvas bounds saved successfully!', 'success');
       setActiveRoomEditingId(null);
       setTempLayout({});
       
@@ -371,7 +375,7 @@ export default function Seats() {
       setVisualizerWidths(prev => ({ ...prev, [room.id]: trimmedWidth }));
       setVisualizerHeights(prev => ({ ...prev, [room.id]: trimmedHeight }));
     } catch (err: any) {
-      showAlert(err.data?.message || 'Failed to save seat layout');
+      showToast(err.data?.message || 'Failed to save seat layout', 'error');
     }
   };
 
@@ -499,6 +503,7 @@ export default function Seats() {
     setSelectedSeat(seat);
     setDrawerActiveSection('DETAILS');
     setIsDrawerOpen(true);
+    setIsDetailsExpanded(false);
 
     if (seat.status === 'AVAILABLE') {
       const today = new Date().toISOString().split('T')[0];
@@ -624,11 +629,11 @@ export default function Seats() {
         setIsDrawerOpen(false);
         setOpenInvoiceReceipt(true);
       } else {
-        showAlert('Seat allocated successfully!', { title: 'Success' });
+        showToast('Seat allocated successfully!', 'success');
         setIsDrawerOpen(false);
       }
     } catch (err: any) {
-      showAlert(err.data?.message || 'Seat allocation failed');
+      showToast(err.data?.message || 'Seat allocation failed', 'error');
     }
   };
 
@@ -641,9 +646,9 @@ export default function Seats() {
       await vacateSeat(selectedSeat.id).unwrap();
       setIsDrawerOpen(false);
       setSelectedSeat(null);
-      showAlert('Seat vacated successfully!', { title: 'Success' });
+      showToast('Seat vacated successfully!', 'success');
     } catch (err: any) {
-      showAlert(err.data?.message || 'Failed to vacate seat');
+      showToast(err.data?.message || 'Failed to vacate seat', 'error');
     }
   };
 
@@ -660,11 +665,11 @@ export default function Seats() {
         startDate: editStartDate,
         endDate: editEndDate,
       }).unwrap();
-      showAlert('Subscription dates updated successfully!', { title: 'Success' });
+      showToast('Subscription dates updated successfully!', 'success');
       setIsEditingDates(false);
       setIsDrawerOpen(false);
     } catch (err: any) {
-      showAlert(err?.data?.message || 'Failed to update subscription dates', { title: 'Error' });
+      showToast(err?.data?.message || 'Failed to update subscription dates', 'error');
     }
   };
 
@@ -681,9 +686,9 @@ export default function Seats() {
       }).unwrap();
       setIsDrawerOpen(false);
       setTargetSeatId('');
-      showAlert('Seat transferred successfully!', { title: 'Success' });
+      showToast('Seat transferred successfully!', 'success');
     } catch (err) {
-      showAlert('Seat transfer failed');
+      showToast('Seat transfer failed', 'error');
     }
   };
 
@@ -726,9 +731,9 @@ export default function Seats() {
       setCreatedInvoiceData(invoiceInfo);
       setIsDrawerOpen(false);
       setOpenInvoiceReceipt(true);
-      showAlert('Seat renewed successfully!', { title: 'Success' });
+      showToast('Seat renewed successfully!', 'success');
     } catch (err: any) {
-      showAlert(err?.data?.message || 'Seat renewal failed', { title: 'Error' });
+      showToast(err?.data?.message || 'Seat renewal failed', 'error');
     } finally {
       setIsRenewing(false);
     }
@@ -739,10 +744,10 @@ export default function Seats() {
     try {
       if (creatorType === 'floor') {
         await addFloor({ branchId: selectedBranch, name: creatorName }).unwrap();
-        showAlert('Floor created successfully!', { title: 'Success' });
+        showToast('Floor created successfully!', 'success');
       } else if (creatorType === 'room') {
         await addRoom({ floorId: parentId, name: creatorName }).unwrap();
-        showAlert('Room created successfully!', { title: 'Success' });
+        showToast('Room created successfully!', 'success');
       } else if (creatorType === 'seat') {
         if (creatorName.includes('-')) {
           const [startStr, endStr] = creatorName.split('-');
@@ -752,20 +757,20 @@ export default function Seats() {
             for (let i = start; i <= end; i++) {
               await addSeat({ roomId: parentId, number: i.toString() }).unwrap();
             }
-            showAlert(`Seats ${start} to ${end} created!`, { title: 'Success' });
+            showToast(`Seats ${start} to ${end} created!`, 'success');
           } else {
             await addSeat({ roomId: parentId, number: creatorName }).unwrap();
-            showAlert('Seat created!', { title: 'Success' });
+            showToast('Seat created!', 'success');
           }
         } else {
           await addSeat({ roomId: parentId, number: creatorName }).unwrap();
-          showAlert('Seat created!', { title: 'Success' });
+          showToast('Seat created!', 'success');
         }
       }
       setOpenCreator(false);
       setCreatorName('');
     } catch (err: any) {
-      showAlert(err.data?.message || 'Creation failed');
+      showToast(err.data?.message || 'Creation failed', 'error');
     }
   };
 
@@ -775,8 +780,9 @@ export default function Seats() {
     try {
       await deleteFloor(id).unwrap();
       setActiveFloorTab(0);
+      showToast('Floor deleted successfully!', 'success');
     } catch (err: any) {
-      showAlert(err.data?.message || 'Failed to delete floor');
+      showToast(err.data?.message || 'Failed to delete floor', 'error');
     }
   };
 
@@ -785,9 +791,9 @@ export default function Seats() {
     if (!confirmed) return;
     try {
       await deleteRoom(id).unwrap();
-      showAlert('Room deleted successfully!', { title: 'Success' });
+      showToast('Room deleted successfully!', 'success');
     } catch (err: any) {
-      showAlert(err.data?.message || 'Failed to delete room');
+      showToast(err.data?.message || 'Failed to delete room', 'error');
     }
   };
 
@@ -797,9 +803,9 @@ export default function Seats() {
     try {
       await deleteSeat(id).unwrap();
       setIsDrawerOpen(false);
-      showAlert('Seat deleted successfully!', { title: 'Success' });
+      showToast('Seat deleted successfully!', 'success');
     } catch (err: any) {
-      showAlert(err.data?.message || 'Failed to delete seat');
+      showToast(err.data?.message || 'Failed to delete seat', 'error');
     }
   };
 
@@ -1905,9 +1911,9 @@ export default function Seats() {
                     try {
                       await updateSeatStatus({ id: selectedSeat?.id, status: 'BLOCKED' }).unwrap();
                       setIsDrawerOpen(false);
-                      showAlert('Seat marked under maintenance!', { title: 'Success' });
+                      showToast('Seat marked under maintenance!', 'success');
                     } catch (err: any) {
-                      showAlert('Failed to block seat');
+                      showToast('Failed to block seat', 'error');
                     }
                   }}
                   style={{ flex: 1, background: 'none', border: '1px solid rgba(245, 158, 11, 0.15)', color: 'var(--status-amber)', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 600, padding: '8px', cursor: 'pointer' }}
@@ -1958,15 +1964,66 @@ export default function Seats() {
                     {drawerActiveSection === 'DETAILS' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {/* Student Details Card */}
-                        <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#eff6ff', borderColor: 'rgba(37, 99, 235, 0.15)' }}>
-                          <div style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', color: 'white', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {nameInit}
+                        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px', background: '#eff6ff', borderColor: 'rgba(37, 99, 235, 0.15)', borderRadius: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                              <div style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', color: 'white', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {nameInit}
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeAllocation.studentProfile?.user?.name}</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)' }}>ID: STD-{activeAllocation.studentProfile?.id?.slice(0, 4).toUpperCase()}</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)', marginTop: '1px' }}>{activeAllocation.studentProfile?.user?.mobile}</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)', marginTop: '1px', textTransform: 'lowercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeAllocation.studentProfile?.user?.email}</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setIsDetailsExpanded(!isDetailsExpanded)}
+                              style={{
+                                border: 'none',
+                                background: 'none',
+                                cursor: 'pointer',
+                                color: 'var(--accent-blue)',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              {isDetailsExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                            </button>
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeAllocation.studentProfile?.user?.name}</span>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)' }}>ID: STD-{activeAllocation.studentProfile?.id?.slice(0, 4).toUpperCase()}</span>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)' }}>{activeAllocation.studentProfile?.user?.mobile}</span>
-                          </div>
+
+                          {/* Collapsible Content */}
+                          {isDetailsExpanded && (
+                            <div style={{ borderTop: '1px solid rgba(37, 99, 235, 0.1)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                                <span style={{ color: 'var(--text-slate)' }}>Guardian Name:</span>
+                                <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{activeAllocation.studentProfile?.guardianName || 'N/A'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                                <span style={{ color: 'var(--text-slate)' }}>Guardian Mobile:</span>
+                                <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{activeAllocation.studentProfile?.guardianMobile || 'N/A'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                                <span style={{ color: 'var(--text-slate)' }}>Aadhar Card:</span>
+                                <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{activeAllocation.studentProfile?.aadharNumber || 'N/A'}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                                <span style={{ color: 'var(--text-slate)' }}>Admission Date:</span>
+                                <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>
+                                  {activeAllocation.studentProfile?.joiningDate 
+                                    ? new Date(activeAllocation.studentProfile.joiningDate).toLocaleDateString()
+                                    : 'N/A'}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                                <span style={{ color: 'var(--text-slate)' }}>Password:</span>
+                                <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace' }}>{activeAllocation.studentProfile?.user?.rawPassword || 'Student@123'}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Subscription Info and dates */}
@@ -2218,9 +2275,9 @@ export default function Seats() {
                       await updateSeatStatus({ id: selectedSeat?.id, status: 'AVAILABLE' }).unwrap();
                       setIsDrawerOpen(false);
                       setSelectedSeat(null);
-                      showAlert('Seat is now available!', { title: 'Success' });
+                      showToast('Seat is now available!', 'success');
                     } catch (err: any) {
-                      showAlert('Failed to update status');
+                      showToast('Failed to update status', 'error');
                     }
                   }}
                 >
@@ -2431,9 +2488,9 @@ export default function Seats() {
                     try {
                       await updateFloor({ id: selectedFloorToEdit.id, name: editFloorName.trim() }).unwrap();
                       setOpenEditFloorModal(false);
-                      showAlert('Floor name updated!', { title: 'Success' });
+                      showToast('Floor name updated!', 'success');
                     } catch (err: any) {
-                      showAlert('Failed to update floor');
+                      showToast('Failed to update floor', 'error');
                     }
                   }
                 }}
@@ -2481,9 +2538,9 @@ export default function Seats() {
                   try {
                     await updateRoom({ id: selectedRoomToEdit.id, name: editRoomName.trim() }).unwrap();
                     setOpenEditRoomModal(false);
-                    showAlert('Room name updated successfully!', { title: 'Success' });
+                    showToast('Room name updated successfully!', 'success');
                   } catch (err: any) {
-                    showAlert('Failed to update room name');
+                    showToast('Failed to update room name', 'error');
                   }
                 }
               }}

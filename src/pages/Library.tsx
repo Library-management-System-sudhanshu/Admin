@@ -36,6 +36,7 @@ import {
   MenuItem,
   Tabs,
   Tab,
+  Autocomplete,
 } from '@mui/material';
 import {
   AssignmentTurnedIn as ReturnIcon,
@@ -259,16 +260,22 @@ export default function Library() {
               </Select>
             </FormControl>
 
-            <FormControl fullWidth required>
-              <InputLabel>Select Student Borrower</InputLabel>
-              <Select value={studentProfileId} label="Select Student Borrower" onChange={(e) => setStudentProfileId(e.target.value)}>
-                {studentsData?.students.map((student: any) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.user?.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              options={studentsData?.students || []}
+              getOptionLabel={(option: any) => option.user?.name || ''}
+              value={studentsData?.students.find((s: any) => s.id === studentProfileId) || null}
+              onChange={(_event: any, newValue: any | null) => {
+                setStudentProfileId(newValue ? newValue.id : '');
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Select Student Borrower"
+                  required
+                  fullWidth
+                />
+              )}
+            />
           </DialogContent>
           <DialogActions sx={{ p: 2.5, gap: '0.75rem' }}>
             <Button type="button" variant="text" onClick={() => setOpenIssue(false)}>Cancel</Button>

@@ -23,7 +23,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
-import { useAlert } from '../components/ui/AlertContext';
+import { useToast } from '../components/ui/ToastContext';
 import '../components/ui/Globals.css';
 import {
   Plus,
@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 
 export default function Students() {
-  const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const { user } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
 
@@ -404,9 +404,9 @@ export default function Students() {
     if (!confirmVacate) return;
     try {
       await vacateSeat(seatId).unwrap();
-      showAlert('Seat vacated successfully!', { title: 'Success' });
+      showToast('Seat vacated successfully!', 'success');
     } catch (err: any) {
-      showAlert(err.data?.message || 'Failed to vacate seat');
+      showToast(err.data?.message || 'Failed to vacate seat', 'error');
     }
   };
 
@@ -423,9 +423,9 @@ export default function Students() {
       setTargetFloorId('');
       setTargetRoomId('');
       setDrawerActiveSection('DETAILS');
-      showAlert('Seat transferred successfully!', { title: 'Success' });
+      showToast('Seat transferred successfully!', 'success');
     } catch (err) {
-      showAlert('Seat transfer failed');
+      showToast('Seat transfer failed', 'error');
     }
   };
 
@@ -457,9 +457,9 @@ export default function Students() {
       }).unwrap();
 
       setDrawerActiveSection('DETAILS');
-      showAlert('Seat renewed successfully!', { title: 'Success' });
+      showToast('Seat renewed successfully!', 'success');
     } catch (err: any) {
-      showAlert(err?.data?.message || 'Seat renewal failed', { title: 'Error' });
+      showToast(err?.data?.message || 'Seat renewal failed', 'error');
     } finally {
       setIsRenewing(false);
     }

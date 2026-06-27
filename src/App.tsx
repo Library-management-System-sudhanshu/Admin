@@ -14,38 +14,41 @@ import Notices from './pages/Notices';
 import SuperAdmin from './pages/SuperAdmin';
 import Profile from './pages/Profile';
 import { AlertProvider } from './components/ui/AlertContext';
+import { ToastProvider } from './components/ui/ToastContext';
 
 export default function App() {
   return (
     <AlertProvider>
-      <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+      <ToastProvider>
+        <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        {/* Protected Routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<Layout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/students" element={<Students />} />
-            <Route path="/seats" element={<Seats />} />
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/library" element={<Library />} />
-            <Route path="/complaints" element={<Complaints />} />
-            <Route path="/notices" element={<Notices />} />
-            <Route path="/whatsapp" element={<WhatsApp />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/profile" element={<Profile />} />
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/students" element={<Students />} />
+              <Route path="/seats" element={<Seats />} />
+              <Route path="/billing" element={<Billing />} />
+              <Route path="/library" element={<Library />} />
+              <Route path="/complaints" element={<Complaints />} />
+              <Route path="/notices" element={<Notices />} />
+              <Route path="/whatsapp" element={<WhatsApp />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/profile" element={<Profile />} />
 
-            {/* Super Admin Restricted */}
-            <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
-              <Route path="/super-admin" element={<SuperAdmin />} />
+              {/* Super Admin Restricted */}
+              <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+                <Route path="/super-admin" element={<SuperAdmin />} />
+              </Route>
             </Route>
           </Route>
-        </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+      </ToastProvider>
     </AlertProvider>
   );
 }

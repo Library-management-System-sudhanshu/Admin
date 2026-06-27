@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { useAlert } from '../components/ui/AlertContext';
+import { useToast } from '../components/ui/ToastContext';
 import type { RootState } from '../store';
 import { useGetProfileQuery, useUpdateProfileMutation } from '../store/api';
 import { setCredentials } from '../store/authSlice';
@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function Profile() {
-  const { showAlert } = useAlert();
+  const { showToast } = useToast();
   const { user, token } = useSelector((state: RootState) => state.auth);
   const dispatch = useDispatch();
 
@@ -64,10 +64,10 @@ export default function Profile() {
       };
       const updatedUser = await updateProfile(payload).unwrap();
       dispatch(setCredentials({ user: updatedUser, accessToken: token || '' }));
-      showAlert('Account and Library details saved successfully!', { title: 'Success' });
+      showToast('Account and Library details saved successfully!', 'success');
       refetch();
     } catch (err: any) {
-      showAlert(err?.data?.message || 'Failed to update profile.', { title: 'Error' });
+      showToast(err?.data?.message || 'Failed to update profile.', 'error');
     }
   };
 
@@ -75,23 +75,23 @@ export default function Profile() {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      showAlert('Passwords do not match.', { title: 'Error' });
+      showToast('Passwords do not match.', 'error');
       return;
     }
 
     if (password.length < 6) {
-      showAlert('Password must be at least 6 characters.', { title: 'Error' });
+      showToast('Password must be at least 6 characters.', 'error');
       return;
     }
 
     try {
       const updatedUser = await updateProfile({ password }).unwrap();
       dispatch(setCredentials({ user: updatedUser, accessToken: token || '' }));
-      showAlert('Password updated successfully!', { title: 'Success' });
+      showToast('Password updated successfully!', 'success');
       setPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      showAlert(err?.data?.message || 'Failed to update password.', { title: 'Error' });
+      showToast(err?.data?.message || 'Failed to update password.', 'error');
     }
   };
 

@@ -36,6 +36,7 @@ import {
   MenuItem,
   Tabs,
   Tab,
+  Autocomplete,
 } from '@mui/material';
 import {
   Check as PaidIcon,
@@ -238,16 +239,22 @@ export default function Billing() {
         <DialogTitle sx={{ fontWeight: 700 }}>Generate Fee Bill</DialogTitle>
         <form onSubmit={handleCreateInvoice}>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            <FormControl fullWidth required>
-              <InputLabel>Select Student</InputLabel>
-              <Select value={studentProfileId} label="Select Student" onChange={(e) => setStudentProfileId(e.target.value)}>
-                {studentsData?.students.map((student: any) => (
-                  <MenuItem key={student.id} value={student.id}>
-                    {student.user?.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              options={studentsData?.students || []}
+              getOptionLabel={(option: any) => option.user?.name || ''}
+              value={studentsData?.students.find((s: any) => s.id === studentProfileId) || null}
+              onChange={(_event: any, newValue: any | null) => {
+                setStudentProfileId(newValue ? newValue.id : '');
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Select Student"
+                  required
+                  fullWidth
+                />
+              )}
+            />
 
             <FormControl fullWidth>
               <InputLabel>Link Plan Package (Optional)</InputLabel>

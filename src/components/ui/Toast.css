@@ -1,0 +1,114 @@
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  max-width: 400px;
+  width: calc(100% - 48px);
+}
+
+.toast-item {
+  position: relative;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px 14px 24px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 16px -6px rgba(0, 0, 0, 0.03);
+  transform: translateY(-20px);
+  opacity: 0;
+  animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.3s ease;
+}
+
+.toast-message {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-navy);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-slate);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.toast-close:hover {
+  background-color: rgba(15, 23, 42, 0.05);
+  color: var(--text-navy);
+}
+
+/* Icons styling */
+.toast-icon {
+  flex-shrink: 0;
+}
+
+.toast-icon.success {
+  color: var(--status-emerald);
+}
+
+.toast-icon.error {
+  color: var(--status-red);
+}
+
+.toast-icon.warning {
+  color: var(--status-amber);
+}
+
+.toast-icon.info {
+  color: var(--accent-blue);
+}
+
+/* Left borders / accents for toasts */
+.toast-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-top-left-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-lg);
+}
+
+.toast-item.success::before {
+  background-color: var(--status-emerald);
+}
+
+.toast-item.error::before {
+  background-color: var(--status-red);
+}
+
+.toast-item.warning::before {
+  background-color: var(--status-amber);
+}
+
+.toast-item.info::before {
+  background-color: var(--accent-blue);
+}
+
+@keyframes toast-slide-in {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
