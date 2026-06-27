@@ -652,4 +652,13 @@ body {
   border-color: var(--status-red);
 }
 
+.custom-table tbody tr {
+  transition: background-color 150ms ease;
+}
+
+.custom-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+
 
