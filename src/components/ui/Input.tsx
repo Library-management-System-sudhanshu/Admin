@@ -1,4 +1,5 @@
-import { type InputHTMLAttributes, forwardRef } from 'react';
+import { type InputHTMLAttributes, forwardRef, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import './Input.css';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -17,6 +18,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   id,
   ...props
 }, ref) => {
+  const isPasswordType = props.type === 'password';
+  const [showPassword, setShowPassword] = useState(false);
   const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
 
   const containerClasses = [
@@ -25,6 +28,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     error ? 'has-error' : '',
     className
   ].filter(Boolean).join(' ');
+
+  const resolvedType = isPasswordType 
+    ? (showPassword ? 'text' : 'password') 
+    : props.type;
 
   return (
     <div className={containerClasses}>
@@ -37,9 +44,20 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
         <input
           id={inputId}
           ref={ref}
-          className="custom-input"
+          className={`custom-input ${isPasswordType ? 'is-password' : ''}`}
           {...props}
+          type={resolvedType}
         />
+        {isPasswordType && (
+          <button
+            type="button"
+            className="password-toggle-btn"
+            onClick={() => setShowPassword(!showPassword)}
+            tabIndex={-1}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        )}
       </div>
       {(error || helperText) && (
         <span className={`custom-input-helper ${error ? 'error-text' : ''}`}>

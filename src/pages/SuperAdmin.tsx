@@ -10,11 +10,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Button,
   Chip,
   CircularProgress,
+  Paper,
 } from '@mui/material';
+import { Button } from '../components/ui/Button';
 import {
   Business as WorkspacesIcon,
   People as StudentIcon,
@@ -113,9 +113,15 @@ export default function SuperAdmin() {
                 </TableCell>
                 <TableCell align="right">
                   <Button
-                    variant="outlined"
-                    color={w.isActive ? 'error' : 'success'}
-                    size="small"
+                    variant="outline"
+                    size="sm"
+                    style={{
+                      borderColor: w.isActive ? 'var(--status-red)' : 'var(--status-emerald)',
+                      color: w.isActive ? 'var(--status-red)' : 'var(--status-emerald)',
+                      padding: '4px 10px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                    }}
                     onClick={() => handleToggleActive(w.id, w.isActive)}
                   >
                     {w.isActive ? 'Deactivate' : 'Activate'}

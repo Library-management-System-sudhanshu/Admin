@@ -10,7 +10,6 @@ import {
   Card,
   CardContent,
   TextField,
-  Button,
   Table,
   TableBody,
   TableCell,
@@ -22,7 +21,9 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { Delete as DeleteIcon, Send as SendIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon } from '@mui/icons-material';
+import { Button } from '../components/ui/Button';
+import { Send } from 'lucide-react';
 
 export default function Notices() {
   const { data: notices, isLoading } = useGetNoticesQuery({});
@@ -98,20 +99,22 @@ export default function Notices() {
                 />
                 <Button
                   fullWidth
-                  variant="contained"
-                  color="primary"
+                  variant="primary"
                   type="submit"
-                  disabled={isCreating || !title.trim() || !content.trim()}
-                  startIcon={isCreating ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
-                  sx={{
-                    borderRadius: 2.5,
-                    py: 1.2,
-                    textTransform: 'none',
+                  isLoading={isCreating}
+                  disabled={!title.trim() || !content.trim()}
+                  style={{
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--accent-blue)',
+                    borderColor: 'var(--accent-blue)',
                     fontWeight: 600,
-                    boxShadow: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '10px 0'
                   }}
                 >
-                  Broadcast Notice
+                  <Send size={16} /> Broadcast Notice
                 </Button>
               </form>
             </CardContent>

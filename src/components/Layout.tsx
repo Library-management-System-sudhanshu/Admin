@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/authSlice';
 import type { RootState } from '../store';
+import { useGetBranchesQuery, useGetMetricsQuery } from '../store/api';
 import {
   LayoutDashboard,
   Users,
@@ -10,13 +11,20 @@ import {
   ReceiptText,
   Library as LibraryIcon,
   MessageSquareWarning,
+  Bell,
   MessageCircle,
-  LogOut,
+  Settings,
   Building2,
-  Settings as SettingsIcon,
   Menu,
   X,
-  Bell
+  Search,
+  ChevronDown,
+  Plus,
+  User,
+  CreditCard,
+  LogOut,
+  Sparkles,
+  SlidersHorizontal
 } from 'lucide-react';
 import './Layout.css';
 
@@ -26,34 +34,57 @@ export default function Layout() {
   const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // States
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  // Refs for closing on outside click
+  const profileRef = useRef<HTMLDivElement>(null);
+  const quickAddRef = useRef<HTMLDivElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+
+  // Fetch branches & metrics
+  const { data: branches } = useGetBranchesQuery({});
+  const { data: metrics } = useGetMetricsQuery({});
 
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
   };
 
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  // Close dropdown when clicking outside
+  // Close all dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
+      const target = event.target as Node;
+      if (profileRef.current && !profileRef.current.contains(target)) {
+        setIsProfileDropdownOpen(false);
+      }
+      if (quickAddRef.current && !quickAddRef.current.contains(target)) {
+        setIsQuickAddOpen(false);
+      }
+      if (workspaceRef.current && !workspaceRef.current.contains(target)) {
+        setIsWorkspaceOpen(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(target)) {
+        setIsNotificationsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Close sidebar on route change on mobile
+  // Close sidebar on route change (for mobile viewports)
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [location.pathname]);
 
+  // Sidebar Menu Items
   const menuItems = [
     { text: 'Dashboard', icon: <LayoutDashboard className="sidebar-link-icon" />, path: '/' },
     { text: 'Students', icon: <Users className="sidebar-link-icon" />, path: '/students' },
@@ -63,26 +94,73 @@ export default function Layout() {
     { text: 'Complaints', icon: <MessageSquareWarning className="sidebar-link-icon" />, path: '/complaints' },
     { text: 'Notices', icon: <Bell className="sidebar-link-icon" />, path: '/notices' },
     { text: 'WhatsApp', icon: <MessageCircle className="sidebar-link-icon" />, path: '/whatsapp' },
-    { text: 'Settings', icon: <SettingsIcon className="sidebar-link-icon" />, path: '/settings' },
+    { text: 'Settings', icon: <Settings className="sidebar-link-icon" />, path: '/settings' },
   ];
 
   if (user?.role === 'SUPER_ADMIN') {
     menuItems.push({ text: 'Workspaces', icon: <Building2 className="sidebar-link-icon" />, path: '/super-admin' });
   }
 
+  // Generate breadcrumb text
+  const getBreadcrumbLabel = () => {
+    const path = location.pathname;
+    if (path === '/') return 'Dashboard';
+    const matched = menuItems.find(item => item.path === path);
+    return matched ? matched.text : 'Page';
+  };
+
   return (
     <div className="layout-container">
-      {/* Sidebar Navigation */}
+      {/* 1. SOFT LIGHT SIDEBAR */}
       <aside className={`layout-sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        
+        {/* Sidebar Header Logo */}
         <div className="sidebar-header">
-          <div className="sidebar-logo">STUDYFLOW</div>
+          <div className="sidebar-logo-container">
+            <div className="sidebar-logo-dot" />
+            <div className="sidebar-logo">StudyFlow</div>
+          </div>
           {isSidebarOpen && (
-            <button className="mobile-menu-btn" onClick={toggleSidebar} style={{ position: 'absolute', right: '1rem', color: 'white' }}>
-              <X size={24} />
+            <button className="mobile-menu-btn" onClick={toggleSidebar}>
+              <X size={20} />
             </button>
           )}
         </div>
-        
+
+        {/* Workspace Switcher */}
+        <div className="workspace-switcher-container" ref={workspaceRef} style={{ position: 'relative' }}>
+          <div className="workspace-switcher" onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}>
+            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', overflow: 'hidden' }}>
+              <span style={{ fontSize: '0.62rem', fontWeight: 600, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Active Branch</span>
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {branches && branches.length > 0 ? branches[0].name : 'Main Branch'}
+              </span>
+            </div>
+            <ChevronDown size={14} style={{ color: 'var(--text-slate)' }} />
+          </div>
+
+          {/* Workspace Switcher Dropdown */}
+          <div className={`profile-dropdown-menu ${isWorkspaceOpen ? 'show' : ''}`} style={{ left: '16px', right: '16px', width: 'auto', marginTop: '4px' }}>
+            <div className="profile-dropdown-header">
+              <span className="profile-dropdown-title">Switch Workspace</span>
+            </div>
+            {branches?.map((b: any) => (
+              <button key={b.id} className="profile-dropdown-item" onClick={() => setIsWorkspaceOpen(false)}>
+                <Building2 size={14} />
+                <span>{b.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Search Bar Trigger */}
+        <button className="sidebar-search-btn" onClick={() => navigate('/students')}>
+          <Search size={14} />
+          <span>Search anything...</span>
+          <kbd className="topbar-kbd">⌘K</kbd>
+        </button>
+
+        {/* Main Menu Links */}
         <nav className="sidebar-nav">
           {menuItems.map((item) => {
             const active = location.pathname === item.path;
@@ -99,71 +177,156 @@ export default function Layout() {
           })}
         </nav>
 
-        {/* Sidebar Footer - User Profile & Logout */}
-        <div className="sidebar-footer">
-          <Link to="/profile" className="sidebar-user-profile" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="user-avatar sidebar-avatar">
-              {user?.name?.charAt(0).toUpperCase() || 'U'}
+        {/* Bottom Profile Section */}
+        <div className="sidebar-footer" ref={profileRef} style={{ position: 'relative' }}>
+          <div className="sidebar-user-profile" onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}>
+            <div className="sidebar-user-info-block">
+              <div className="sidebar-avatar">
+                {user?.name?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div className="sidebar-user-details">
+                <span className="sidebar-user-name">{user?.name}</span>
+                <span className="sidebar-user-role">
+                  {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : user?.role || 'Staff'}
+                </span>
+              </div>
             </div>
-            <div className="sidebar-user-details">
-              <span className="sidebar-user-name">{user?.name}</span>
-              <span className="sidebar-user-role">{user?.role}</span>
+            <ChevronDown size={14} style={{ color: 'var(--text-slate)' }} />
+          </div>
+
+          {/* Profile Dropdown Settings Menu */}
+          <div className={`profile-dropdown-menu ${isProfileDropdownOpen ? 'show' : ''}`} style={{ bottom: '110%', top: 'auto', left: '16px', right: '16px', width: 'auto' }}>
+            <div className="profile-dropdown-header">
+              <span className="profile-dropdown-title">{user?.name}</span>
+              <span className="profile-dropdown-subtitle">{user?.email}</span>
             </div>
-          </Link>
-          <button className="sidebar-logout-btn" onClick={handleLogout}>
-            <LogOut size={18} />
-            <span>Logout</span>
-          </button>
+            <button className="profile-dropdown-item" onClick={() => { setIsProfileDropdownOpen(false); navigate('/settings'); }}>
+              <User size={14} />
+              <span>My Account</span>
+            </button>
+            <button className="profile-dropdown-item" onClick={() => { setIsProfileDropdownOpen(false); navigate('/settings'); }}>
+              <SlidersHorizontal size={14} />
+              <span>Workspace Settings</span>
+            </button>
+            <button className="profile-dropdown-item" onClick={() => { setIsProfileDropdownOpen(false); navigate('/settings'); }}>
+              <CreditCard size={14} />
+              <span>Subscription</span>
+            </button>
+            <button className="profile-dropdown-item danger" onClick={() => { setIsProfileDropdownOpen(false); handleLogout(); }}>
+              <LogOut size={14} />
+              <span>Log out</span>
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
+      {/* 2. MAIN WORKSPACE PANEL */}
       <div className="layout-main">
-        {/* Full Top App Bar (Only on Dashboard) */}
-        {location.pathname === '/' && (
-          <header className="layout-topbar">
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <button className="mobile-menu-btn" onClick={toggleSidebar}>
-                <Menu size={24} />
-              </button>
-              <div className="topbar-title">StudyFlow</div>
+        
+        {/* Header Appbar (72px) */}
+        <header className="layout-topbar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button className="mobile-menu-btn" onClick={toggleSidebar}>
+              <Menu size={20} />
+            </button>
+            <div className="topbar-breadcrumbs">
+              <span className="topbar-breadcrumbs-item" onClick={() => navigate('/')}>StudyFlow</span>
+              <ChevronDown size={10} style={{ transform: 'rotate(-90deg)', opacity: 0.5 }} />
+              <span style={{ color: 'var(--text-navy)', fontWeight: 600 }}>{getBreadcrumbLabel()}</span>
             </div>
-            
-            <div className="topbar-actions">
-              <div className="user-info">
-                {user?.name} <span className="text-muted">({user?.role})</span>
-              </div>
-              
-              <div className="user-menu-container" ref={menuRef} style={{ position: 'relative' }}>
-                <button className="user-avatar-btn" onClick={toggleMenu}>
-                  <div className="user-avatar">
-                    {user?.name?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                </button>
-                
-                <div className={`dropdown-menu ${isMenuOpen ? 'show' : ''}`}>
-                  <button className="dropdown-item" onClick={() => { setIsMenuOpen(false); navigate('/profile'); }}>
-                    <Users size={16} style={{ marginRight: '8px' }} /> Profile
-                  </button>
-                  <button className="dropdown-item" onClick={handleLogout}>
-                    <LogOut size={16} style={{ marginRight: '8px' }} /> Logout
-                  </button>
-                </div>
-              </div>
-            </div>
-          </header>
-        )}
+          </div>
 
-        {/* Mobile Header for other pages to ensure menu button is accessible */}
-        {location.pathname !== '/' && (
-          <div className="mobile-only-header">
-            <button className="mobile-menu-btn" onClick={toggleSidebar} style={{ display: 'block' }}>
-              <Menu size={24} />
+          {/* Topbar Actions */}
+          <div className="topbar-actions">
+            
+            {/* Global Quick Search */}
+            <button className="topbar-search-trigger" onClick={() => navigate('/students')}>
+              <Search size={14} />
+              <span>Search students...</span>
+              <kbd className="topbar-kbd">/</kbd>
+            </button>
+
+            {/* Quick Add Button */}
+            <div className="quick-add-container" ref={quickAddRef} style={{ position: 'relative' }}>
+              <button className="topbar-btn" style={{ background: 'var(--accent-blue)', color: '#ffffff', borderRadius: '10px', display: 'flex', gap: '6px', fontSize: '0.78rem', fontWeight: 600, padding: '6px 12px' }} onClick={() => setIsQuickAddOpen(!isQuickAddOpen)}>
+                <Plus size={14} />
+                <span>Quick Add</span>
+              </button>
+
+              <div className={`profile-dropdown-menu ${isQuickAddOpen ? 'show' : ''}`} style={{ marginTop: '6px' }}>
+                <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/students'); }}>
+                  <Users size={14} />
+                  <span>Add Student</span>
+                </button>
+                <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/seats'); }}>
+                  <Armchair size={14} />
+                  <span>Allocate Seat</span>
+                </button>
+                <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/billing'); }}>
+                  <ReceiptText size={14} />
+                  <span>Collect Payment</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Notifications Popover */}
+            <div className="notifications-container" ref={notificationsRef} style={{ position: 'relative' }}>
+              <button className="topbar-btn" onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} style={{ position: 'relative' }}>
+                <Bell size={18} />
+                {metrics && metrics.expiringSubscriptions > 0 && (
+                  <span style={{ position: 'absolute', top: '4px', right: '4px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--status-red)' }} />
+                )}
+              </button>
+
+              {/* Notifications Dropdown */}
+              <div className={`profile-dropdown-menu ${isNotificationsOpen ? 'show' : ''}`} style={{ marginTop: '6px', width: '280px' }}>
+                <div className="profile-dropdown-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="profile-dropdown-title">System Status</span>
+                  {metrics && metrics.expiringSubscriptions > 0 && (
+                    <span style={{ fontSize: '0.62rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-red)', padding: '2px 6px', borderRadius: '10px', fontWeight: 700 }}>
+                      {metrics.expiringSubscriptions} alerts
+                    </span>
+                  )}
+                </div>
+                {metrics && metrics.expiringSubscriptions > 0 ? (
+                  <button className="profile-dropdown-item" style={{ whiteSpace: 'normal', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', borderBottom: '1px solid rgba(15,23,42,0.03)' }} onClick={() => { setIsNotificationsOpen(false); navigate('/seats'); }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '2px' }}>
+                      <Sparkles size={12} style={{ color: 'var(--status-amber)' }} />
+                      <span style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-navy)' }}>Expiring Subscriptions</span>
+                    </div>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-slate)' }}>{metrics.expiringSubscriptions} students subscription will expire within the next 7 days.</span>
+                  </button>
+                ) : (
+                  <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-slate)' }}>
+                    All student plans are running smoothly!
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Profile Avatar Button */}
+            <button className="topbar-btn" style={{ padding: '2px' }} onClick={() => navigate('/settings')}>
+              <div className="sidebar-avatar" style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}>
+                {user?.name?.charAt(0).toUpperCase() || 'U'}
+              </div>
             </button>
           </div>
-        )}
+        </header>
 
-        {/* Page Content */}
+        {/* Mobile top navigation header (Only on responsive viewports) */}
+        <div className="mobile-only-header">
+          <button className="mobile-menu-btn" onClick={toggleSidebar}>
+            <Menu size={20} />
+          </button>
+          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-navy)', letterSpacing: '-0.01em' }}>StudyFlow</div>
+          <button className="topbar-btn" onClick={() => navigate('/settings')} style={{ padding: '2px' }}>
+            <div className="sidebar-avatar" style={{ width: '30px', height: '30px', fontSize: '0.75rem' }}>
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+          </button>
+        </div>
+
+        {/* Page Content Panel */}
         <main className="layout-content">
           <Outlet />
         </main>
@@ -175,8 +338,9 @@ export default function Layout() {
           style={{
             position: 'fixed',
             top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 90
+            backgroundColor: 'rgba(15, 23, 42, 0.15)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9
           }}
           onClick={toggleSidebar}
         />
@@ -184,4 +348,3 @@ export default function Layout() {
     </div>
   );
 }
-

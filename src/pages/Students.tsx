@@ -58,7 +58,7 @@ export default function Students() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('Student@123');
   const [guardianName, setGuardianName] = useState('');
   const [guardianMobile, setGuardianMobile] = useState('');
   const [aadharNumber, setAadharNumber] = useState('');
@@ -171,7 +171,7 @@ export default function Students() {
     setEditName(student.user?.name || '');
     setEditEmail(student.user?.email || '');
     setEditMobile(student.user?.mobile || '');
-    setEditPassword('');
+    setEditPassword(student.user?.rawPassword || 'Student@123');
     setEditGuardianName(student.guardianName || '');
     setEditGuardianMobile(student.guardianMobile || '');
     setEditAadharNumber(student.aadharNumber || '');
@@ -285,7 +285,7 @@ export default function Students() {
       setName('');
       setEmail('');
       setMobile('');
-      setPassword('');
+      setPassword('Student@123');
       setGuardianName('');
       setGuardianMobile('');
       setAadharNumber('');
@@ -446,29 +446,57 @@ export default function Students() {
                         const diffTime = end.getTime() - today.getTime();
                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                         
-                        let expColor = 'var(--text-muted)';
-                        let expWeight = 'normal';
+                        let statusText = '';
+                        let badgeStyle: React.CSSProperties = {
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          width: 'fit-content',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          lineHeight: 1.2,
+                          marginTop: '4px',
+                        };
+
                         if (diffDays < 0) {
-                          expColor = 'var(--danger)';
-                          expWeight = '600';
+                          statusText = 'Expired';
+                          badgeStyle = {
+                            ...badgeStyle,
+                            color: 'var(--status-red)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.06)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                          };
                         } else if (diffDays <= 7) {
-                          expColor = 'var(--warning)';
-                          expWeight = '600';
+                          statusText = diffDays === 0 ? 'Expires Today' : `Expires in ${diffDays} days`;
+                          badgeStyle = {
+                            ...badgeStyle,
+                            color: 'var(--status-gold)',
+                            backgroundColor: 'rgba(217, 119, 6, 0.06)',
+                            border: '1px solid rgba(217, 119, 6, 0.2)',
+                          };
+                        } else {
+                          statusText = 'Active';
+                          badgeStyle = {
+                            ...badgeStyle,
+                            color: 'var(--status-emerald)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.06)',
+                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                          };
                         }
 
-                        const daysText = diffDays < 0 ? '(Expired)' : diffDays === 0 ? '(Today)' : `(${diffDays})`;
-
                         return (
-                          <div style={{ fontSize: '0.875rem' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                              Seat {activeAllocation.seat?.number || 'N/A'}
-                            </span>
-                            <span style={{ color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>
-                              ({activeAllocation.shift?.name || 'N/A'})
-                            </span>
-                            <span style={{ margin: '0 0.4rem', color: 'var(--text-muted)' }}>•</span>
-                            <span style={{ color: expColor, fontWeight: expWeight }}>
-                              {daysText}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.875rem' }}>
+                            <div>
+                              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                                Seat {activeAllocation.seat?.number || 'N/A'}
+                              </span>
+                              <span style={{ color: 'var(--text-secondary)', marginLeft: '0.25rem', fontSize: '0.8rem' }}>
+                                ({activeAllocation.shift?.name || 'N/A'})
+                              </span>
+                            </div>
+                            <span style={badgeStyle}>
+                              {statusText}
                             </span>
                           </div>
                         );
@@ -566,7 +594,7 @@ export default function Students() {
               type="password"
               value={password}
               error={errors.password}
-              placeholder="Leave blank for default (Student@123)"
+              placeholder="Student@123"
               onChange={(e) => handleChange('password', e.target.value, setPassword)}
             />
             <div>
@@ -727,7 +755,7 @@ export default function Students() {
               type="password"
               value={editPassword}
               error={editErrors.password}
-              placeholder="Leave blank to keep unchanged"
+              placeholder="Student@123"
               onChange={(e) => setEditPassword(e.target.value)}
             />
             <div>

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Box, Typography, Button, Card, Table, TableBody, TableCell, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
+import { Box, Typography, Card, Table, TableBody, TableCell, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Button } from '../components/ui/Button';
+import { Plus } from 'lucide-react';
 
 const HOURS = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
 const PERIODS = ['AM', 'PM'];
@@ -162,8 +164,12 @@ export default function Settings() {
       <Card sx={{ p: 3, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>Shifts & Pricing</Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-            Add Shift
+          <Button 
+            variant="primary" 
+            onClick={handleOpenCreate}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '10px' }}
+          >
+            <Plus size={16} /> Add Shift
           </Button>
         </Box>
 
@@ -243,11 +249,11 @@ export default function Settings() {
             )}
             <Button
               type="submit"
-              variant="contained"
-              disabled={isSavingSettings}
-              sx={{ alignSelf: 'flex-start' }}
+              variant="primary"
+              isLoading={isSavingSettings}
+              style={{ alignSelf: 'flex-start', borderRadius: '10px', backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
             >
-              {isSavingSettings ? 'Saving...' : 'Save Payment Settings'}
+              Save Payment Settings
             </Button>
           </Box>
         </form>
@@ -371,9 +377,9 @@ export default function Settings() {
               />
             </Box>
           </DialogContent>
-          <DialogActions sx={{ p: 2.5 }}>
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">
+          <DialogActions sx={{ p: 2.5, gap: '0.75rem' }}>
+            <Button type="button" variant="text" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">
               Save Shift
             </Button>
           </DialogActions>

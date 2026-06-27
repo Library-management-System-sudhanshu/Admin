@@ -21,7 +21,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Button,
   Chip,
   IconButton,
   Tooltip,
@@ -39,10 +38,11 @@ import {
   Tab,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Check as PaidIcon,
   Receipt as InvoiceIcon,
 } from '@mui/icons-material';
+import { Button } from '../components/ui/Button';
+import { Plus } from 'lucide-react';
 
 export default function Billing() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -103,8 +103,12 @@ export default function Billing() {
         <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A' }}>
           Billing & Subscriptions
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCollect(true)}>
-          Collect Fee / Invoice
+        <Button 
+          variant="primary" 
+          onClick={() => setOpenCollect(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
+        >
+          <Plus size={18} /> Collect Fee / Invoice
         </Button>
       </Box>
 
@@ -290,9 +294,9 @@ export default function Billing() {
               </Select>
             </FormControl>
           </DialogContent>
-          <DialogActions sx={{ p: 2.5 }}>
-            <Button onClick={() => setOpenCollect(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={isCreating}>
+          <DialogActions sx={{ p: 2.5, gap: '0.75rem' }}>
+            <Button type="button" variant="text" onClick={() => setOpenCollect(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" isLoading={isCreating}>
               Generate Bill
             </Button>
           </DialogActions>

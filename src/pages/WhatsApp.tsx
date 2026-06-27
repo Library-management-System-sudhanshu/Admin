@@ -12,7 +12,6 @@ import {
   Box,
   Typography,
   Card,
-  Button,
   FormControl,
   InputLabel,
   Select,
@@ -30,7 +29,8 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
+import { Button } from '../components/ui/Button';
+import { Send } from 'lucide-react';
 
 const inputStyle = {
   '& .MuiOutlinedInput-root': {
@@ -337,22 +337,23 @@ export default function WhatsApp() {
 
                 <Button
                   type="submit"
-                  variant="contained"
-                  startIcon={<SendIcon />}
-                  disabled={isSending || !selectedTemplateId}
+                  variant="primary"
+                  isLoading={isSending}
+                  disabled={!selectedTemplateId}
                   fullWidth
-                  size="large"
-                  sx={{ 
-                    py: 1.2, 
-                    borderRadius: 2, 
-                    bgcolor: 'var(--primary)',
-                    boxShadow: 'none',
-                    textTransform: 'none',
+                  style={{ 
+                    padding: '12px 0', 
+                    borderRadius: '10px', 
+                    backgroundColor: 'var(--accent-blue)',
+                    borderColor: 'var(--accent-blue)',
                     fontWeight: 600,
-                    '&:hover': { bgcolor: 'var(--primary-dark)', boxShadow: 'none' }
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
                   }}
                 >
-                  Send Campaign Broadcast
+                  <Send size={16} /> Send Campaign Broadcast
                 </Button>
               </form>
             )}

@@ -11,12 +11,11 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Button,
   Chip,
-  Tooltip,
   CircularProgress,
 } from '@mui/material';
-import { Check as DoneIcon } from '@mui/icons-material';
+import { Button } from '../components/ui/Button';
+import { Check } from 'lucide-react';
 
 export default function Complaints() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -90,17 +89,14 @@ export default function Complaints() {
                   </TableCell>
                   <TableCell align="right">
                     {c.status !== 'RESOLVED' && (
-                      <Tooltip title="Mark Resolved">
                         <Button
-                          variant="contained"
-                          color="success"
-                          size="small"
-                          startIcon={<DoneIcon />}
+                          variant="primary"
+                          size="sm"
+                          style={{ backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '4px 8px' }}
                           onClick={() => handleResolve(c.id)}
                         >
-                          Resolve
+                          <Check size={14} /> Resolve
                         </Button>
-                      </Tooltip>
                     )}
                   </TableCell>
                 </TableRow>

@@ -21,7 +21,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Button,
   Chip,
   IconButton,
   Tooltip,
@@ -39,10 +38,10 @@ import {
   Tab,
 } from '@mui/material';
 import {
-  Add as AddIcon,
-  LibraryBooks as BookIcon,
   AssignmentTurnedIn as ReturnIcon,
 } from '@mui/icons-material';
+import { Button } from '../components/ui/Button';
+import { Plus, BookOpen } from 'lucide-react';
 
 export default function Library() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -126,11 +125,19 @@ export default function Library() {
           Library Operations
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="outlined" startIcon={<BookIcon />} onClick={() => setOpenIssue(true)}>
-            Issue Book
+          <Button 
+            variant="outline" 
+            onClick={() => setOpenIssue(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '8px 16px', borderRadius: '10px', fontWeight: 600 }}
+          >
+            <BookOpen size={16} /> Issue Book
           </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenAddBook(true)}>
-            Add Book
+          <Button 
+            variant="primary" 
+            onClick={() => setOpenAddBook(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '8px 16px', borderRadius: '10px', fontWeight: 600, backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
+          >
+            <Plus size={16} /> Add Book
           </Button>
         </Box>
       </Box>
@@ -229,9 +236,9 @@ export default function Library() {
             <TextField label="Total Copies/Qty" type="number" fullWidth required value={quantity} onChange={(e) => setQuantity(e.target.value)} />
             <TextField label="Rack Number Location" fullWidth required value={rackNumber} onChange={(e) => setRackNumber(e.target.value)} />
           </DialogContent>
-          <DialogActions sx={{ p: 2.5 }}>
-            <Button onClick={() => setOpenAddBook(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">Add Book</Button>
+          <DialogActions sx={{ p: 2.5, gap: '0.75rem' }}>
+            <Button type="button" variant="text" onClick={() => setOpenAddBook(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">Add Book</Button>
           </DialogActions>
         </form>
       </Dialog>
@@ -263,9 +270,9 @@ export default function Library() {
               </Select>
             </FormControl>
           </DialogContent>
-          <DialogActions sx={{ p: 2.5 }}>
-            <Button onClick={() => setOpenIssue(false)}>Cancel</Button>
-            <Button type="submit" variant="contained">Issue Book</Button>
+          <DialogActions sx={{ p: 2.5, gap: '0.75rem' }}>
+            <Button type="button" variant="text" onClick={() => setOpenIssue(false)}>Cancel</Button>
+            <Button type="submit" variant="primary">Issue Book</Button>
           </DialogActions>
         </form>
       </Dialog>
