@@ -184,8 +184,9 @@ export default function Seats() {
 
   // Floor coordinate visualization
   const [isFloorVisualization, setIsFloorVisualization] = useState(false);
-  const [tempLayout, setTempLayout] = useState<Record<string, { x: number; y: number }>>({});
+  const [tempLayout, setTempLayout] = useState<Record<string, { x: number; y: number; rotation?: number }>>({});
   const [activeRoomEditingId, setActiveRoomEditingId] = useState<string | null>(null);
+  const [selectedArrangeId, setSelectedArrangeId] = useState<string | null>(null);
 
   // Default coordinate helpers (returns percentages for viewing)
   const getSeatPosition = (seat: any, index: number) => {
@@ -222,9 +223,146 @@ export default function Seats() {
     };
   };
 
+  // Helper to push seats out of spacers and other seats areas
+  const resolveCollisions = (
+    currentTempLayout: Record<string, { x: number; y: number }>,
+    currentSpacers: { id: string; x: number; y: number; w?: number; h?: number }[],
+    room: any
+  ) => {
+    if (!room) return currentTempLayout;
+    const resolvedLayout = { ...currentTempLayout };
+    const roomWidth = visualizerWidths[room.id] || room.canvasWidth || 1000;
+    const roomHeight = visualizerHeights[room.id] || room.canvasHeight || 450;
+    const seatSize = 78;
+
+    // Ensure all seats in the room have an entry in resolvedLayout
+    room.seats?.forEach((seat: any, idx: number) => {
+      if (!resolvedLayout[seat.id]) {
+        resolvedLayout[seat.id] = getSeatPixelPosition(seat, idx, roomWidth, roomHeight);
+      }
+    });
+
+    const seatsList = room.seats || [];
+
+    // Run three passes to resolve cascading overlaps (relaxation loop)
+    for (let iter = 0; iter < 3; iter++) {
+      let anyCollisionResolved = false;
+
+      // 1. Resolve Seat-to-Spacer Collisions
+      seatsList.forEach((seat: any) => {
+        const seatPos = resolvedLayout[seat.id];
+        if (!seatPos) return;
+
+        let seatX = seatPos.x;
+        let seatY = seatPos.y;
+
+        currentSpacers.forEach((spacer) => {
+          const spacerW = spacer.w || 78;
+          const spacerH = spacer.h || 78;
+
+          // Check overlap on all 4 boundaries
+          const overlapLeft = (seatX + seatSize) - spacer.x;
+          const overlapRight = (spacer.x + spacerW) - seatX;
+          const overlapTop = (seatY + seatSize) - spacer.y;
+          const overlapBottom = (spacer.y + spacerH) - seatY;
+
+          // If all overlaps are positive, the seat overlaps with the spacer
+          if (overlapLeft > 0 && overlapRight > 0 && overlapTop > 0 && overlapBottom > 0) {
+            // Find the minimum translation vector
+            const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+            if (minOverlap === overlapLeft) {
+              seatX = spacer.x - seatSize;
+            } else if (minOverlap === overlapRight) {
+              seatX = spacer.x + spacerW;
+            } else if (minOverlap === overlapTop) {
+              seatY = spacer.y - seatSize;
+            } else {
+              seatY = spacer.y + spacerH;
+            }
+
+            // Snap to grid
+            const snapPx = 15;
+            seatX = Math.round(seatX / snapPx) * snapPx;
+            seatY = Math.round(seatY / snapPx) * snapPx;
+
+            // Clamp inside bounds
+            seatX = Math.max(0, Math.min(roomWidth - seatSize, seatX));
+            seatY = Math.max(0, Math.min(roomHeight - seatSize, seatY));
+
+            anyCollisionResolved = true;
+          }
+        });
+
+        resolvedLayout[seat.id] = { x: seatX, y: seatY };
+      });
+
+      // 2. Resolve Seat-to-Seat Collisions
+      const seatCollisionSize = 90; // 78px width + 12px gap
+      for (let i = 0; i < seatsList.length; i++) {
+        const seatA = seatsList[i];
+        const posA = resolvedLayout[seatA.id];
+        if (!posA) continue;
+
+        for (let j = i + 1; j < seatsList.length; j++) {
+          const seatB = seatsList[j];
+          const posB = resolvedLayout[seatB.id];
+          if (!posB) continue;
+
+          // Check overlap between seat A and seat B
+          const overlapX = seatCollisionSize - Math.abs(posA.x - posB.x);
+          const overlapY = seatCollisionSize - Math.abs(posA.y - posB.y);
+
+          if (overlapX > 0 && overlapY > 0) {
+            // Push them apart along the axis of minimum overlap
+            if (overlapX < overlapY) {
+              const pushX = overlapX / 2;
+              if (posA.x < posB.x) {
+                posA.x -= pushX;
+                posB.x += pushX;
+              } else {
+                posA.x += pushX;
+                posB.x -= pushX;
+              }
+            } else {
+              const pushY = overlapY / 2;
+              if (posA.y < posB.y) {
+                posA.y -= pushY;
+                posB.y += pushY;
+              } else {
+                posA.y += pushY;
+                posB.y -= pushY;
+              }
+            }
+
+            // Snap to grid
+            const snapPx = 15;
+            posA.x = Math.round(posA.x / snapPx) * snapPx;
+            posA.y = Math.round(posA.y / snapPx) * snapPx;
+            posB.x = Math.round(posB.x / snapPx) * snapPx;
+            posB.y = Math.round(posB.y / snapPx) * snapPx;
+
+            // Clamp inside bounds
+            posA.x = Math.max(0, Math.min(roomWidth - seatSize, posA.x));
+            posA.y = Math.max(0, Math.min(roomHeight - seatSize, posA.y));
+            posB.x = Math.max(0, Math.min(roomWidth - seatSize, posB.x));
+            posB.y = Math.max(0, Math.min(roomHeight - seatSize, posB.y));
+
+            anyCollisionResolved = true;
+          }
+        }
+      }
+
+      if (!anyCollisionResolved) break;
+    }
+
+    return resolvedLayout;
+  };
+
   // Pointer drag visual layout coordinate snappings (supports auto-growing and auto-scrolling)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, seatId: string) => {
     if (activeRoomEditingId === null) return;
+    setSelectedArrangeId(seatId);
     const roomId = activeRoomEditingId;
     e.preventDefault();
     const element = e.currentTarget;
@@ -286,10 +424,13 @@ export default function Seats() {
       leftPx = Math.round(leftPx / snapPx) * snapPx;
       topPx = Math.round(topPx / snapPx) * snapPx;
       
-      setTempLayout(prev => ({
-        ...prev,
-        [seatId]: { x: leftPx, y: topPx }
-      }));
+      setTempLayout(prev => {
+        const nextLayout = {
+          ...prev,
+          [seatId]: { x: leftPx, y: topPx }
+        };
+        return resolveCollisions(nextLayout, spacers, roomObj);
+      });
       
       // Auto-scrolling the viewport
       if (scrollContainer) {
@@ -350,7 +491,25 @@ export default function Seats() {
       newWidth = Math.round(Math.max(45, Math.min(600, newWidth)) / snapPx) * snapPx;
       newHeight = Math.round(Math.max(45, Math.min(600, newHeight)) / snapPx) * snapPx;
       
-      setSpacers(prev => prev.map(s => s.id === spacerId ? { ...s, w: newWidth, h: newHeight } : s));
+      // Find the active room object to resolve collisions against
+      let roomObj: any = null;
+      if (activeRoomEditingId) {
+        seatMap?.forEach((floor: any) => {
+          floor.rooms?.forEach((rm: any) => {
+            if (rm.id === activeRoomEditingId) {
+              roomObj = rm;
+            }
+          });
+        });
+      }
+      
+      setSpacers(prev => {
+        const nextSpacers = prev.map(s => s.id === spacerId ? { ...s, w: newWidth, h: newHeight } : s);
+        if (roomObj) {
+          setTempLayout(currentTemp => resolveCollisions(currentTemp, nextSpacers, roomObj));
+        }
+        return nextSpacers;
+      });
     };
     
     const handlePointerUp = (upEvent: PointerEvent) => {
@@ -365,6 +524,7 @@ export default function Seats() {
 
   const handleSpacerPointerDown = (e: React.PointerEvent<HTMLDivElement>, spacerId: string) => {
     if (activeRoomEditingId === null) return;
+    setSelectedArrangeId(spacerId);
     const roomId = activeRoomEditingId;
     e.preventDefault();
     const element = e.currentTarget;
@@ -424,7 +584,11 @@ export default function Seats() {
       leftPx = Math.round(leftPx / snapPx) * snapPx;
       topPx = Math.round(topPx / snapPx) * snapPx;
       
-      setSpacers(prev => prev.map(s => s.id === spacerId ? { ...s, x: leftPx, y: topPx } : s));
+      setSpacers(prev => {
+        const nextSpacers = prev.map(s => s.id === spacerId ? { ...s, x: leftPx, y: topPx } : s);
+        setTempLayout(currentTemp => resolveCollisions(currentTemp, nextSpacers, roomObj));
+        return nextSpacers;
+      });
       
       if (scrollContainer) {
         const scrollRect = scrollContainer.getBoundingClientRect();
@@ -486,7 +650,8 @@ export default function Seats() {
       const pos = getSeatPixelPosition(seat, idx, rWidth, rHeight);
       if (pos.x > maxX) maxX = pos.x;
       if (pos.y > maxY) maxY = pos.y;
-      return { id: seat.id, x: pos.x, y: pos.y };
+      const rotation = tempLayout[seat.id]?.rotation !== undefined ? tempLayout[seat.id].rotation : (seat.rotation || 0);
+      return { id: seat.id, x: pos.x, y: pos.y, rotation };
     });
     
     // Calculate trimmed bounds
@@ -499,7 +664,7 @@ export default function Seats() {
     const layoutPayload = seatPixels.map((sp: any) => {
       const xPct = Math.max(0, Math.min(95, (sp.x / trimmedWidth) * 100));
       const yPct = Math.max(0, Math.min(95, (sp.y / trimmedHeight) * 100));
-      return { id: sp.id, x: xPct, y: yPct };
+      return { id: sp.id, x: xPct, y: yPct, rotation: sp.rotation };
     });
 
     try {
@@ -507,12 +672,15 @@ export default function Seats() {
         roomId: room.id,
         layout: layoutPayload,
         canvasWidth: trimmedWidth,
-        canvasHeight: trimmedHeight
+        canvasHeight: trimmedHeight,
+        spacers: spacers
       }).unwrap();
       
       showToast('Seat positions and canvas bounds saved successfully!', 'success');
       setActiveRoomEditingId(null);
       setTempLayout({});
+      setSelectedArrangeId(null);
+      setSpacers([]);
       
       // Update local state to trimmed dimensions
       setVisualizerWidths(prev => ({ ...prev, [room.id]: trimmedWidth }));
@@ -989,8 +1157,58 @@ export default function Seats() {
     });
   };
 
+  const getSeatFaceStyle = (rotation: number) => {
+    switch (rotation) {
+      case 90:
+        return {
+          position: 'absolute' as const,
+          top: 0,
+          bottom: 0,
+          right: 0,
+          width: '5px',
+          backgroundColor: '#2563eb',
+          borderRadius: '0 8px 8px 0',
+          zIndex: 5
+        };
+      case 180:
+        return {
+          position: 'absolute' as const,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '5px',
+          backgroundColor: '#2563eb',
+          borderRadius: '0 0 8px 8px',
+          zIndex: 5
+        };
+      case 270:
+        return {
+          position: 'absolute' as const,
+          top: 0,
+          bottom: 0,
+          left: 0,
+          width: '5px',
+          backgroundColor: '#2563eb',
+          borderRadius: '8px 0 0 8px',
+          zIndex: 5
+        };
+      case 0:
+      default:
+        return {
+          position: 'absolute' as const,
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '5px',
+          backgroundColor: '#2563eb',
+          borderRadius: '8px 8px 0 0',
+          zIndex: 5
+        };
+    }
+  };
+
   // Render Seat card helper
-  const renderSeatCard = (seat: any) => {
+  const renderSeatCard = (seat: any, isFloorCanvas?: boolean, rotationVal?: number) => {
     const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
     const isOccupied = seat.status === 'OCCUPIED';
 
@@ -1039,7 +1257,57 @@ export default function Seats() {
           transform: isHighlighted ? 'scale(1.05)' : undefined,
         }}
       >
-        <div className="seat-tile-accent" />
+        {isFloorCanvas && activeRoomEditingId !== null && (
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setTempLayout(prev => {
+                const currentSeatLayout = prev[seat.id] || { x: 0, y: 0 };
+                const currentRotation = currentSeatLayout.rotation !== undefined ? currentSeatLayout.rotation : (seat.rotation || 0);
+                const nextRotation = (currentRotation + 90) % 360;
+                return {
+                  ...prev,
+                  [seat.id]: {
+                    ...currentSeatLayout,
+                    rotation: nextRotation
+                  }
+                };
+              });
+            }}
+            style={{
+              position: 'absolute',
+              top: '-6px',
+              left: '-6px',
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              backgroundColor: '#ffffff',
+              border: '1.5px solid var(--accent-blue)',
+              color: 'var(--accent-blue)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              zIndex: 15,
+              fontSize: '0.6rem',
+              fontWeight: 800,
+              boxShadow: 'var(--shadow-soft)'
+            }}
+            title="Rotate Seat"
+          >
+            ↻
+          </button>
+        )}
+        
+        {isFloorCanvas ? (
+          <div style={getSeatFaceStyle(rotationVal || 0)} />
+        ) : (
+          <div className="seat-tile-accent" />
+        )}
         
         {/* Seat Number */}
         <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', zIndex: 1 }}>
@@ -1139,7 +1407,7 @@ export default function Seats() {
                     <div className="study-hall-row">
                       <div className="study-hall-row-label">Row {chunkIdx + 1}</div>
                       <div className="study-hall-row-grid">
-                        {chunk.map(renderSeatCard)}
+                        {chunk.map(seat => renderSeatCard(seat))}
                       </div>
                     </div>
                     {chunkIdx < chunks.length - 1 && (
@@ -1156,7 +1424,7 @@ export default function Seats() {
               <div className="study-hall-row">
                 <div className="study-hall-row-label">Row {rowKey}</div>
                 <div className="study-hall-row-grid">
-                  {rowSeats.map(renderSeatCard)}
+                  {rowSeats.map(seat => renderSeatCard(seat))}
                 </div>
               </div>
               {idx < rowKeys.length - 1 && (
@@ -1684,117 +1952,168 @@ export default function Seats() {
                               overflow: 'auto',
                               borderRadius: '15px'
                             }}>
-                              <div style={{
-                                position: 'relative',
-                                width: `${roomWidth}px`,
-                                height: `${roomHeight}px`,
-                                backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
-                                backgroundSize: '20px 20px',
-                                overflow: 'visible',
-                                transition: isEditingThisRoom ? 'none' : 'width 150ms ease, height 150ms ease',
-                              }}>
-                                {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
-                                  const isEditingThisRoom = activeRoomEditingId === room.id;
-                                  const position = isEditingThisRoom
-                                    ? getSeatPixelPosition(seat, idx, roomWidth, roomHeight)
-                                    : getSeatPosition(seat, idx);
-                                  const matchesFilter = statusFilters[room.id] === 'ALL' || !statusFilters[room.id] || seat.status === statusFilters[room.id];
-                                  if (!matchesFilter) return null;
+                               <div 
+                                 onClick={() => { if (isEditingThisRoom) setSelectedArrangeId(null); }}
+                                 style={{
+                                   position: 'relative',
+                                   width: `${roomWidth}px`,
+                                   height: `${roomHeight}px`,
+                                   backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
+                                   backgroundSize: '20px 20px',
+                                   overflow: 'visible',
+                                   transition: isEditingThisRoom ? 'none' : 'width 150ms ease, height 150ms ease',
+                                 }}
+                               >
+                                 {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
+                                   const isEditingThisRoom = activeRoomEditingId === room.id;
+                                   const position = isEditingThisRoom
+                                     ? getSeatPixelPosition(seat, idx, roomWidth, roomHeight)
+                                     : getSeatPosition(seat, idx);
+                                   const rotation = isEditingThisRoom
+                                     ? (tempLayout[seat.id]?.rotation || 0)
+                                     : (seat.rotation || 0);
+                                   const matchesFilter = statusFilters[room.id] === 'ALL' || !statusFilters[room.id] || seat.status === statusFilters[room.id];
+                                   if (!matchesFilter) return null;
 
-                                  return (
-                                    <div
-                                      key={seat.id}
-                                      onPointerDown={(e) => { if (isEditingThisRoom) handlePointerDown(e, seat.id); }}
-                                      onClick={() => { if (!isEditingThisRoom) handleSeatClick(seat); }}
-                                      style={{
-                                        position: 'absolute',
-                                        left: isEditingThisRoom ? `${position.x}px` : `${position.x}%`,
-                                        top: isEditingThisRoom ? `${position.y}px` : `${position.y}%`,
-                                        touchAction: 'none',
-                                        cursor: isEditingThisRoom ? 'move' : 'pointer',
-                                        zIndex: isEditingThisRoom ? 5 : 2,
-                                        transition: isEditingThisRoom ? 'none' : 'all 0.15s ease'
-                                      }}
-                                    >
-                                      {renderSeatCard(seat)}
+                                   return (
+                                     <div
+                                       key={seat.id}
+                                       onPointerDown={(e) => { if (isEditingThisRoom) { e.stopPropagation(); handlePointerDown(e, seat.id); } }}
+                                       onClick={(e) => { if (isEditingThisRoom) { e.stopPropagation(); } else { handleSeatClick(seat); } }}
+                                       style={{
+                                         position: 'absolute',
+                                         left: isEditingThisRoom ? `${position.x}px` : `${position.x}%`,
+                                         top: isEditingThisRoom ? `${position.y}px` : `${position.y}%`,
+                                         touchAction: 'none',
+                                         cursor: isEditingThisRoom ? 'move' : 'pointer',
+                                         zIndex: isEditingThisRoom ? (selectedArrangeId === seat.id ? 6 : 5) : 2,
+                                         transition: isEditingThisRoom ? 'none' : 'all 0.15s ease',
+                                         outline: isEditingThisRoom && selectedArrangeId === seat.id ? '3px solid var(--accent-blue)' : undefined,
+                                         outlineOffset: '2px',
+                                         borderRadius: '8px'
+                                       }}
+                                     >
+                                       {renderSeatCard(seat, true, rotation)}
+                                     </div>
+                                   );
+                                 })}
+
+                                 {isEditingThisRoom && spacers.map((spacer) => (
+                                   <div
+                                     key={spacer.id}
+                                     onPointerDown={(e) => { e.stopPropagation(); handleSpacerPointerDown(e, spacer.id); }}
+                                     style={{
+                                       position: 'absolute',
+                                       left: `${spacer.x}px`,
+                                       top: `${spacer.y}px`,
+                                       width: `${spacer.w || 78}px`,
+                                       height: `${spacer.h || 78}px`,
+                                       borderRadius: '12px',
+                                       border: selectedArrangeId === spacer.id ? '2px solid var(--accent-blue)' : '2px dashed #cbd5e1',
+                                       backgroundColor: selectedArrangeId === spacer.id ? 'rgba(239, 246, 255, 0.95)' : 'rgba(241, 245, 249, 0.95)',
+                                       display: 'flex',
+                                       flexDirection: 'column',
+                                       alignItems: 'center',
+                                       justifyContent: 'center',
+                                       cursor: 'move',
+                                       zIndex: selectedArrangeId === spacer.id ? 5 : 4,
+                                       boxSizing: 'border-box',
+                                       padding: '4px',
+                                       overflow: 'hidden',
+                                       boxShadow: selectedArrangeId === spacer.id ? '0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-soft)' : 'var(--shadow-soft)'
+                                     }}
+                                   >
+                                     {/* Delete Spacer button */}
+                                     <button
+                                       type="button"
+                                       onPointerDown={(e) => {
+                                         e.stopPropagation();
+                                       }}
+                                       onMouseDown={(e) => {
+                                         e.stopPropagation();
+                                       }}
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         setSpacers(prev => prev.filter(s => s.id !== spacer.id));
+                                       }}
+                                       style={{
+                                         position: 'absolute',
+                                         top: '4px',
+                                         right: '4px',
+                                         background: 'none',
+                                         border: 'none',
+                                         color: '#ef4444',
+                                         cursor: 'pointer',
+                                         fontSize: '0.85rem',
+                                         fontWeight: 800,
+                                         padding: '0 4px',
+                                         zIndex: 10
+                                       }}
+                                       title="Remove Spacer"
+                                     >
+                                       &times;
+                                     </button>
+
+                                     <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', zIndex: 1 }}>Space</span>
+                                     
+                                     {/* Visual drag boundary dimensions */}
+                                     <span style={{ fontSize: '0.55rem', color: '#cbd5e1', zIndex: 1, marginTop: '2px' }}>
+                                       {spacer.w || 78} x {spacer.h || 78}
+                                     </span>
+
+                                     {/* Resize drag handle at bottom-right corner */}
+                                     <div
+                                       onPointerDown={(e) => handleResizePointerDown(e, spacer.id)}
+                                       style={{
+                                         position: 'absolute',
+                                         right: '0',
+                                         bottom: '0',
+                                         width: '14px',
+                                         height: '14px',
+                                         cursor: 'se-resize',
+                                         background: 'linear-gradient(135deg, transparent 40%, #cbd5e1 40%)',
+                                         borderBottomRightRadius: '10px',
+                                         zIndex: 15,
+                                        }}
+                                      />
                                     </div>
-                                  );
-                                })}
+                                  ))}
 
-                                {isEditingThisRoom && spacers.map((spacer) => (
-                                  <div
-                                    key={spacer.id}
-                                    onPointerDown={(e) => handleSpacerPointerDown(e, spacer.id)}
-                                    style={{
-                                      position: 'absolute',
-                                      left: `${spacer.x}px`,
-                                      top: `${spacer.y}px`,
-                                      width: `${spacer.w || 78}px`,
-                                      height: `${spacer.h || 78}px`,
-                                      borderRadius: '12px',
-                                      border: '2px dashed #cbd5e1',
-                                      backgroundColor: 'rgba(241, 245, 249, 0.95)',
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      cursor: 'move',
-                                      zIndex: 4,
-                                      boxSizing: 'border-box',
-                                      padding: '4px',
-                                      overflow: 'hidden',
-                                      boxShadow: 'var(--shadow-soft)'
-                                    }}
-                                  >
-                                    {/* Delete Spacer button */}
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSpacers(prev => prev.filter(s => s.id !== spacer.id));
-                                      }}
-                                      style={{
-                                        position: 'absolute',
-                                        top: '4px',
-                                        right: '4px',
-                                        background: 'none',
-                                        border: 'none',
-                                        color: '#ef4444',
-                                        cursor: 'pointer',
-                                        fontSize: '0.85rem',
-                                        fontWeight: 800,
-                                        padding: '0 4px',
-                                        zIndex: 10
-                                      }}
-                                      title="Remove Spacer"
-                                    >
-                                      &times;
-                                    </button>
-
-                                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', zIndex: 1 }}>Space</span>
-                                    
-                                    {/* Visual drag boundary dimensions */}
-                                    <span style={{ fontSize: '0.55rem', color: '#cbd5e1', zIndex: 1, marginTop: '2px' }}>
-                                      {spacer.w || 78} x {spacer.h || 78}
-                                    </span>
-
-                                    {/* Resize drag handle at bottom-right corner */}
-                                    <div
-                                      onPointerDown={(e) => handleResizePointerDown(e, spacer.id)}
-                                      style={{
-                                        position: 'absolute',
-                                        right: '0',
-                                        bottom: '0',
-                                        width: '14px',
-                                        height: '14px',
-                                        cursor: 'se-resize',
-                                        background: 'linear-gradient(135deg, transparent 40%, #cbd5e1 40%)',
-                                        borderBottomRightRadius: '10px',
-                                        zIndex: 15,
-                                      }}
-                                    />
-                                  </div>
-                                ))}
+                                  {/* Render saved spacers in View Mode (Non-editing) */}
+                                  {!isEditingThisRoom && room.spacers && (() => {
+                                    try {
+                                      const parsedSpacers = JSON.parse(room.spacers);
+                                      if (!Array.isArray(parsedSpacers)) return null;
+                                      return parsedSpacers.map((spacer: any) => (
+                                        <div
+                                          key={spacer.id}
+                                          style={{
+                                            position: 'absolute',
+                                            left: `${spacer.x}px`,
+                                            top: `${spacer.y}px`,
+                                            width: `${spacer.w || 78}px`,
+                                            height: `${spacer.h || 78}px`,
+                                            borderRadius: '12px',
+                                            border: '1.5px dashed #cbd5e1',
+                                            backgroundColor: 'rgba(241, 245, 249, 0.5)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            zIndex: 1,
+                                            boxSizing: 'border-box',
+                                            padding: '4px',
+                                            overflow: 'hidden',
+                                            pointerEvents: 'none'
+                                          }}
+                                        >
+                                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8' }}>Walking Area</span>
+                                        </div>
+                                      ));
+                                    } catch (e) {
+                                      return null;
+                                    }
+                                  })()}
                               </div>
                             </div>
 
@@ -1824,9 +2143,14 @@ export default function Seats() {
                                      size="sm"
                                      style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', color: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
                                      onClick={() => {
-                                       const nextSpacerId = `spacer-${Date.now()}`;
-                                       setSpacers(prev => [...prev, { id: nextSpacerId, x: 100, y: 100 }]);
-                                     }}
+                                        const nextSpacerId = `spacer-${Date.now()}`;
+                                        const newSpacer = { id: nextSpacerId, x: 100, y: 100 };
+                                        setSpacers(prev => {
+                                          const nextSpacers = [...prev, newSpacer];
+                                          setTempLayout(currentTemp => resolveCollisions(currentTemp, nextSpacers, room));
+                                          return nextSpacers;
+                                        });
+                                      }}
                                    >
                                      + Space
                                    </Button>
@@ -1838,8 +2162,8 @@ export default function Seats() {
                                    >
                                      Ascending
                                    </Button>
-                                   <Button variant="outline" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem' }} onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); setSpacers([]); }}>Cancel</Button>
-                                   <Button variant="primary" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }} onClick={() => { handleSaveLayout(room); setSpacers([]); }} disabled={isUpdatingLayout}>Save</Button>
+                                   <Button variant="outline" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem' }} onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); setSpacers([]); setSelectedArrangeId(null); }}>Cancel</Button>
+                                   <Button variant="primary" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }} onClick={() => { handleSaveLayout(room); }} disabled={isUpdatingLayout}>Save</Button>
                                  </div>
                               ) : (
                                 activeRoomEditingId === null && (
@@ -1853,6 +2177,15 @@ export default function Seats() {
                                         initialLayout[seat.id] = getSeatPixelPosition(seat, idx, currentW, currentH);
                                       });
                                       setTempLayout(initialLayout);
+                                      if (room.spacers) {
+                                        try {
+                                          setSpacers(JSON.parse(room.spacers));
+                                        } catch (e) {
+                                          setSpacers([]);
+                                        }
+                                      } else {
+                                        setSpacers([]);
+                                      }
                                     }}
                                     style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--accent-blue)', background: 'transparent', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer' }}
                                   >
