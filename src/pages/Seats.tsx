@@ -150,6 +150,7 @@ export default function Seats() {
   // Renewal form
 
   const [renewShiftId, setRenewShiftId] = useState('');
+  const [spacers, setSpacers] = useState<{ id: string; x: number; y: number; w?: number; h?: number }[]>([]);
   const [renewStartDate, setRenewStartDate] = useState('');
   const [renewEndDate, setRenewEndDate] = useState('');
   const [renewPaymentMethod, setRenewPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('UPI');
@@ -320,6 +321,157 @@ export default function Seats() {
     
     element.addEventListener('pointermove', handlePointerMove);
     element.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>, spacerId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const handleElement = e.currentTarget;
+    handleElement.setPointerCapture(e.pointerId);
+    
+    const spacerElement = handleElement.parentElement;
+    if (!spacerElement) return;
+    
+    const startRect = spacerElement.getBoundingClientRect();
+    const startWidth = startRect.width;
+    const startHeight = startRect.height;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      
+      let newWidth = startWidth + deltaX;
+      let newHeight = startHeight + deltaY;
+      
+      const snapPx = 15;
+      newWidth = Math.round(Math.max(45, Math.min(600, newWidth)) / snapPx) * snapPx;
+      newHeight = Math.round(Math.max(45, Math.min(600, newHeight)) / snapPx) * snapPx;
+      
+      setSpacers(prev => prev.map(s => s.id === spacerId ? { ...s, w: newWidth, h: newHeight } : s));
+    };
+    
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      handleElement.releasePointerCapture(upEvent.pointerId);
+      handleElement.removeEventListener('pointermove', handlePointerMove);
+      handleElement.removeEventListener('pointerup', handlePointerUp);
+    };
+    
+    handleElement.addEventListener('pointermove', handlePointerMove);
+    handleElement.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const handleSpacerPointerDown = (e: React.PointerEvent<HTMLDivElement>, spacerId: string) => {
+    if (activeRoomEditingId === null) return;
+    const roomId = activeRoomEditingId;
+    e.preventDefault();
+    const element = e.currentTarget;
+    element.setPointerCapture(e.pointerId);
+    
+    const container = element.parentElement;
+    if (!container) return;
+    
+    const scrollContainer = container.parentElement;
+    
+    const spacerRect = element.getBoundingClientRect();
+    const offsetX = e.clientX - spacerRect.left;
+    const offsetY = e.clientY - spacerRect.top;
+    
+    const currentSpacer = spacers.find(s => s.id === spacerId);
+    const spacerW = currentSpacer?.w || 78;
+    const spacerH = currentSpacer?.h || 78;
+    
+    let roomObj: any = null;
+    seatMap?.forEach((floor: any) => {
+      floor.rooms?.forEach((rm: any) => {
+        if (rm.id === roomId) {
+          roomObj = rm;
+        }
+      });
+    });
+    
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const currentContainerRect = container.getBoundingClientRect();
+      let leftPx = moveEvent.clientX - currentContainerRect.left - offsetX;
+      let topPx = moveEvent.clientY - currentContainerRect.top - offsetY;
+      
+      const currentWidth = visualizerWidths[roomId] || roomObj?.canvasWidth || 1000;
+      const currentHeight = visualizerHeights[roomId] || roomObj?.canvasHeight || 450;
+      
+      let nextWidth = currentWidth;
+      let nextHeight = currentHeight;
+      
+      if (leftPx + 120 > currentWidth) {
+        nextWidth = leftPx + 200;
+      }
+      if (topPx + 120 > currentHeight) {
+        nextHeight = topPx + 200;
+      }
+      
+      if (nextWidth !== currentWidth) {
+        setVisualizerWidths(prev => ({ ...prev, [roomId]: nextWidth }));
+      }
+      if (nextHeight !== currentHeight) {
+        setVisualizerHeights(prev => ({ ...prev, [roomId]: nextHeight }));
+      }
+      
+      leftPx = Math.max(0, Math.min(nextWidth - spacerW, leftPx));
+      topPx = Math.max(0, Math.min(nextHeight - spacerH, topPx));
+      
+      const snapPx = 15;
+      leftPx = Math.round(leftPx / snapPx) * snapPx;
+      topPx = Math.round(topPx / snapPx) * snapPx;
+      
+      setSpacers(prev => prev.map(s => s.id === spacerId ? { ...s, x: leftPx, y: topPx } : s));
+      
+      if (scrollContainer) {
+        const scrollRect = scrollContainer.getBoundingClientRect();
+        const rightDiff = moveEvent.clientX - scrollRect.right;
+        const leftDiff = moveEvent.clientX - scrollRect.left;
+        const bottomDiff = moveEvent.clientY - scrollRect.bottom;
+        const topDiff = moveEvent.clientY - scrollRect.top;
+        
+        if (rightDiff > -60) {
+          scrollContainer.scrollLeft += 15;
+        } else if (leftDiff < 60) {
+          scrollContainer.scrollLeft -= 15;
+        }
+        
+        if (bottomDiff > -60) {
+          scrollContainer.scrollTop += 15;
+        } else if (topDiff < 60) {
+          scrollContainer.scrollTop -= 15;
+        }
+      }
+    };
+    
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      element.releasePointerCapture(upEvent.pointerId);
+      element.removeEventListener('pointermove', handlePointerMove);
+      element.removeEventListener('pointerup', handlePointerUp);
+    };
+    
+    element.addEventListener('pointermove', handlePointerMove);
+    element.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const handleArrangeAscending = (room: any) => {
+    const sortedSeats = [...(room.seats || [])].sort((a: any, b: any) =>
+      a.number.localeCompare(b.number, undefined, { numeric: true, sensitivity: 'base' })
+    );
+    const cols = 10;
+    const newLayout = { ...tempLayout };
+    sortedSeats.forEach((seat: any, index: number) => {
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      newLayout[seat.id] = {
+        x: col * 95 + 40,
+        y: row * 110 + 50
+      };
+    });
+    setTempLayout(newLayout);
   };
 
   const handleSaveLayout = async (room: any) => {
@@ -1519,92 +1671,195 @@ export default function Seats() {
                         
                         return (
                           <div style={{
+                            position: 'relative',
                             width: '100%',
-                            overflow: 'auto',
                             borderRadius: '16px',
                             border: isEditingThisRoom ? '2px dashed var(--accent-blue)' : '1px solid var(--border-card)',
                             backgroundColor: '#f8fafc',
+                            overflow: 'hidden'
                           }}>
+                            {/* Scrollable Canvas Viewport */}
                             <div style={{
-                              position: 'relative',
-                              width: `${roomWidth}px`,
-                              height: `${roomHeight}px`,
-                              backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
-                              backgroundSize: '20px 20px',
-                              overflow: 'visible',
-                              transition: isEditingThisRoom ? 'none' : 'width 150ms ease, height 150ms ease',
+                              width: '100%',
+                              overflow: 'auto',
+                              borderRadius: '15px'
                             }}>
-                              {isEditingThisRoom && (
-                                <div style={{ position: 'absolute', top: '12px', left: '12px', backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#ffffff', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500, zIndex: 10, pointerEvents: 'none' }}>
-                                  💡 Drag seats to arrange. Scroll context active. Canvas grows automatically.
-                                </div>
-                              )}
+                              <div style={{
+                                position: 'relative',
+                                width: `${roomWidth}px`,
+                                height: `${roomHeight}px`,
+                                backgroundImage: 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)',
+                                backgroundSize: '20px 20px',
+                                overflow: 'visible',
+                                transition: isEditingThisRoom ? 'none' : 'width 150ms ease, height 150ms ease',
+                              }}>
+                                {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
+                                  const isEditingThisRoom = activeRoomEditingId === room.id;
+                                  const position = isEditingThisRoom
+                                    ? getSeatPixelPosition(seat, idx, roomWidth, roomHeight)
+                                    : getSeatPosition(seat, idx);
+                                  const matchesFilter = statusFilters[room.id] === 'ALL' || !statusFilters[room.id] || seat.status === statusFilters[room.id];
+                                  if (!matchesFilter) return null;
 
-                              {/* Canvas Size Info & Arrange Toolbar */}
-                              <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10, background: 'rgba(255,255,255,0.95)', padding: '6px 12px', borderRadius: '12px', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-soft)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-slate)' }}>Canvas Size:</span>
-                                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-navy)' }}>{roomWidth} × {roomHeight} px</span>
-                                  {isEditingThisRoom && (
-                                    <span style={{ fontSize: '0.65rem', color: 'var(--accent-blue)', marginLeft: '4px', fontWeight: 500 }}>
-                                      (Auto-growing)
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                {isEditingThisRoom ? (
-                                  <div style={{ display: 'flex', gap: '6px' }}>
-                                    <Button variant="outline" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem' }} onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); }}>Cancel</Button>
-                                    <Button variant="primary" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }} onClick={() => handleSaveLayout(room)} disabled={isUpdatingLayout}>Save</Button>
-                                  </div>
-                                ) : (
-                                  activeRoomEditingId === null && (
-                                    <button
-                                      onClick={() => {
-                                        setActiveRoomEditingId(room.id);
-                                        const currentW = visualizerWidths[room.id] || room.canvasWidth || 1000;
-                                        const currentH = visualizerHeights[room.id] || room.canvasHeight || 450;
-                                        const initialLayout: Record<string, { x: number; y: number }> = {};
-                                        room.seats?.forEach((seat: any, idx: number) => {
-                                          initialLayout[seat.id] = getSeatPixelPosition(seat, idx, currentW, currentH);
-                                        });
-                                        setTempLayout(initialLayout);
+                                  return (
+                                    <div
+                                      key={seat.id}
+                                      onPointerDown={(e) => { if (isEditingThisRoom) handlePointerDown(e, seat.id); }}
+                                      onClick={() => { if (!isEditingThisRoom) handleSeatClick(seat); }}
+                                      style={{
+                                        position: 'absolute',
+                                        left: isEditingThisRoom ? `${position.x}px` : `${position.x}%`,
+                                        top: isEditingThisRoom ? `${position.y}px` : `${position.y}%`,
+                                        touchAction: 'none',
+                                        cursor: isEditingThisRoom ? 'move' : 'pointer',
+                                        zIndex: isEditingThisRoom ? 5 : 2,
+                                        transition: isEditingThisRoom ? 'none' : 'all 0.15s ease'
                                       }}
-                                      style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--accent-blue)', background: 'transparent', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer' }}
                                     >
-                                      Arrange Seats
-                                    </button>
-                                  )
-                                )}
-                              </div>
+                                      {renderSeatCard(seat)}
+                                    </div>
+                                  );
+                                })}
 
-                              {[...(room.seats || [])].sort((a: any, b: any) => a.number.localeCompare(b.number, undefined, { numeric: true })).map((seat: any, idx: number) => {
-                                const isEditingThisRoom = activeRoomEditingId === room.id;
-                                const position = isEditingThisRoom
-                                  ? getSeatPixelPosition(seat, idx, roomWidth, roomHeight)
-                                  : getSeatPosition(seat, idx);
-                                const matchesFilter = statusFilters[room.id] === 'ALL' || !statusFilters[room.id] || seat.status === statusFilters[room.id];
-                                if (!matchesFilter) return null;
-
-                                return (
+                                {isEditingThisRoom && spacers.map((spacer) => (
                                   <div
-                                    key={seat.id}
-                                    onPointerDown={(e) => { if (isEditingThisRoom) handlePointerDown(e, seat.id); }}
-                                    onClick={() => { if (!isEditingThisRoom) handleSeatClick(seat); }}
+                                    key={spacer.id}
+                                    onPointerDown={(e) => handleSpacerPointerDown(e, spacer.id)}
                                     style={{
                                       position: 'absolute',
-                                      left: isEditingThisRoom ? `${position.x}px` : `${position.x}%`,
-                                      top: isEditingThisRoom ? `${position.y}px` : `${position.y}%`,
-                                      touchAction: 'none',
-                                      cursor: isEditingThisRoom ? 'move' : 'pointer',
-                                      zIndex: isEditingThisRoom ? 5 : 2,
-                                      transition: isEditingThisRoom ? 'none' : 'all 0.15s ease'
+                                      left: `${spacer.x}px`,
+                                      top: `${spacer.y}px`,
+                                      width: `${spacer.w || 78}px`,
+                                      height: `${spacer.h || 78}px`,
+                                      borderRadius: '12px',
+                                      border: '2px dashed #cbd5e1',
+                                      backgroundColor: 'rgba(241, 245, 249, 0.95)',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'move',
+                                      zIndex: 4,
+                                      boxSizing: 'border-box',
+                                      padding: '4px',
+                                      overflow: 'hidden',
+                                      boxShadow: 'var(--shadow-soft)'
                                     }}
                                   >
-                                    {renderSeatCard(seat)}
+                                    {/* Delete Spacer button */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSpacers(prev => prev.filter(s => s.id !== spacer.id));
+                                      }}
+                                      style={{
+                                        position: 'absolute',
+                                        top: '4px',
+                                        right: '4px',
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#ef4444',
+                                        cursor: 'pointer',
+                                        fontSize: '0.85rem',
+                                        fontWeight: 800,
+                                        padding: '0 4px',
+                                        zIndex: 10
+                                      }}
+                                      title="Remove Spacer"
+                                    >
+                                      &times;
+                                    </button>
+
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', zIndex: 1 }}>Space</span>
+                                    
+                                    {/* Visual drag boundary dimensions */}
+                                    <span style={{ fontSize: '0.55rem', color: '#cbd5e1', zIndex: 1, marginTop: '2px' }}>
+                                      {spacer.w || 78} x {spacer.h || 78}
+                                    </span>
+
+                                    {/* Resize drag handle at bottom-right corner */}
+                                    <div
+                                      onPointerDown={(e) => handleResizePointerDown(e, spacer.id)}
+                                      style={{
+                                        position: 'absolute',
+                                        right: '0',
+                                        bottom: '0',
+                                        width: '14px',
+                                        height: '14px',
+                                        cursor: 'se-resize',
+                                        background: 'linear-gradient(135deg, transparent 40%, #cbd5e1 40%)',
+                                        borderBottomRightRadius: '10px',
+                                        zIndex: 15,
+                                      }}
+                                    />
                                   </div>
-                                );
-                              })}
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Floating Instruction HUD */}
+                            {isEditingThisRoom && (
+                              <div style={{ position: 'absolute', top: '12px', left: '12px', backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#ffffff', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500, zIndex: 10, pointerEvents: 'none' }}>
+                                💡 Drag seats to arrange. Scroll context active. Canvas grows automatically.
+                              </div>
+                            )}
+
+                            {/* Floating Canvas Size Info & Arrange Toolbar */}
+                            <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10, background: 'rgba(255,255,255,0.95)', padding: '6px 12px', borderRadius: '12px', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-soft)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-slate)' }}>Canvas Size:</span>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-navy)' }}>{roomWidth} × {roomHeight} px</span>
+                                {isEditingThisRoom && (
+                                  <span style={{ fontSize: '0.65rem', color: 'var(--accent-blue)', marginLeft: '4px', fontWeight: 500 }}>
+                                    (Auto-growing)
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {isEditingThisRoom ? (
+                                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                   <Button
+                                     variant="outline"
+                                     size="sm"
+                                     style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', color: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
+                                     onClick={() => {
+                                       const nextSpacerId = `spacer-${Date.now()}`;
+                                       setSpacers(prev => [...prev, { id: nextSpacerId, x: 100, y: 100 }]);
+                                     }}
+                                   >
+                                     + Space
+                                   </Button>
+                                   <Button
+                                     variant="outline"
+                                     size="sm"
+                                     style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', color: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
+                                     onClick={() => handleArrangeAscending(room)}
+                                   >
+                                     Ascending
+                                   </Button>
+                                   <Button variant="outline" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem' }} onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); setSpacers([]); }}>Cancel</Button>
+                                   <Button variant="primary" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }} onClick={() => { handleSaveLayout(room); setSpacers([]); }} disabled={isUpdatingLayout}>Save</Button>
+                                 </div>
+                              ) : (
+                                activeRoomEditingId === null && (
+                                  <button
+                                    onClick={() => {
+                                      setActiveRoomEditingId(room.id);
+                                      const currentW = visualizerWidths[room.id] || room.canvasWidth || 1000;
+                                      const currentH = visualizerHeights[room.id] || room.canvasHeight || 450;
+                                      const initialLayout: Record<string, { x: number; y: number }> = {};
+                                      room.seats?.forEach((seat: any, idx: number) => {
+                                        initialLayout[seat.id] = getSeatPixelPosition(seat, idx, currentW, currentH);
+                                      });
+                                      setTempLayout(initialLayout);
+                                    }}
+                                    style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--accent-blue)', background: 'transparent', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer' }}
+                                  >
+                                    Arrange Seats
+                                  </button>
+                                )
+                              )}
                             </div>
                           </div>
                         );
