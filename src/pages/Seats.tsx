@@ -82,7 +82,7 @@ export default function Seats() {
   const [selectedBranch, setSelectedBranch] = useState('');
 
   // Seat Map API
-  const { data: seatMap, isLoading: isMapLoading } = useGetSeatMapQuery(selectedBranch, {
+  const { data: seatMap, isLoading: isMapLoading, refetch: refetchSeatMap } = useGetSeatMapQuery(selectedBranch, {
     skip: !selectedBranch,
   });
   
@@ -150,7 +150,7 @@ export default function Seats() {
   // Renewal form
 
   const [renewShiftId, setRenewShiftId] = useState('');
-  const [spacers, setSpacers] = useState<{ id: string; x: number; y: number; w?: number; h?: number }[]>([]);
+  const [spacers, setSpacers] = useState<{ id: string; x: number; y: number; w?: number; h?: number; type?: string }[]>([]);
   const [renewStartDate, setRenewStartDate] = useState('');
   const [renewEndDate, setRenewEndDate] = useState('');
   const [renewPaymentMethod, setRenewPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('UPI');
@@ -186,7 +186,16 @@ export default function Seats() {
   const [isFloorVisualization, setIsFloorVisualization] = useState(false);
   const [tempLayout, setTempLayout] = useState<Record<string, { x: number; y: number; rotation?: number }>>({});
   const [activeRoomEditingId, setActiveRoomEditingId] = useState<string | null>(null);
-  const [selectedArrangeId, setSelectedArrangeId] = useState<string | null>(null);
+  const [selectedArrangeIds, setSelectedArrangeIds] = useState<string[]>([]);
+  const [dragSelectStart, setDragSelectStart] = useState<{ x: number; y: number } | null>(null);
+  const [dragSelectEnd, setDragSelectEnd] = useState<{ x: number; y: number } | null>(null);
+  const [showSelectionMenu, setShowSelectionMenu] = useState(false);
+  const [editingSeatId, setEditingSeatId] = useState<string | null>(null);
+  const [editingSeatNumber, setEditingSeatNumber] = useState<string>('');
+  const [openAddDesk, setOpenAddDesk] = useState(false);
+  const [deskSeatCount, setDeskSeatCount] = useState<number | ''>(6);
+  const [deskLayoutType, setDeskLayoutType] = useState<'one_side' | 'both_sides'>('both_sides');
+  const [deskStartSeat, setDeskStartSeat] = useState<number | ''>(1);
 
   // Default coordinate helpers (returns percentages for viewing)
   const getSeatPosition = (seat: any, index: number) => {
@@ -197,7 +206,7 @@ export default function Seats() {
     const row = Math.floor(index / cols);
     const col = index % cols;
     const x = col * 9 + 5;
-    const y = row * 12 + 5;
+    const y = row * 12 + 15;
     return { x, y };
   };
 
@@ -216,7 +225,7 @@ export default function Seats() {
     const row = Math.floor(index / cols);
     const col = index % cols;
     const xPct = col * 9 + 5;
-    const yPct = row * 12 + 5;
+    const yPct = row * 12 + 15;
     return {
       x: (xPct / 100) * canvasWidth,
       y: (yPct / 100) * canvasHeight
@@ -288,7 +297,7 @@ export default function Seats() {
 
             // Clamp inside bounds
             seatX = Math.max(0, Math.min(roomWidth - seatSize, seatX));
-            seatY = Math.max(0, Math.min(roomHeight - seatSize, seatY));
+            seatY = Math.max(60, Math.min(roomHeight - seatSize, seatY));
 
             anyCollisionResolved = true;
           }
@@ -344,9 +353,9 @@ export default function Seats() {
 
             // Clamp inside bounds
             posA.x = Math.max(0, Math.min(roomWidth - seatSize, posA.x));
-            posA.y = Math.max(0, Math.min(roomHeight - seatSize, posA.y));
+            posA.y = Math.max(60, Math.min(roomHeight - seatSize, posA.y));
             posB.x = Math.max(0, Math.min(roomWidth - seatSize, posB.x));
-            posB.y = Math.max(0, Math.min(roomHeight - seatSize, posB.y));
+            posB.y = Math.max(60, Math.min(roomHeight - seatSize, posB.y));
 
             anyCollisionResolved = true;
           }
@@ -359,10 +368,9 @@ export default function Seats() {
     return resolvedLayout;
   };
 
-  // Pointer drag visual layout coordinate snappings (supports auto-growing and auto-scrolling)
+  // Pointer drag visual layout coordinate snappings (supports auto-growing, auto-scrolling, and multi-seat drag)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, seatId: string) => {
     if (activeRoomEditingId === null) return;
-    setSelectedArrangeId(seatId);
     const roomId = activeRoomEditingId;
     e.preventDefault();
     const element = e.currentTarget;
@@ -374,10 +382,6 @@ export default function Seats() {
     // We want the scroll container (which has overflow: auto)
     const scrollContainer = container.parentElement;
     
-    const seatRect = element.getBoundingClientRect();
-    const offsetX = e.clientX - seatRect.left;
-    const offsetY = e.clientY - seatRect.top;
-    
     // Lookup room defaults if visualizer state not initialized
     let roomObj: any = null;
     seatMap?.forEach((floor: any) => {
@@ -387,11 +391,51 @@ export default function Seats() {
         }
       });
     });
+
+    const currentWidth = visualizerWidths[roomId] || roomObj?.canvasWidth || 1000;
+    const currentHeight = visualizerHeights[roomId] || roomObj?.canvasHeight || 450;
+
+    // Helper functions to retrieve seat models
+    const findSeatById = (id: string) => roomObj?.seats?.find((s: any) => s.id === id);
+    const findSeatIndexById = (id: string) => roomObj?.seats?.findIndex((s: any) => s.id === id) ?? 0;
+
+    // Determine selection list
+    let nextSelected = [...selectedArrangeIds];
+    const isModifierPressed = e.shiftKey || e.ctrlKey || e.metaKey;
+    const isAlreadySelected = nextSelected.includes(seatId);
+
+    if (isModifierPressed) {
+      if (isAlreadySelected) {
+        nextSelected = nextSelected.filter(id => id !== seatId);
+      } else {
+        nextSelected.push(seatId);
+      }
+    } else {
+      if (!isAlreadySelected) {
+        nextSelected = [seatId];
+      }
+    }
+    setSelectedArrangeIds(nextSelected);
+
+    // Record starting coordinates of all elements in nextSelected
+    const startPositions: Record<string, { x: number; y: number }> = {};
+    nextSelected.forEach(id => {
+      const seat = findSeatById(id);
+      if (seat) {
+        const pos = tempLayout[id] || getSeatPixelPosition(seat, findSeatIndexById(id), currentWidth, currentHeight);
+        startPositions[id] = { x: pos.x, y: pos.y };
+      }
+    });
+
+    // We track drag starting mouse position
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    let didDrag = false;
     
     const handlePointerMove = (moveEvent: PointerEvent) => {
-      const currentContainerRect = container.getBoundingClientRect();
-      let leftPx = moveEvent.clientX - currentContainerRect.left - offsetX;
-      let topPx = moveEvent.clientY - currentContainerRect.top - offsetY;
+      didDrag = true;
+      const deltaX = moveEvent.clientX - startMouseX;
+      const deltaY = moveEvent.clientY - startMouseY;
       
       // Get current canvas size
       const currentWidth = visualizerWidths[roomId] || roomObj?.canvasWidth || 1000;
@@ -400,13 +444,20 @@ export default function Seats() {
       // Auto-expand canvas if dragging near/past bounds (80px is seat width/height)
       let nextWidth = currentWidth;
       let nextHeight = currentHeight;
-      
-      if (leftPx + 120 > currentWidth) {
-        nextWidth = leftPx + 200;
-      }
-      if (topPx + 120 > currentHeight) {
-        nextHeight = topPx + 200;
-      }
+
+      // Calculate candidate positions to see if we expand the canvas
+      nextSelected.forEach(id => {
+        if (startPositions[id]) {
+          const leftPx = startPositions[id].x + deltaX;
+          const topPx = startPositions[id].y + deltaY;
+          if (leftPx + 120 > nextWidth) {
+            nextWidth = leftPx + 200;
+          }
+          if (topPx + 120 > nextHeight) {
+            nextHeight = topPx + 200;
+          }
+        }
+      });
       
       if (nextWidth !== currentWidth) {
         setVisualizerWidths(prev => ({ ...prev, [roomId]: nextWidth }));
@@ -414,21 +465,31 @@ export default function Seats() {
       if (nextHeight !== currentHeight) {
         setVisualizerHeights(prev => ({ ...prev, [roomId]: nextHeight }));
       }
-      
-      // Bound checking (minimum 0, maximum canvas bounds minus seat size)
-      leftPx = Math.max(0, Math.min(nextWidth - 80, leftPx));
-      topPx = Math.max(0, Math.min(nextHeight - 80, topPx));
-      
-      // Grid snapping in pixels (snap to 15px)
+
       const snapPx = 15;
-      leftPx = Math.round(leftPx / snapPx) * snapPx;
-      topPx = Math.round(topPx / snapPx) * snapPx;
       
       setTempLayout(prev => {
-        const nextLayout = {
-          ...prev,
-          [seatId]: { x: leftPx, y: topPx }
-        };
+        const nextLayout = { ...prev };
+        nextSelected.forEach(id => {
+          if (startPositions[id]) {
+            let leftPx = startPositions[id].x + deltaX;
+            let topPx = startPositions[id].y + deltaY;
+
+            // Bound checking (minimum 60, maximum canvas bounds minus seat size)
+            leftPx = Math.max(0, Math.min(nextWidth - 80, leftPx));
+            topPx = Math.max(60, Math.min(nextHeight - 80, topPx));
+            
+            // Grid snapping in pixels (snap to 15px)
+            leftPx = Math.round(leftPx / snapPx) * snapPx;
+            topPx = Math.round(topPx / snapPx) * snapPx;
+
+            nextLayout[id] = {
+              ...nextLayout[id],
+              x: leftPx,
+              y: topPx
+            };
+          }
+        });
         return resolveCollisions(nextLayout, spacers, roomObj);
       });
       
@@ -458,10 +519,350 @@ export default function Seats() {
       element.releasePointerCapture(upEvent.pointerId);
       element.removeEventListener('pointermove', handlePointerMove);
       element.removeEventListener('pointerup', handlePointerUp);
+
+      // If they clicked without dragging and did not use modifier key, select only this seat
+      if (!didDrag && !isModifierPressed) {
+        setSelectedArrangeIds([seatId]);
+      }
     };
     
     element.addEventListener('pointermove', handlePointerMove);
     element.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const handleCanvasPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeRoomEditingId === null) return;
+    
+    // Only trigger if we clicked directly on the canvas background, not on a seat or spacer!
+    if (e.target !== e.currentTarget) return;
+    
+    setShowSelectionMenu(false);
+    e.preventDefault();
+    const container = e.currentTarget;
+    const rect = container.getBoundingClientRect();
+    const startX = e.clientX - rect.left;
+    const startY = e.clientY - rect.top;
+    
+    setDragSelectStart({ x: startX, y: startY });
+    setDragSelectEnd({ x: startX, y: startY });
+
+    const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+    const initialSelection = isModifier ? [...selectedArrangeIds] : [];
+    
+    container.setPointerCapture(e.pointerId);
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const currentRect = container.getBoundingClientRect();
+      const currentX = Math.max(0, Math.min(currentRect.width, moveEvent.clientX - currentRect.left));
+      const currentY = Math.max(0, Math.min(currentRect.height, moveEvent.clientY - currentRect.top));
+      
+      setDragSelectEnd({ x: currentX, y: currentY });
+
+      // Determine bounding box of selection
+      const boxX = Math.min(startX, currentX);
+      const boxY = Math.min(startY, currentY);
+      const boxW = Math.abs(startX - currentX);
+      const boxH = Math.abs(startY - currentY);
+
+      // Find which seats intersect this box
+      const roomId = activeRoomEditingId;
+      let roomObj: any = null;
+      seatMap?.forEach((floor: any) => {
+        floor.rooms?.forEach((rm: any) => {
+          if (rm.id === roomId) {
+            roomObj = rm;
+          }
+        });
+      });
+
+      if (!roomObj) return;
+      const roomWidth = visualizerWidths[roomId] || roomObj.canvasWidth || 1000;
+      const roomHeight = visualizerHeights[roomId] || roomObj.canvasHeight || 450;
+
+      const intersectingIds: string[] = [];
+      roomObj.seats?.forEach((seat: any, idx: number) => {
+        const pos = getSeatPixelPosition(seat, idx, roomWidth, roomHeight);
+        const seatW = 78;
+        const seatH = 78;
+
+        // Check AABB intersection
+        const overlapX = Math.max(0, Math.min(pos.x + seatW, boxX + boxW) - Math.max(pos.x, boxX));
+        const overlapY = Math.max(0, Math.min(pos.y + seatH, boxY + boxH) - Math.max(pos.y, boxY));
+
+        if (overlapX > 0 && overlapY > 0) {
+          intersectingIds.push(seat.id);
+        }
+      });
+
+      // Update selected seats
+      if (isModifier) {
+        const union = new Set([...initialSelection, ...intersectingIds]);
+        setSelectedArrangeIds(Array.from(union));
+      } else {
+        setSelectedArrangeIds(intersectingIds);
+      }
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      container.releasePointerCapture(upEvent.pointerId);
+      container.removeEventListener('pointermove', handlePointerMove);
+      container.removeEventListener('pointerup', handlePointerUp);
+      
+      setDragSelectStart(null);
+      setDragSelectEnd(null);
+    };
+
+    container.addEventListener('pointermove', handlePointerMove);
+    container.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const alignSelectedSeats = (direction: 'horizontal' | 'vertical') => {
+    if (selectedArrangeIds.length === 0 || activeRoomEditingId === null) return;
+    const roomId = activeRoomEditingId;
+
+    // Lookup room defaults if visualizer state not initialized
+    let roomObj: any = null;
+    seatMap?.forEach((floor: any) => {
+      floor.rooms?.forEach((rm: any) => {
+        if (rm.id === roomId) {
+          roomObj = rm;
+        }
+      });
+    });
+    if (!roomObj) return;
+
+    const roomWidth = visualizerWidths[roomId] || roomObj.canvasWidth || 1000;
+    const roomHeight = visualizerHeights[roomId] || roomObj.canvasHeight || 450;
+
+    const findSeatById = (id: string) => roomObj?.seats?.find((s: any) => s.id === id);
+    const findSeatIndexById = (id: string) => roomObj?.seats?.findIndex((s: any) => s.id === id) ?? 0;
+
+    // Get selected seats positions
+    const selectedSeats = selectedArrangeIds
+      .map(id => {
+        const seat = findSeatById(id);
+        if (!seat) return null;
+        const pos = tempLayout[id] || getSeatPixelPosition(seat, findSeatIndexById(id), roomWidth, roomHeight);
+        return { id, x: pos.x, y: pos.y, seat };
+      })
+      .filter(Boolean) as Array<{ id: string; x: number; y: number; seat: any }>;
+
+    if (selectedSeats.length === 0) return;
+
+    if (direction === 'horizontal') {
+      // Sort from left to right (by X coordinate)
+      selectedSeats.sort((a, b) => a.x - b.x);
+
+      // Anchor is the position of the leftmost seat
+      const anchorX = selectedSeats[0].x;
+      const anchorY = selectedSeats[0].y;
+      const seatCollisionSize = 90; // 78px + 12px gap
+
+      setTempLayout(prev => {
+        const nextLayout = { ...prev };
+        selectedSeats.forEach((item, index) => {
+          let targetX = anchorX + index * seatCollisionSize;
+          let targetY = anchorY;
+
+          // Clamp
+          targetX = Math.max(0, Math.min(roomWidth - 78, targetX));
+          targetY = Math.max(60, Math.min(roomHeight - 78, targetY));
+
+          nextLayout[item.id] = {
+            ...nextLayout[item.id],
+            x: targetX,
+            y: targetY
+          };
+        });
+        return resolveCollisions(nextLayout, spacers, roomObj);
+      });
+    } else {
+      // Sort from top to bottom (by Y coordinate)
+      selectedSeats.sort((a, b) => a.y - b.y);
+
+      // Anchor is the position of the topmost seat
+      const anchorX = selectedSeats[0].x;
+      const anchorY = selectedSeats[0].y;
+      const seatCollisionSize = 90; // 78px + 12px gap
+
+      setTempLayout(prev => {
+        const nextLayout = { ...prev };
+        selectedSeats.forEach((item, index) => {
+          let targetX = anchorX;
+          let targetY = anchorY + index * seatCollisionSize;
+
+          // Clamp
+          targetX = Math.max(0, Math.min(roomWidth - 78, targetX));
+          targetY = Math.max(60, Math.min(roomHeight - 78, targetY));
+
+          nextLayout[item.id] = {
+            ...nextLayout[item.id],
+            x: targetX,
+            y: targetY
+          };
+        });
+        return resolveCollisions(nextLayout, spacers, roomObj);
+      });
+    }
+
+    setShowSelectionMenu(false);
+  };
+
+  const alignStraight = (axis: 'horizontal' | 'vertical') => {
+    if (selectedArrangeIds.length === 0 || activeRoomEditingId === null) return;
+    const roomId = activeRoomEditingId;
+
+    // Lookup room defaults
+    let roomObj: any = null;
+    seatMap?.forEach((floor: any) => {
+      floor.rooms?.forEach((rm: any) => {
+        if (rm.id === roomId) {
+          roomObj = rm;
+        }
+      });
+    });
+    if (!roomObj) return;
+
+    const roomWidth = visualizerWidths[roomId] || roomObj.canvasWidth || 1000;
+    const roomHeight = visualizerHeights[roomId] || roomObj.canvasHeight || 450;
+
+    const findSeatById = (id: string) => roomObj?.seats?.find((s: any) => s.id === id);
+    const findSeatIndexById = (id: string) => roomObj?.seats?.findIndex((s: any) => s.id === id) ?? 0;
+
+    const selectedSeats = selectedArrangeIds
+      .map(id => {
+        const seat = findSeatById(id);
+        if (!seat) return null;
+        const pos = tempLayout[id] || getSeatPixelPosition(seat, findSeatIndexById(id), roomWidth, roomHeight);
+        return { id, x: pos.x, y: pos.y };
+      })
+      .filter(Boolean) as Array<{ id: string; x: number; y: number }>;
+
+    if (selectedSeats.length === 0) return;
+
+    if (axis === 'horizontal') {
+      const anchorY = selectedSeats[0].y;
+
+      setTempLayout(prev => {
+        const nextLayout = { ...prev };
+        selectedSeats.forEach(item => {
+          nextLayout[item.id] = {
+            ...nextLayout[item.id],
+            y: anchorY
+          };
+        });
+        return resolveCollisions(nextLayout, spacers, roomObj);
+      });
+    } else {
+      const anchorX = selectedSeats[0].x;
+
+      setTempLayout(prev => {
+        const nextLayout = { ...prev };
+        selectedSeats.forEach(item => {
+          nextLayout[item.id] = {
+            ...nextLayout[item.id],
+            x: anchorX
+          };
+        });
+        return resolveCollisions(nextLayout, spacers, roomObj);
+      });
+    }
+
+    setShowSelectionMenu(false);
+  };
+
+  const rotateSelectedSeats = () => {
+    if (selectedArrangeIds.length === 0 || activeRoomEditingId === null) return;
+    const roomId = activeRoomEditingId;
+
+    // Lookup room defaults
+    let roomObj: any = null;
+    seatMap?.forEach((floor: any) => {
+      floor.rooms?.forEach((rm: any) => {
+        if (rm.id === roomId) {
+          roomObj = rm;
+        }
+      });
+    });
+    if (!roomObj) return;
+
+    setTempLayout(prev => {
+      const nextLayout = { ...prev };
+      selectedArrangeIds.forEach(id => {
+        const seat = roomObj?.seats?.find((s: any) => s.id === id);
+        if (seat) {
+          const currentSeatLayout = nextLayout[id] || { x: 0, y: 0 };
+          const currentRotation = currentSeatLayout.rotation !== undefined ? currentSeatLayout.rotation : (seat.rotation || 0);
+          const nextRotation = (currentRotation + 90) % 360;
+          nextLayout[id] = {
+            ...currentSeatLayout,
+            rotation: nextRotation
+          };
+        }
+      });
+      return nextLayout;
+    });
+
+    setShowSelectionMenu(false);
+  };
+
+  const handleSeatNumberSwap = (sourceSeatId: string, targetNumber: string) => {
+    setEditingSeatId(null);
+    const trimmedNumber = targetNumber.trim();
+    if (!trimmedNumber) return;
+
+    const roomId = activeRoomEditingId;
+    if (!roomId) return;
+
+    let roomObj: any = null;
+    seatMap?.forEach((floor: any) => {
+      floor.rooms?.forEach((rm: any) => {
+        if (rm.id === roomId) {
+          roomObj = rm;
+        }
+      });
+    });
+    if (!roomObj) return;
+
+    const sourceSeat = roomObj.seats?.find((s: any) => s.id === sourceSeatId);
+    if (!sourceSeat) return;
+
+    if (sourceSeat.number === trimmedNumber) return;
+
+    const targetSeat = roomObj.seats?.find((s: any) => s.number.toLowerCase() === trimmedNumber.toLowerCase());
+
+    if (!targetSeat) {
+      showToast(`Seat number "${trimmedNumber}" not found in this room!`, 'error');
+      return;
+    }
+
+    const roomWidth = visualizerWidths[roomId] || roomObj.canvasWidth || 1000;
+    const roomHeight = visualizerHeights[roomId] || roomObj.canvasHeight || 450;
+
+    const sourceIdx = roomObj.seats.indexOf(sourceSeat);
+    const targetIdx = roomObj.seats.indexOf(targetSeat);
+
+    const sourcePos = tempLayout[sourceSeat.id] || getSeatPixelPosition(sourceSeat, sourceIdx, roomWidth, roomHeight);
+    const targetPos = tempLayout[targetSeat.id] || getSeatPixelPosition(targetSeat, targetIdx, roomWidth, roomHeight);
+
+    setTempLayout(prev => {
+      const nextLayout = {
+        ...prev,
+        [sourceSeat.id]: {
+          ...prev[sourceSeat.id],
+          x: targetPos.x,
+          y: targetPos.y
+        },
+        [targetSeat.id]: {
+          ...prev[targetSeat.id],
+          x: sourcePos.x,
+          y: sourcePos.y
+        }
+      };
+      return resolveCollisions(nextLayout, spacers, roomObj);
+    });
+
+    showToast(`Swapped positions of Seat ${sourceSeat.number} and Seat ${targetSeat.number}!`, 'success');
   };
 
   const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>, spacerId: string) => {
@@ -488,8 +889,8 @@ export default function Seats() {
       let newHeight = startHeight + deltaY;
       
       const snapPx = 15;
-      newWidth = Math.round(Math.max(45, Math.min(600, newWidth)) / snapPx) * snapPx;
-      newHeight = Math.round(Math.max(45, Math.min(600, newHeight)) / snapPx) * snapPx;
+      newWidth = Math.round(Math.max(45, newWidth) / snapPx) * snapPx;
+      newHeight = Math.round(Math.max(45, newHeight) / snapPx) * snapPx;
       
       // Find the active room object to resolve collisions against
       let roomObj: any = null;
@@ -524,7 +925,7 @@ export default function Seats() {
 
   const handleSpacerPointerDown = (e: React.PointerEvent<HTMLDivElement>, spacerId: string) => {
     if (activeRoomEditingId === null) return;
-    setSelectedArrangeId(spacerId);
+    setSelectedArrangeIds([spacerId]);
     const roomId = activeRoomEditingId;
     e.preventDefault();
     const element = e.currentTarget;
@@ -578,7 +979,7 @@ export default function Seats() {
       }
       
       leftPx = Math.max(0, Math.min(nextWidth - spacerW, leftPx));
-      topPx = Math.max(0, Math.min(nextHeight - spacerH, topPx));
+      topPx = Math.max(60, Math.min(nextHeight - spacerH, topPx));
       
       const snapPx = 15;
       leftPx = Math.round(leftPx / snapPx) * snapPx;
@@ -632,7 +1033,7 @@ export default function Seats() {
       const col = index % cols;
       newLayout[seat.id] = {
         x: col * 95 + 40,
-        y: row * 110 + 50
+        y: row * 110 + 70
       };
     });
     setTempLayout(newLayout);
@@ -679,7 +1080,7 @@ export default function Seats() {
       showToast('Seat positions and canvas bounds saved successfully!', 'success');
       setActiveRoomEditingId(null);
       setTempLayout({});
-      setSelectedArrangeId(null);
+      setSelectedArrangeIds([]);
       setSpacers([]);
       
       // Update local state to trimmed dimensions
@@ -1310,9 +1711,44 @@ export default function Seats() {
         )}
         
         {/* Seat Number */}
-        <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', zIndex: 1 }}>
-          {seat.number}
-        </span>
+        {editingSeatId === seat.id ? (
+          <input
+            type="text"
+            value={editingSeatNumber}
+            onChange={(e) => setEditingSeatNumber(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSeatNumberSwap(seat.id, editingSeatNumber);
+              } else if (e.key === 'Escape') {
+                setEditingSeatId(null);
+              }
+            }}
+            onBlur={() => {
+              handleSeatNumberSwap(seat.id, editingSeatNumber);
+            }}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              width: '50px',
+              height: '22px',
+              textAlign: 'center',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              color: 'var(--text-navy)',
+              border: '2px solid var(--accent-blue)',
+              borderRadius: '6px',
+              outline: 'none',
+              zIndex: 20,
+              boxShadow: 'var(--shadow-soft)'
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', zIndex: 1 }}>
+            {seat.number}
+          </span>
+        )}
 
         {/* Occupant/Status indicator */}
         {isOccupied && activeAllocation ? (
@@ -1953,7 +2389,7 @@ export default function Seats() {
                               borderRadius: '15px'
                             }}>
                                <div 
-                                 onClick={() => { if (isEditingThisRoom) setSelectedArrangeId(null); }}
+                                 onPointerDown={handleCanvasPointerDown}
                                  style={{
                                    position: 'relative',
                                    width: `${roomWidth}px`,
@@ -1979,6 +2415,13 @@ export default function Seats() {
                                      <div
                                        key={seat.id}
                                        onPointerDown={(e) => { if (isEditingThisRoom) { e.stopPropagation(); handlePointerDown(e, seat.id); } }}
+                                       onDoubleClick={(e) => {
+                                         if (isEditingThisRoom) {
+                                           e.stopPropagation();
+                                           setEditingSeatId(seat.id);
+                                           setEditingSeatNumber(seat.number);
+                                         }
+                                       }}
                                        onClick={(e) => { if (isEditingThisRoom) { e.stopPropagation(); } else { handleSeatClick(seat); } }}
                                        style={{
                                          position: 'absolute',
@@ -1986,9 +2429,9 @@ export default function Seats() {
                                          top: isEditingThisRoom ? `${position.y}px` : `${position.y}%`,
                                          touchAction: 'none',
                                          cursor: isEditingThisRoom ? 'move' : 'pointer',
-                                         zIndex: isEditingThisRoom ? (selectedArrangeId === seat.id ? 6 : 5) : 2,
+                                         zIndex: isEditingThisRoom ? (selectedArrangeIds.includes(seat.id) ? 6 : 5) : 2,
                                          transition: isEditingThisRoom ? 'none' : 'all 0.15s ease',
-                                         outline: isEditingThisRoom && selectedArrangeId === seat.id ? '3px solid var(--accent-blue)' : undefined,
+                                         outline: isEditingThisRoom && selectedArrangeIds.includes(seat.id) ? '3px solid var(--accent-blue)' : undefined,
                                          outlineOffset: '2px',
                                          borderRadius: '8px'
                                        }}
@@ -1998,123 +2441,362 @@ export default function Seats() {
                                    );
                                  })}
 
-                                 {isEditingThisRoom && spacers.map((spacer) => (
-                                   <div
-                                     key={spacer.id}
-                                     onPointerDown={(e) => { e.stopPropagation(); handleSpacerPointerDown(e, spacer.id); }}
-                                     style={{
-                                       position: 'absolute',
-                                       left: `${spacer.x}px`,
-                                       top: `${spacer.y}px`,
-                                       width: `${spacer.w || 78}px`,
-                                       height: `${spacer.h || 78}px`,
-                                       borderRadius: '12px',
-                                       border: selectedArrangeId === spacer.id ? '2px solid var(--accent-blue)' : '2px dashed #cbd5e1',
-                                       backgroundColor: selectedArrangeId === spacer.id ? 'rgba(239, 246, 255, 0.95)' : 'rgba(241, 245, 249, 0.95)',
-                                       display: 'flex',
-                                       flexDirection: 'column',
-                                       alignItems: 'center',
-                                       justifyContent: 'center',
-                                       cursor: 'move',
-                                       zIndex: selectedArrangeId === spacer.id ? 5 : 4,
-                                       boxSizing: 'border-box',
-                                       padding: '4px',
-                                       overflow: 'hidden',
-                                       boxShadow: selectedArrangeId === spacer.id ? '0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-soft)' : 'var(--shadow-soft)'
-                                     }}
-                                   >
-                                     {/* Delete Spacer button */}
-                                     <button
-                                       type="button"
-                                       onPointerDown={(e) => {
-                                         e.stopPropagation();
-                                       }}
-                                       onMouseDown={(e) => {
-                                         e.stopPropagation();
-                                       }}
-                                       onClick={(e) => {
-                                         e.stopPropagation();
-                                         setSpacers(prev => prev.filter(s => s.id !== spacer.id));
-                                       }}
-                                       style={{
-                                         position: 'absolute',
-                                         top: '4px',
-                                         right: '4px',
-                                         background: 'none',
-                                         border: 'none',
-                                         color: '#ef4444',
-                                         cursor: 'pointer',
-                                         fontSize: '0.85rem',
-                                         fontWeight: 800,
-                                         padding: '0 4px',
-                                         zIndex: 10
-                                       }}
-                                       title="Remove Spacer"
-                                     >
-                                       &times;
-                                     </button>
-
-                                     <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', zIndex: 1 }}>Space</span>
-                                     
-                                     {/* Visual drag boundary dimensions */}
-                                     <span style={{ fontSize: '0.55rem', color: '#cbd5e1', zIndex: 1, marginTop: '2px' }}>
-                                       {spacer.w || 78} x {spacer.h || 78}
-                                     </span>
-
-                                     {/* Resize drag handle at bottom-right corner */}
-                                     <div
-                                       onPointerDown={(e) => handleResizePointerDown(e, spacer.id)}
-                                       style={{
-                                         position: 'absolute',
-                                         right: '0',
-                                         bottom: '0',
-                                         width: '14px',
-                                         height: '14px',
-                                         cursor: 'se-resize',
-                                         background: 'linear-gradient(135deg, transparent 40%, #cbd5e1 40%)',
-                                         borderBottomRightRadius: '10px',
-                                         zIndex: 15,
+                                 {isEditingThisRoom && spacers.map((spacer) => {
+                                    const isDesk = spacer.type === 'desk';
+                                    const isSelected = selectedArrangeIds.includes(spacer.id);
+                                    return (
+                                      <div
+                                        key={spacer.id}
+                                        onPointerDown={(e) => { e.stopPropagation(); handleSpacerPointerDown(e, spacer.id); }}
+                                        style={{
+                                          position: 'absolute',
+                                          left: `${spacer.x}px`,
+                                          top: `${spacer.y}px`,
+                                          width: `${spacer.w || 78}px`,
+                                          height: `${spacer.h || 78}px`,
+                                          borderRadius: isDesk ? '6px' : '12px',
+                                          border: isSelected ? '2px solid var(--accent-blue)' : (isDesk ? 'none' : '2px dashed #cbd5e1'),
+                                          backgroundColor: isDesk
+                                            ? (isSelected ? '#1e293b' : '#000000')
+                                            : (isSelected ? 'rgba(239, 246, 255, 0.95)' : 'rgba(241, 245, 249, 0.95)'),
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          cursor: 'move',
+                                          zIndex: isSelected ? 5 : 4,
+                                          boxSizing: 'border-box',
+                                          padding: '4px',
+                                          overflow: 'hidden',
+                                          boxShadow: isSelected ? '0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-soft)' : 'var(--shadow-soft)'
                                         }}
-                                      />
-                                    </div>
-                                  ))}
+                                      >
+                                        {/* Delete Spacer button */}
+                                        <button
+                                          type="button"
+                                          onPointerDown={(e) => {
+                                            e.stopPropagation();
+                                          }}
+                                          onMouseDown={(e) => {
+                                            e.stopPropagation();
+                                          }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSpacers(prev => prev.filter(s => s.id !== spacer.id));
+                                          }}
+                                          style={{
+                                            position: 'absolute',
+                                            top: '4px',
+                                            right: '4px',
+                                            background: 'none',
+                                            border: 'none',
+                                            color: isDesk ? '#f87171' : '#ef4444',
+                                            cursor: 'pointer',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 800,
+                                            padding: '0 4px',
+                                            zIndex: 10
+                                          }}
+                                          title={isDesk ? "Remove Desk" : "Remove Spacer"}
+                                        >
+                                          &times;
+                                        </button>
+
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: isDesk ? '#ffffff' : '#94a3b8', zIndex: 1 }}>
+                                          {isDesk ? 'Desk' : 'Space'}
+                                        </span>
+                                        
+                                        {/* Visual drag boundary dimensions */}
+                                        <span style={{ fontSize: '0.55rem', color: isDesk ? 'rgba(255,255,255,0.7)' : '#cbd5e1', zIndex: 1, marginTop: '2px' }}>
+                                          {spacer.w || 78} x {spacer.h || 78}
+                                        </span>
+
+                                        {/* Resize drag handle at bottom-right corner */}
+                                        <div
+                                          onPointerDown={(e) => handleResizePointerDown(e, spacer.id)}
+                                          style={{
+                                            position: 'absolute',
+                                            right: '0',
+                                            bottom: '0',
+                                            width: '14px',
+                                            height: '14px',
+                                            cursor: 'se-resize',
+                                            background: `linear-gradient(135deg, transparent 40%, ${isDesk ? '#ffffff' : '#cbd5e1'} 40%)`,
+                                            borderBottomRightRadius: isDesk ? '4px' : '10px',
+                                            zIndex: 15,
+                                          }}
+                                        />
+                                      </div>
+                                    );
+                                  })}
 
                                   {/* Render saved spacers in View Mode (Non-editing) */}
                                   {!isEditingThisRoom && room.spacers && (() => {
                                     try {
                                       const parsedSpacers = JSON.parse(room.spacers);
                                       if (!Array.isArray(parsedSpacers)) return null;
-                                      return parsedSpacers.map((spacer: any) => (
-                                        <div
-                                          key={spacer.id}
-                                          style={{
-                                            position: 'absolute',
-                                            left: `${spacer.x}px`,
-                                            top: `${spacer.y}px`,
-                                            width: `${spacer.w || 78}px`,
-                                            height: `${spacer.h || 78}px`,
-                                            borderRadius: '12px',
-                                            border: '1.5px dashed #cbd5e1',
-                                            backgroundColor: 'rgba(241, 245, 249, 0.5)',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            zIndex: 1,
-                                            boxSizing: 'border-box',
-                                            padding: '4px',
-                                            overflow: 'hidden',
-                                            pointerEvents: 'none'
-                                          }}
-                                        >
-                                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8' }}>Walking Area</span>
-                                        </div>
-                                      ));
+                                      return parsedSpacers.map((spacer: any) => {
+                                        const isDesk = spacer.type === 'desk';
+                                        return (
+                                          <div
+                                            key={spacer.id}
+                                            style={{
+                                              position: 'absolute',
+                                              left: `${spacer.x}px`,
+                                              top: `${spacer.y}px`,
+                                              width: `${spacer.w || 78}px`,
+                                              height: `${spacer.h || 78}px`,
+                                              borderRadius: isDesk ? '6px' : '12px',
+                                              border: isDesk ? 'none' : '1.5px dashed #cbd5e1',
+                                              backgroundColor: isDesk ? '#000000' : 'rgba(241, 245, 249, 0.5)',
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              zIndex: 1,
+                                              boxSizing: 'border-box',
+                                              padding: '4px',
+                                              overflow: 'hidden',
+                                              pointerEvents: 'none'
+                                            }}
+                                          >
+                                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: isDesk ? '#ffffff' : '#94a3b8' }}>
+                                              {isDesk ? 'Desk' : 'Walking Area'}
+                                            </span>
+                                          </div>
+                                        );
+                                      });
                                     } catch (e) {
                                       return null;
                                     }
                                   })()}
-                              </div>
+
+                                  {/* Selection Box Visualizer */}
+                                  {dragSelectStart && dragSelectEnd && (() => {
+                                    const boxX = Math.min(dragSelectStart.x, dragSelectEnd.x);
+                                    const boxY = Math.min(dragSelectStart.y, dragSelectEnd.y);
+                                    const boxW = Math.abs(dragSelectStart.x - dragSelectEnd.x);
+                                    const boxH = Math.abs(dragSelectStart.y - dragSelectEnd.y);
+                                    return (
+                                      <div
+                                        style={{
+                                          position: 'absolute',
+                                          left: `${boxX}px`,
+                                          top: `${boxY}px`,
+                                          width: `${boxW}px`,
+                                          height: `${boxH}px`,
+                                          border: '1.5px dashed #2563eb',
+                                          backgroundColor: 'rgba(37, 99, 235, 0.15)',
+                                          pointerEvents: 'none',
+                                          zIndex: 100,
+                                          borderRadius: '4px'
+                                        }}
+                                      />
+                                    );
+                                  })()}
+
+                                  {/* Selection Menu Toolbar */}
+                                  {isEditingThisRoom && selectedArrangeIds.length > 0 && (() => {
+                                    let minX = Infinity;
+                                    let minY = Infinity;
+                                    let maxX = -Infinity;
+                                    let maxY = -Infinity;
+                                    
+                                    selectedArrangeIds.forEach(id => {
+                                      const seat = room.seats?.find((s: any) => s.id === id);
+                                      if (seat) {
+                                        const pos = tempLayout[id] || getSeatPixelPosition(seat, room.seats.indexOf(seat), roomWidth, roomHeight);
+                                        if (pos.x < minX) minX = pos.x;
+                                        if (pos.y < minY) minY = pos.y;
+                                        if (pos.x + 78 > maxX) maxX = pos.x + 78;
+                                        if (pos.y + 78 > maxY) maxY = pos.y + 78;
+                                      }
+                                    });
+
+                                    if (minX === Infinity) return null;
+
+                                    return (
+                                      <div
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        style={{
+                                          position: 'absolute',
+                                          left: `${maxX}px`,
+                                          top: `${minY - 45}px`,
+                                          transform: 'translateX(-100%)',
+                                          zIndex: 110,
+                                        }}
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowSelectionMenu(!showSelectionMenu);
+                                          }}
+                                          style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            background: 'var(--accent-blue)',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            padding: '6px 12px',
+                                            borderRadius: '20px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
+                                            transition: 'all 0.2s ease',
+                                            outline: 'none'
+                                          }}
+                                        >
+                                          <span>Selection ({selectedArrangeIds.length})</span>
+                                          <MoreVertical size={12} />
+                                        </button>
+
+                                        {showSelectionMenu && (
+                                          <div
+                                            style={{
+                                              position: 'absolute',
+                                              top: '32px',
+                                              right: 0,
+                                              background: '#ffffff',
+                                              border: '1px solid var(--border-card)',
+                                              borderRadius: '12px',
+                                              boxShadow: 'var(--shadow-lg)',
+                                              width: '180px',
+                                              padding: '6px',
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              gap: '4px',
+                                              zIndex: 120,
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <button
+                                              type="button"
+                                              onClick={() => alignSelectedSeats('horizontal')}
+                                              style={{
+                                                width: '100%',
+                                                textAlign: 'left',
+                                                background: 'none',
+                                                border: 'none',
+                                                padding: '6px 10px',
+                                                borderRadius: '8px',
+                                                fontSize: '0.7rem',
+                                                color: 'var(--text-navy)',
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                              }}
+                                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                              ↔ Align Horizontally
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => alignSelectedSeats('vertical')}
+                                              style={{
+                                                width: '100%',
+                                                textAlign: 'left',
+                                                background: 'none',
+                                                border: 'none',
+                                                padding: '6px 10px',
+                                                borderRadius: '8px',
+                                                fontSize: '0.7rem',
+                                                color: 'var(--text-navy)',
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                              }}
+                                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                              ↕ Align Vertically
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => alignStraight('horizontal')}
+                                              style={{
+                                                width: '100%',
+                                                textAlign: 'left',
+                                                background: 'none',
+                                                border: 'none',
+                                                padding: '6px 10px',
+                                                borderRadius: '8px',
+                                                fontSize: '0.7rem',
+                                                color: 'var(--text-navy)',
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                              }}
+                                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                              📏 Align Straight (Horiz)
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => alignStraight('vertical')}
+                                              style={{
+                                                width: '100%',
+                                                textAlign: 'left',
+                                                background: 'none',
+                                                border: 'none',
+                                                padding: '6px 10px',
+                                                borderRadius: '8px',
+                                                fontSize: '0.7rem',
+                                                color: 'var(--text-navy)',
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                              }}
+                                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                              📏 Align Straight (Vert)
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={rotateSelectedSeats}
+                                              style={{
+                                                width: '100%',
+                                                textAlign: 'left',
+                                                background: 'none',
+                                                border: 'none',
+                                                padding: '6px 10px',
+                                                borderRadius: '8px',
+                                                fontSize: '0.7rem',
+                                                color: 'var(--text-navy)',
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                borderTop: '1px solid #f1f5f9',
+                                                marginTop: '2px',
+                                                paddingTop: '6px'
+                                              }}
+                                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                              ↻ Rotate Faces
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                               </div>
                             </div>
 
                             {/* Floating Instruction HUD */}
@@ -2155,6 +2837,28 @@ export default function Seats() {
                                      + Space
                                    </Button>
                                    <Button
+                                      variant="primary"
+                                      size="sm"
+                                      style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', backgroundColor: '#000000', borderColor: '#000000', color: '#ffffff' }}
+                                      onClick={() => {
+                                        // Auto-detect a reasonable default starting seat number
+                                        if (room.seats && room.seats.length > 0) {
+                                          const numbers = room.seats.map((s: any) => parseInt(s.number, 10)).filter((n: any) => !isNaN(n));
+                                          if (numbers.length > 0) {
+                                            const maxNum = Math.max(...numbers);
+                                            setDeskStartSeat(maxNum + 1);
+                                          } else {
+                                            setDeskStartSeat(1);
+                                          }
+                                        } else {
+                                          setDeskStartSeat(1);
+                                        }
+                                        setOpenAddDesk(true);
+                                      }}
+                                    >
+                                      + Add Desk
+                                    </Button>
+                                   <Button
                                      variant="outline"
                                      size="sm"
                                      style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', color: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
@@ -2162,7 +2866,7 @@ export default function Seats() {
                                    >
                                      Ascending
                                    </Button>
-                                   <Button variant="outline" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem' }} onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); setSpacers([]); setSelectedArrangeId(null); }}>Cancel</Button>
+                                   <Button variant="outline" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem' }} onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); setSpacers([]); setSelectedArrangeIds([]); }}>Cancel</Button>
                                    <Button variant="primary" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }} onClick={() => { handleSaveLayout(room); }} disabled={isUpdatingLayout}>Save</Button>
                                  </div>
                               ) : (
@@ -2877,6 +3581,279 @@ export default function Seats() {
           </Button>
         </div>
       </Modal>
+
+      {openAddDesk && activeRoomEditingId && (() => {
+        const room = seatMap?.flatMap((f: any) => f.rooms || []).find((r: any) => r.id === activeRoomEditingId);
+        if (!room) return null;
+        
+        return (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.4)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}>
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              width: '420px',
+              padding: '24px',
+              boxShadow: 'var(--shadow-xl)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-navy)' }}>Add Desk Layout</h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-slate)' }}>Configure the desk size, layout structure, and seat numbers.</p>
+              </div>
+
+              {/* Number of Seats */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>Number of Seats</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={deskSeatCount}
+                  onChange={(e) => {
+                    if (e.target.value === '') {
+                      setDeskSeatCount('');
+                      return;
+                    }
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val)) {
+                      setDeskSeatCount(val);
+                    }
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1.5px solid var(--border-card)',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    fontWeight: 500
+                  }}
+                />
+              </div>
+
+              {/* Desk Layout Selection */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>Desk Layout</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setDeskLayoutType('one_side')}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      borderRadius: '8px',
+                      border: '1.5px solid',
+                      borderColor: deskLayoutType === 'one_side' ? 'var(--accent-blue)' : 'var(--border-card)',
+                      backgroundColor: deskLayoutType === 'one_side' ? 'rgba(37, 99, 235, 0.05)' : '#ffffff',
+                      color: deskLayoutType === 'one_side' ? 'var(--accent-blue)' : 'var(--text-navy)',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    One Side
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeskLayoutType('both_sides')}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      borderRadius: '8px',
+                      border: '1.5px solid',
+                      borderColor: deskLayoutType === 'both_sides' ? 'var(--accent-blue)' : 'var(--border-card)',
+                      backgroundColor: deskLayoutType === 'both_sides' ? 'rgba(37, 99, 235, 0.05)' : '#ffffff',
+                      color: deskLayoutType === 'both_sides' ? 'var(--accent-blue)' : 'var(--text-navy)',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Both Sides
+                  </button>
+                </div>
+              </div>
+
+              {/* Start and End Seat range */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>Starting Seat Number</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={deskStartSeat}
+                    onChange={(e) => {
+                      if (e.target.value === '') {
+                        setDeskStartSeat('');
+                        return;
+                      }
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val)) {
+                        setDeskStartSeat(val);
+                      }
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--border-card)',
+                      fontSize: '0.85rem',
+                      outline: 'none',
+                      fontWeight: 500
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>Ending Seat (Calculated)</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={(deskStartSeat && deskSeatCount) ? (Number(deskStartSeat) + Number(deskSeatCount) - 1) : ''}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1.5px solid var(--border-card)',
+                      backgroundColor: '#f8fafc',
+                      color: 'var(--text-slate)',
+                      fontSize: '0.85rem',
+                      fontWeight: 600
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <Button
+                  variant="outline"
+                  onClick={() => setOpenAddDesk(false)}
+                  style={{ flex: 1, padding: '8px', fontSize: '0.8rem', height: '36px' }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={async () => {
+                    if (deskSeatCount === '' || Number(deskSeatCount) <= 0) {
+                      showToast("Please enter a valid number of seats (greater than 0).", "error");
+                      return;
+                    }
+                    if (deskStartSeat === '' || Number(deskStartSeat) <= 0) {
+                      showToast("Please enter a valid starting seat number (greater than 0).", "error");
+                      return;
+                    }
+                    
+                    const N = Number(deskSeatCount);
+                    const S = Number(deskStartSeat);
+                    const E = S + N - 1;
+                    
+                    const missingSeatNumbers: string[] = [];
+                    for (let i = S; i <= E; i++) {
+                      const numStr = i.toString();
+                      const exists = room.seats?.some((s: any) => s.number === numStr);
+                      if (!exists) {
+                        missingSeatNumbers.push(numStr);
+                      }
+                    }
+
+                    try {
+                      if (missingSeatNumbers.length > 0) {
+                        showToast(`Creating ${missingSeatNumbers.length} new seat records...`, 'info');
+                        for (const numStr of missingSeatNumbers) {
+                          await addSeat({ roomId: room.id, number: numStr }).unwrap();
+                        }
+                      }
+                      
+                      const refetchResult = await refetchSeatMap();
+                      
+                      let updatedRoom: any = null;
+                      refetchResult.data?.forEach((floor: any) => {
+                        floor.rooms?.forEach((rm: any) => {
+                          if (rm.id === room.id) {
+                            updatedRoom = rm;
+                          }
+                        });
+                      });
+                      if (!updatedRoom) updatedRoom = room;
+
+                      const selectedSeats = updatedRoom.seats?.filter((s: any) => {
+                        const num = parseInt(s.number, 10);
+                        return !isNaN(num) && num >= S && num <= E;
+                      }) || [];
+                      selectedSeats.sort((a: any, b: any) => parseInt(a.number, 10) - parseInt(b.number, 10));
+
+                      if (selectedSeats.length === 0) {
+                        showToast("Could not locate seats in range.", "error");
+                        return;
+                      }
+
+                      const deskX = 150;
+                      const deskY = 180;
+                      const deskH = 24;
+                      const cols = deskLayoutType === 'one_side' ? N : Math.ceil(N / 2);
+                      const deskW = cols * 78 + (cols - 1) * 12;
+
+                      const deskSpacerId = `spacer-desk-${Date.now()}`;
+                      const deskSpacer = { id: deskSpacerId, x: deskX, y: deskY, w: deskW, h: deskH, type: 'desk' };
+
+                      setSpacers(prev => {
+                        const nextSpacers = [...prev, deskSpacer];
+                        setTempLayout(currentTemp => {
+                          const nextLayout = { ...currentTemp };
+                          selectedSeats.forEach((seat: any, idx: number) => {
+                            let seatX = 0;
+                            let seatY = 0;
+                            let rotation = 0;
+                            if (deskLayoutType === 'one_side') {
+                              seatX = deskX + idx * 90;
+                              seatY = deskY + deskH + 12;
+                              rotation = 0;
+                            } else {
+                              if (idx < cols) {
+                                seatX = deskX + idx * 90;
+                                seatY = deskY + deskH + 12;
+                                rotation = 0;
+                              } else {
+                                seatX = deskX + (idx - cols) * 90;
+                                seatY = deskY - 78 - 12;
+                                rotation = 180;
+                              }
+                            }
+                            nextLayout[seat.id] = { x: seatX, y: seatY, rotation };
+                          });
+                          return resolveCollisions(nextLayout, nextSpacers, updatedRoom);
+                        });
+                        return nextSpacers;
+                      });
+
+                      showToast("Desk layout created successfully!", "success");
+                      setOpenAddDesk(false);
+                    } catch (err: any) {
+                      showToast(err?.message || "Failed to create desk layout", "error");
+                    }
+                  }}
+                  style={{ flex: 1, padding: '8px', fontSize: '0.8rem', height: '36px', backgroundColor: '#000000', borderColor: '#000000', color: '#ffffff' }}
+                >
+                  Create
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Edit Floor Modal */}
       <Modal
