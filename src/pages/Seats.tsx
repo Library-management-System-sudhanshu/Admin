@@ -1024,16 +1024,16 @@ export default function Seats() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '16px' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.025em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            Interactive Seat Map <Sparkles size={20} color="var(--accent-blue)" />
+             Seat Map <Sparkles size={20} color="var(--accent-blue)" />
           </h1>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: '#475569', fontWeight: 500 }}>
-            Manage branches, floors, rooms and student seating visually.
+            Manage branches, floors, rooms and student.
           </p>
         </div>
 
         {/* Right side controls (Selectors & User) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', boxShadow: 'var(--shadow-soft)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '6px 10px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', boxShadow: 'var(--shadow-soft)' }}>
             <Building size={14} color="#64748B" />
             <select
               value={selectedBranch}
@@ -1050,14 +1050,14 @@ export default function Seats() {
           </div>
 
           {selectedBranch && seatMap && seatMap.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', boxShadow: 'var(--shadow-soft)' }}>
-              <Layers size={14} color="#64748B" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#ffffff', padding: '4px 8px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', boxShadow: 'var(--shadow-soft)' }}>
+              <Layers size={12} color="#64748B" />
               <select
                 value={activeFloorTab}
                 onChange={(e) => {
                   setActiveFloorTab(Number(e.target.value));
                 }}
-                style={{ border: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)', outline: 'none', cursor: 'pointer' }}
+                style={{ border: 'none', background: 'transparent', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)', outline: 'none', cursor: 'pointer', maxWidth: '100px' }}
               >
                 {seatMap.map((floor: any, idx: number) => (
                   <option key={floor.id} value={idx}>{floor.name}</option>
@@ -1079,8 +1079,26 @@ export default function Seats() {
             </div>
           )}
 
+          {selectedBranch && seatMap && seatMap.length > 0 && (
+            <button
+              onClick={() => {
+                if (activeRoomEditingId) {
+                  const exit = window.confirm("Exit visualization mode? Unsaved layouts will be discarded.");
+                  if (!exit) return;
+                  setActiveRoomEditingId(null);
+                  setTempLayout({});
+                }
+                setIsFloorVisualization(!isFloorVisualization);
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', backgroundColor: isFloorVisualization ? 'var(--accent-blue)' : '#ffffff', color: isFloorVisualization ? '#ffffff' : 'var(--text-navy)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-soft)' }}
+            >
+              {isFloorVisualization ? <LayoutGrid size={14} /> : <Map size={14} />}
+              {isFloorVisualization ? "Grid View" : "Floor Visualizer"}
+            </button>
+          )}
+
           {/* Global search */}
-          <div style={{ position: 'relative', width: '220px' }}>
+          <div style={{ position: 'relative', width: '150px' }}>
             <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
             <input
               type="text"
@@ -1205,65 +1223,7 @@ export default function Seats() {
         </div>
       </div>
 
-      {/* Row of Action Buttons (Pills with icons) */}
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <button
-          onClick={() => { setCreatorType('floor'); setOpenCreator(true); }}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', backgroundColor: '#ffffff', color: 'var(--text-navy)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-soft)', transition: 'background 150ms ease' }}
-          onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
-          onMouseOut={(e) => e.currentTarget.style.background = '#ffffff'}
-        >
-          <Layers size={14} color="var(--accent-blue)" /> + Floor
-        </button>
-        <button
-          onClick={() => {
-            if (currentFloor) {
-              setParentId(currentFloor.id);
-              setCreatorType('room');
-              setOpenCreator(true);
-            }
-          }}
-          disabled={!currentFloor}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', backgroundColor: '#ffffff', color: 'var(--text-navy)', fontSize: '0.8rem', fontWeight: 600, cursor: currentFloor ? 'pointer' : 'not-allowed', opacity: currentFloor ? 1 : 0.6, boxShadow: 'var(--shadow-soft)', transition: 'background 150ms ease' }}
-          onMouseOver={(e) => { if (currentFloor) e.currentTarget.style.background = '#f8fafc'; }}
-          onMouseOut={(e) => { if (currentFloor) e.currentTarget.style.background = '#ffffff'; }}
-        >
-          <DoorOpen size={14} color="var(--accent-blue)" /> + Room
-        </button>
-        <button
-          onClick={() => {
-            if (currentFloor?.rooms && currentFloor.rooms.length > 0) {
-              setParentId(currentFloor.rooms[0].id);
-              setCreatorType('seat');
-              setOpenCreator(true);
-            }
-          }}
-          disabled={!currentFloor?.rooms || currentFloor.rooms.length === 0}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', backgroundColor: '#ffffff', color: 'var(--text-navy)', fontSize: '0.8rem', fontWeight: 600, cursor: currentFloor?.rooms?.length ? 'pointer' : 'not-allowed', opacity: currentFloor?.rooms?.length ? 1 : 0.6, boxShadow: 'var(--shadow-soft)', transition: 'background 150ms ease' }}
-          onMouseOver={(e) => { if (currentFloor?.rooms?.length) e.currentTarget.style.background = '#f8fafc'; }}
-          onMouseOut={(e) => { if (currentFloor?.rooms?.length) e.currentTarget.style.background = '#ffffff'; }}
-        >
-          <Plus size={14} color="var(--accent-blue)" /> + Seat
-        </button>
 
-        {selectedBranch && seatMap && seatMap.length > 0 && (
-          <button
-            onClick={() => {
-              if (activeRoomEditingId) {
-                const exit = window.confirm("Exit visualization mode? Unsaved layouts will be discarded.");
-                if (!exit) return;
-                setActiveRoomEditingId(null);
-                setTempLayout({});
-              }
-              setIsFloorVisualization(!isFloorVisualization);
-            }}
-            style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', backgroundColor: isFloorVisualization ? 'var(--accent-blue)' : '#ffffff', color: isFloorVisualization ? '#ffffff' : 'var(--text-navy)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', boxShadow: 'var(--shadow-soft)' }}
-          >
-            {isFloorVisualization ? <LayoutGrid size={14} /> : <Map size={14} />}
-            {isFloorVisualization ? "Grid View" : "Floor Visualizer"}
-          </button>
-        )}
-      </div>
 
       {/* 2. STATS SECTION (Premium Analytics Grid) */}
       {selectedBranch && seatMap && (
