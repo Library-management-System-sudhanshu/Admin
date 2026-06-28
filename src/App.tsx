@@ -14,6 +14,7 @@ import Notices from './pages/Notices';
 import SuperAdmin from './pages/SuperAdmin';
 import Profile from './pages/Profile';
 import TransferSeat from './pages/TransferSeat';
+import NewAdmission from './pages/NewAdmission';
 import { AlertProvider } from './components/ui/AlertContext';
 import { ToastProvider } from './components/ui/ToastContext';
 
@@ -29,6 +30,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/new-admission" element={<NewAdmission />} />
               <Route path="/students" element={<Students />} />
               <Route path="/seats" element={<Seats />} />
               <Route path="/billing" element={<Billing />} />

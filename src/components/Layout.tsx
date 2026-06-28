@@ -7,6 +7,7 @@ import { useGetBranchesQuery, useGetMetricsQuery } from '../store/api';
 import {
   LayoutDashboard,
   Users,
+  UserPlus,
   Armchair,
   ReceiptText,
   Library as LibraryIcon,
@@ -48,7 +49,7 @@ export default function Layout() {
   const notificationsRef = useRef<HTMLDivElement>(null);
 
   // Fetch branches & metrics
-  const { data: branches } = useGetBranchesQuery({});
+  const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: metrics } = useGetMetricsQuery({});
 
   // Dynamic Greeting based on current time
@@ -107,6 +108,7 @@ export default function Layout() {
   // Sidebar Menu Items
   const menuItems = [
     { text: 'Dashboard', icon: <LayoutDashboard className="sidebar-link-icon" />, path: '/' },
+    { text: 'New Admission', icon: <UserPlus className="sidebar-link-icon" />, path: '/new-admission' },
     { text: 'Students', icon: <Users className="sidebar-link-icon" />, path: '/students' },
     { text: 'Seat Map', icon: <Armchair className="sidebar-link-icon" />, path: '/seats' },
     { text: 'Billing & Payments', icon: <ReceiptText className="sidebar-link-icon" />, path: '/billing' },
@@ -278,9 +280,9 @@ export default function Layout() {
                 </button>
 
                 <div className={`profile-dropdown-menu ${isQuickAddOpen ? 'show' : ''}`} style={{ marginTop: '6px' }}>
-                  <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/students'); }}>
-                    <Users size={14} />
-                    <span>Add Student</span>
+                  <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/new-admission'); }}>
+                    <UserPlus size={14} />
+                    <span>New Admission</span>
                   </button>
                   <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/seats'); }}>
                     <Armchair size={14} />

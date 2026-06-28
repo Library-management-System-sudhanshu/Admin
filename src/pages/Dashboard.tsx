@@ -165,7 +165,7 @@ export default function Dashboard() {
 
   // Quick Action Config
   const quickActions = [
-    { title: 'Add Student', desc: 'Register a new student profile', icon: <UserPlus size={16} />, color: '#3b82f6', path: '/students' },
+    { title: 'New Admission', desc: 'Register a new student profile', icon: <UserPlus size={16} />, color: '#3b82f6', path: '/new-admission' },
     { title: 'Assign Seat', desc: 'Reserve or allocate seat to student', icon: <Bookmark size={16} />, color: '#10b981', path: '/seats' },
     { title: 'Create Shift', desc: 'Configure timings and room rules', icon: <Clock size={16} />, color: '#8b5cf6', path: '/settings' },
     { title: 'Collect Payment', desc: 'Issue invoice or mark payments', icon: <CreditCard size={16} />, color: '#f59e0b', path: '/billing' },

@@ -63,6 +63,7 @@ export default function Students() {
   };
 
   const [search, setSearch] = useState('');
+  const [branchId, setBranchId] = useState('');
   const [page] = useState(1);
   const [filterShiftId, setFilterShiftId] = useState('');
   const [filterExpiration, setFilterExpiration] = useState(() => {
@@ -75,7 +76,7 @@ export default function Students() {
     }
   }, [location.state]);
 
-  const [openAdd, setOpenAdd] = useState(false);
+
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [openCard, setOpenCard] = useState(false);
 
@@ -99,18 +100,7 @@ export default function Students() {
   const [renewAmount, setRenewAmount] = useState('');
   const [isRenewing, setIsRenewing] = useState(false);
 
-  // Form Fields
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [password, setPassword] = useState('Student@123');
-  const [guardianName, setGuardianName] = useState('');
-  const [guardianMobile, setGuardianMobile] = useState('');
-  const [aadharNumber, setAadharNumber] = useState('');
-  const [branchId, setBranchId] = useState('');
 
-  // Validation Errors
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Edit Form Fields
   const [editName, setEditName] = useState('');
@@ -152,75 +142,6 @@ export default function Students() {
   const [createPayment] = useCreatePaymentMutation();
 
   const { data: plans } = useGetPlansQuery(user?.workspaceId, { skip: !user?.workspaceId });
-
-  const validateField = (field: string, value: string) => {
-    let errorMsg = '';
-    
-    switch (field) {
-      case 'name':
-        if (!/^[a-zA-Z\s]*$/.test(value)) {
-          errorMsg = 'Name must contain only letters';
-        } else if (value.trim().length > 0 && value.trim().length < 2) {
-          errorMsg = 'Name must be at least 2 characters';
-        } else if (value.trim().length > 50) {
-          errorMsg = 'Name must be at most 50 characters';
-        }
-        break;
-      case 'email':
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (value.trim().length > 0 && !emailRegex.test(value.trim())) {
-          errorMsg = 'Invalid email address';
-        }
-        break;
-      case 'mobile':
-        if (value.trim().length > 0 && !/^\d*$/.test(value.trim())) {
-          errorMsg = 'Mobile number must contain only digits';
-        } else if (value.trim().length > 0 && value.trim().length !== 10) {
-          errorMsg = 'Mobile number must be exactly 10 digits';
-        }
-        break;
-      case 'password':
-        if (value.length > 0 && value.length < 6) {
-          errorMsg = 'Password must be at least 6 characters';
-        }
-        break;
-      case 'guardianName':
-        if (!/^[a-zA-Z\s]*$/.test(value)) {
-          errorMsg = 'Guardian name must contain only letters';
-        } else if (value.trim().length > 0 && value.trim().length < 2) {
-          errorMsg = 'Guardian name must be at least 2 characters';
-        } else if (value.trim().length > 50) {
-          errorMsg = 'Guardian name must be at most 50 characters';
-        }
-        break;
-      case 'guardianMobile':
-        if (value.trim().length > 0 && !/^\d*$/.test(value.trim())) {
-          errorMsg = 'Guardian mobile must contain only digits';
-        } else if (value.trim().length > 0 && value.trim().length !== 10) {
-          errorMsg = 'Guardian mobile must be exactly 10 digits';
-        }
-        break;
-      case 'aadharNumber':
-        if (value.trim().length > 0 && !/^\d*$/.test(value.trim())) {
-          errorMsg = 'Aadhar number must contain only digits';
-        } else if (value.trim().length > 0 && value.trim().length !== 12) {
-          errorMsg = 'Aadhar number must be exactly 12 digits';
-        }
-        break;
-      default:
-        break;
-    }
-    
-    setErrors((prev) => {
-      if (errorMsg) {
-        return { ...prev, [field]: errorMsg };
-      } else {
-        const next = { ...prev };
-        delete next[field];
-        return next;
-      }
-    });
-  };
 
   const handleOpenEdit = (student: any) => {
     setEditingStudent(student);
@@ -461,10 +382,10 @@ export default function Students() {
         </h1>
         <Button 
           variant="primary" 
-          onClick={() => setOpenAdd(true)}
+          onClick={() => navigate('/new-admission')}
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          <Plus size={18} /> New Student
+          <Plus size={18} /> New Admission
         </Button>
       </div>
 
@@ -713,85 +634,7 @@ export default function Students() {
         </div>
       )}
 
-      {/* Add Student Modal */}
-      <Modal
-        isOpen={openAdd}
-        onClose={() => setOpenAdd(false)}
-        title="Add New Admission"
-        maxWidth="md"
-      >
-        <form id="add-student-form" onSubmit={handleAddStudent}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-            <Input
-              label="Student Name"
-              required
-              value={name}
-              error={errors.name}
-              onChange={(e) => handleChange('name', e.target.value, setName)}
-            />
-            <Input
-              label="Email Address"
-              type="email"
-              required
-              value={email}
-              error={errors.email}
-              onChange={(e) => handleChange('email', e.target.value, setEmail)}
-            />
-            <Input
-              label="Mobile Number"
-              required
-              value={mobile}
-              error={errors.mobile}
-              onChange={(e) => handleChange('mobile', e.target.value, setMobile)}
-            />
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              error={errors.password}
-              placeholder="Student@123"
-              onChange={(e) => handleChange('password', e.target.value, setPassword)}
-            />
-            <div>
-              <label className="custom-input-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Target Branch</label>
-              <Select
-                value={branchId}
-                onChange={(val) => setBranchId(val)}
-                placeholder="Select a branch"
-                options={branches?.map((b: any) => ({
-                  value: b.id,
-                  label: b.name,
-                })) || []}
-              />
-            </div>
-            <Input
-              label="Guardian Name"
-              value={guardianName}
-              error={errors.guardianName}
-              onChange={(e) => handleChange('guardianName', e.target.value, setGuardianName)}
-            />
-            <Input
-              label="Guardian Mobile"
-              value={guardianMobile}
-              error={errors.guardianMobile}
-              onChange={(e) => handleChange('guardianMobile', e.target.value, setGuardianMobile)}
-            />
-            <div style={{ gridColumn: '1 / -1' }}>
-              <Input
-                label="Aadhar Card Number"
-                value={aadharNumber}
-                error={errors.aadharNumber}
-                onChange={(e) => handleChange('aadharNumber', e.target.value, setAadharNumber)}
-              />
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <Button type="button" variant="text" onClick={() => { setOpenAdd(false); setPassword(''); }}>Cancel</Button>
-            <Button type="submit" variant="primary" isLoading={isCreating}>Create Student</Button>
-          </div>
-        </form>
-      </Modal>
+
 
       {/* ID Card Modal */}
       <Modal

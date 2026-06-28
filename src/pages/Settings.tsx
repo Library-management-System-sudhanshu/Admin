@@ -3,11 +3,11 @@ import { useSelector } from 'react-redux';
 import { Box, Typography, Card, TextField, Tabs, Tab } from '@mui/material';
 import { Button } from '../components/ui/Button';
 import type { RootState } from '../store';
-import { 
-  useGetSettingsQuery, 
-  useUpdateSettingsMutation, 
-  useGetBranchesQuery, 
-  useTriggerSafetyAlarmMutation 
+import {
+  useGetSettingsQuery,
+  useUpdateSettingsMutation,
+  useGetBranchesQuery,
+  useTriggerSafetyAlarmMutation
 } from '../store/api';
 import { useToast } from '../components/ui/ToastContext';
 import { Select } from '../components/ui/Select';
@@ -65,10 +65,10 @@ export default function Settings() {
       const ctx = new AudioCtx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
+
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(440, ctx.currentTime);
-      
+
       // Siren modulation
       for (let i = 0; i < 10; i++) {
         osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + i * 0.5 + 0.25);
@@ -77,10 +77,10 @@ export default function Settings() {
 
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 5.0);
-      
+
       osc.connect(gain);
       gain.connect(ctx.destination);
-      
+
       osc.start();
       osc.stop(ctx.currentTime + 5.0);
     } catch (e) {
@@ -136,9 +136,9 @@ export default function Settings() {
 
       {/* Tabs Layout */}
       <Box sx={{ borderBottom: 1, borderColor: '#E2E8F0', mb: 4 }}>
-        <Tabs 
-          value={activeTab} 
-          onChange={(_, newValue) => setActiveTab(newValue)} 
+        <Tabs
+          value={activeTab}
+          onChange={(_, newValue) => setActiveTab(newValue)}
           aria-label="settings tabs"
           sx={{
             '& .MuiTab-root': {
@@ -285,16 +285,16 @@ export default function Settings() {
           </Card>
 
           {/* Trigger Action Panel Card */}
-          <Card 
-            sx={{ 
-              p: 3, 
-              border: '1px solid #FECDD3', 
-              boxShadow: 'none', 
+          <Card
+            sx={{
+              p: 3,
+              border: '1px solid #FECDD3',
+              boxShadow: 'none',
               background: 'linear-gradient(180deg, #FFF5F5 0%, #FFF1F2 100%)',
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
               textAlign: 'center',
               position: 'relative',
               overflow: 'hidden',
@@ -304,14 +304,14 @@ export default function Settings() {
             <Box sx={{ zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2.5 }}>
               {/* Status Indicator */}
               <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, bgcolor: '#FEE2E2', px: 2, py: 0.5, borderRadius: 100, border: '1px solid #FCA5A5' }}>
-                <Box 
-                  sx={{ 
-                    width: 8, 
-                    height: 8, 
-                    borderRadius: '50%', 
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
                     bgcolor: '#DC2626',
-                    animation: 'pulse 1.5s infinite' 
-                  }} 
+                    animation: 'pulse 1.5s infinite'
+                  }}
                 />
                 <Typography variant="caption" sx={{ fontWeight: 700, color: '#991B1B', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                   System Ready
@@ -323,7 +323,7 @@ export default function Settings() {
               </Typography>
 
               {/* Pulsating SOS Trigger Button */}
-              <Box 
+              <Box
                 onClick={() => setIsSosConfirmOpen(true)}
                 sx={{
                   width: 140,
@@ -350,7 +350,7 @@ export default function Settings() {
                 }}
               >
                 {/* Pulsating Ring Effect */}
-                <Box 
+                <Box
                   sx={{
                     position: 'absolute',
                     top: -12,
@@ -375,12 +375,12 @@ export default function Settings() {
               </Typography>
 
               {/* Siren simulator demo */}
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={playBuzzerSound}
-                style={{ 
-                  borderColor: '#FCA5A5', 
-                  color: '#991B1B', 
+                style={{
+                  borderColor: '#FCA5A5',
+                  color: '#991B1B',
                   backgroundColor: '#ffffff',
                   fontSize: '0.75rem',
                   fontWeight: 700,
@@ -428,9 +428,9 @@ export default function Settings() {
               <span style={{ color: '#64748B', fontWeight: 500 }}>Alarm Type:</span>
               <span style={{ color: '#0F172A', fontWeight: 700 }}>
                 {alarmType === 'FIRE' ? '🔥 Fire Alarm' :
-                 alarmType === 'EARTHQUAKE' ? '🌋 Earthquake Alarm' :
-                 alarmType === 'MEDICAL' ? '🚨 Medical Emergency' :
-                 alarmType === 'SECURITY' ? '🔒 Security / Lockdown' : '🛠️ Drill / Test Alarm'}
+                  alarmType === 'EARTHQUAKE' ? '🌋 Earthquake Alarm' :
+                    alarmType === 'MEDICAL' ? '🚨 Medical Emergency' :
+                      alarmType === 'SECURITY' ? '🔒 Security / Lockdown' : '🛠️ Drill / Test Alarm'}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
