@@ -25,7 +25,7 @@ export default function NewAdmission() {
     user?.workspaceId,
     { skip: !user?.workspaceId }
   );
-  const { data: plans } = useGetPlansQuery(
+  const { data: plans, isLoading: isLoadingPlans, error: plansError } = useGetPlansQuery(
     user?.workspaceId,
     { skip: !user?.workspaceId }
   );
@@ -197,7 +197,15 @@ export default function NewAdmission() {
   ];
 
   const planOptions = useMemo(() => {
-    if (!plans) return [];
+    if (isLoadingPlans) {
+      return [{ value: '', label: 'Loading subscription plans...' }];
+    }
+    if (plansError) {
+      return [{ value: '', label: 'Error loading plans' }];
+    }
+    if (!plans || plans.length === 0) {
+      return [{ value: '', label: 'No Plan (Admission only)' }];
+    }
     return [
       { value: '', label: 'No Plan (Admission only)' },
       ...plans.map((p: any) => ({
@@ -205,7 +213,7 @@ export default function NewAdmission() {
         label: `${p.name} (₹${p.price} / ${p.durationDays} days)`,
       })),
     ];
-  }, [plans]);
+  }, [plans, isLoadingPlans, plansError]);
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '40px' }} className="animate-fade-in">
@@ -242,7 +250,7 @@ export default function NewAdmission() {
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         
         {/* CARD 1: PERSONAL INFORMATION */}
-        <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)' }}>
+        <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)', overflow: 'visible' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '12px' }}>
             <UserPlus size={18} style={{ color: 'var(--accent-blue)' }} />
             <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-navy)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
@@ -339,7 +347,7 @@ export default function NewAdmission() {
         </Card>
 
         {/* CARD 3: ACADEMIC & SUBSCRIPTION PLAN */}
-        <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)' }}>
+        <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)', overflow: 'visible' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '12px' }}>
             <Layers size={18} style={{ color: 'var(--accent-blue)' }} />
             <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-navy)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
@@ -368,6 +376,7 @@ export default function NewAdmission() {
                 onChange={(val) => setSubscriptionPlanId(val)}
                 placeholder="Select a subscription plan"
                 options={planOptions}
+                disabled={isLoadingPlans || !!plansError}
               />
             </div>
           </div>
