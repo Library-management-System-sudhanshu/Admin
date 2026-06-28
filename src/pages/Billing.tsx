@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import {
-  useGetPlansQuery,
   useGetPaymentsQuery,
   useGetCollectionReportQuery,
   useCreatePaymentMutation,
@@ -98,7 +97,6 @@ export default function Billing() {
   const { user } = useSelector((state: RootState) => state.auth);
   const [tab, setTab] = useState(0);
 
-  const { data: plans, isLoading: plansLoading } = useGetPlansQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: payments, isLoading: paymentsLoading } = useGetPaymentsQuery({});
   const { data: report } = useGetCollectionReportQuery('monthly');
   const { data: studentsData } = useGetStudentsQuery({});
@@ -107,7 +105,7 @@ export default function Billing() {
   const [studentProfileId, setStudentProfileId] = useState('');
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
-  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [selectedShiftId, setSelectedShiftId] = useState('');
 
   // Toast
   const { showToast } = useToast();
@@ -193,12 +191,12 @@ export default function Billing() {
         studentProfileId,
         amount: Number(amount),
         method,
-        subscriptionPlanId: selectedPlanId || undefined,
+        shiftId: selectedShiftId || undefined,
       }).unwrap();
       setOpenCollect(false);
       setStudentProfileId('');
       setAmount('');
-      setSelectedPlanId('');
+      setSelectedShiftId('');
     } catch (err) {
       showToast('Error generating invoice', 'error');
     }
@@ -240,7 +238,6 @@ export default function Billing() {
       <Tabs value={tab} onChange={(_, val) => setTab(val)} sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
         <Tab label="Collection Ledger" />
         <Tab label="Seating Shifts & Pricing" />
-        <Tab label="Subscription Plans" />
       </Tabs>
 
       {tab === 0 && (
@@ -396,31 +393,7 @@ export default function Billing() {
         </Card>
       )}
 
-      {tab === 2 && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
-          {plansLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5, width: '100%' }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            plans?.map((plan: any) => (
-              <Card key={plan.id} sx={{ borderRadius: 2.5, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#0F172A' }}>
-                    {plan.name}
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 800, color: '#2563EB', mt: 2, mb: 1 }}>
-                    ₹{plan.price}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Duration: {plan.durationDays} Days
-                  </Typography>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </Box>
-      )}
+
 
       {/* Collect Fee Dialog */}
       <Dialog open={openCollect} onClose={() => setOpenCollect(false)} maxWidth="xs" fullWidth>
@@ -445,23 +418,23 @@ export default function Billing() {
             />
 
             <FormControl fullWidth>
-              <InputLabel>Link Plan Package (Optional)</InputLabel>
+              <InputLabel>Link Seating Shift (Optional)</InputLabel>
               <Select
-                value={selectedPlanId}
-                label="Link Plan Package (Optional)"
+                value={selectedShiftId}
+                label="Link Seating Shift (Optional)"
                 onChange={(e) => {
                   const val = e.target.value;
-                  setSelectedPlanId(val);
-                  const plan = plans?.find((p: any) => p.id === val);
-                  if (plan) {
-                    setAmount(plan.price.toString());
+                  setSelectedShiftId(val);
+                  const shift = shifts?.find((s: any) => s.id === val);
+                  if (shift) {
+                    setAmount(shift.price.toString());
                   }
                 }}
               >
                 <MenuItem value="">Custom / None</MenuItem>
-                {plans?.map((plan: any) => (
-                  <MenuItem key={plan.id} value={plan.id}>
-                    {plan.name} (₹{plan.price})
+                {shifts?.map((shift: any) => (
+                  <MenuItem key={shift.id} value={shift.id}>
+                    {shift.name} (₹{shift.price})
                   </MenuItem>
                 ))}
               </Select>

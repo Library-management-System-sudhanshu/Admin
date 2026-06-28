@@ -5,7 +5,7 @@ import type { RootState } from '../store';
 import {
   useCreateStudentMutation,
   useGetBranchesQuery,
-  useGetPlansQuery,
+  useGetShiftsQuery,
 } from '../store/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -25,7 +25,7 @@ export default function NewAdmission() {
     user?.workspaceId,
     { skip: !user?.workspaceId }
   );
-  const { data: plans, isLoading: isLoadingPlans, error: plansError } = useGetPlansQuery(
+  const { data: shifts, isLoading: isLoadingShifts, error: shiftsError } = useGetShiftsQuery(
     user?.workspaceId,
     { skip: !user?.workspaceId }
   );
@@ -43,7 +43,7 @@ export default function NewAdmission() {
   const [guardianMobile, setGuardianMobile] = useState('');
   const [aadharNumber, setAadharNumber] = useState('');
   const [branchId, setBranchId] = useState('');
-  const [subscriptionPlanId, setSubscriptionPlanId] = useState('');
+  const [shiftId, setShiftId] = useState('');
 
   // Validation Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -179,7 +179,7 @@ export default function NewAdmission() {
         guardianMobile: guardianMobile || undefined,
         aadharNumber: aadharNumber || undefined,
         branchId,
-        subscriptionPlanId: subscriptionPlanId || undefined,
+        shiftId: shiftId || undefined,
         workspaceId: user?.workspaceId,
       }).unwrap();
 
@@ -196,24 +196,24 @@ export default function NewAdmission() {
     { value: 'OTHER', label: 'Other' },
   ];
 
-  const planOptions = useMemo(() => {
-    if (isLoadingPlans) {
-      return [{ value: '', label: 'Loading subscription plans...' }];
+  const shiftOptions = useMemo(() => {
+    if (isLoadingShifts) {
+      return [{ value: '', label: 'Loading seating shifts...' }];
     }
-    if (plansError) {
-      return [{ value: '', label: 'Error loading plans' }];
+    if (shiftsError) {
+      return [{ value: '', label: 'Error loading shifts' }];
     }
-    if (!plans || plans.length === 0) {
-      return [{ value: '', label: 'No Plan (Admission only)' }];
+    if (!shifts || shifts.length === 0) {
+      return [{ value: '', label: 'No Shift (Admission only)' }];
     }
     return [
-      { value: '', label: 'No Plan (Admission only)' },
-      ...plans.map((p: any) => ({
-        value: p.id,
-        label: `${p.name} (₹${p.price} / ${p.durationDays} days)`,
+      { value: '', label: 'No Shift (Admission only)' },
+      ...shifts.map((s: any) => ({
+        value: s.id,
+        label: `${s.name} (₹${s.price})`,
       })),
     ];
-  }, [plans, isLoadingPlans, plansError]);
+  }, [shifts, isLoadingShifts, shiftsError]);
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '40px' }} className="animate-fade-in">
@@ -370,13 +370,13 @@ export default function NewAdmission() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label className="custom-input-label">Select Subscription Plan</label>
+              <label className="custom-input-label">Select Seating Shift</label>
               <Select
-                value={subscriptionPlanId}
-                onChange={(val) => setSubscriptionPlanId(val)}
-                placeholder="Select a subscription plan"
-                options={planOptions}
-                disabled={isLoadingPlans || !!plansError}
+                value={shiftId}
+                onChange={(val) => setShiftId(val)}
+                placeholder="Select a seating shift"
+                options={shiftOptions}
+                disabled={isLoadingShifts || !!shiftsError}
               />
             </div>
           </div>

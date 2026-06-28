@@ -21,7 +21,6 @@ import {
   useUpdateFloorMutation,
   useUpdateRoomMutation,
   useCreatePaymentMutation,
-  useGetPlansQuery,
 } from '../store/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -89,7 +88,6 @@ export default function Seats() {
   
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: studentsData } = useGetStudentsQuery({ status: 'APPROVED' });
-  const { data: plans } = useGetPlansQuery(user?.workspaceId, { skip: !user?.workspaceId });
 
   // Navigation states
   const [activeFloorTab, setActiveFloorTab] = useState(0);
@@ -141,7 +139,7 @@ export default function Seats() {
   const [endDate, setEndDate] = useState('');
   const [durationMode, setDurationMode] = useState<number | 'flex'>(1);
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
-  const [selectedPlanId, setSelectedPlanId] = useState('');
+
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
 
@@ -150,7 +148,7 @@ export default function Seats() {
   const [createdInvoiceData, setCreatedInvoiceData] = useState<any>(null);
 
   // Renewal form
-  const [renewPlanId, setRenewPlanId] = useState('');
+
   const [renewShiftId, setRenewShiftId] = useState('');
   const [renewStartDate, setRenewStartDate] = useState('');
   const [renewEndDate, setRenewEndDate] = useState('');
@@ -574,18 +572,18 @@ export default function Seats() {
   }, [calculatedBaseAmount]);
 
   useEffect(() => {
-    if (renewPlanId && plans) {
-      const plan = plans.find((p: any) => p.id === renewPlanId);
-      if (plan && renewStartDate) {
+    if (renewShiftId && shifts) {
+      const shift = shifts.find((s: any) => s.id === renewShiftId);
+      if (shift && renewStartDate) {
         const start = new Date(renewStartDate);
         if (!isNaN(start.getTime())) {
-          start.setDate(start.getDate() + (plan.durationDays || 30));
+          start.setDate(start.getDate() + 30);
           setRenewEndDate(start.toISOString().split('T')[0]);
-          setRenewAmount(plan.price.toString());
+          setRenewAmount(shift.price.toString());
         }
       }
     }
-  }, [renewPlanId, renewStartDate, plans]);
+  }, [renewShiftId, renewStartDate, shifts]);
 
   // Submit assign seat
   const handleAllocate = async (e: React.FormEvent) => {
@@ -604,7 +602,7 @@ export default function Seats() {
           studentProfileId,
           amount: Number(invoiceAmount),
           method: paymentMethod,
-          subscriptionPlanId: selectedPlanId || undefined,
+          shiftId: shiftId || undefined,
         }).unwrap();
 
         const invoiceInfo = {
@@ -690,7 +688,7 @@ export default function Seats() {
         studentProfileId: activeAllocation.studentProfileId,
         amount: Number(renewAmount),
         method: renewPaymentMethod,
-        subscriptionPlanId: renewPlanId || undefined,
+        shiftId: renewShiftId || undefined,
       }).unwrap();
 
       const invoiceInfo = {
@@ -1823,25 +1821,7 @@ export default function Seats() {
               {/* Invoicing details fields */}
               {shouldGenerateInvoice && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px dashed rgba(15, 23, 42, 0.05)' }}>
-                  <div>
-                    <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Link Plan</label>
-                    <Select
-                      value={selectedPlanId}
-                      onChange={(val) => {
-                        setSelectedPlanId(val);
-                        const p = plans?.find((plan: any) => plan.id === val);
-                        if (p) setInvoiceAmount(p.price.toString());
-                      }}
-                      placeholder="Select plan (Optional)"
-                      options={[
-                        { value: '', label: 'Custom / None' },
-                        ...(plans?.map((p: any) => ({
-                          value: p.id,
-                          label: `${p.name} (₹${p.price})`,
-                        })) || [])
-                      ]}
-                    />
-                  </div>
+
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <div>
@@ -2119,15 +2099,7 @@ export default function Seats() {
                         </div>
                         <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-slate)' }}>Extend the student's booking subscription and auto-generate the renewal payment invoice.</p>
 
-                        <div>
-                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Subscription Plan</label>
-                          <Select
-                            value={renewPlanId}
-                            onChange={(val) => setRenewPlanId(val)}
-                            placeholder="Select Plan"
-                            options={plans?.map((p: any) => ({ value: p.id, label: `${p.name} (₹${p.price})` })) || []}
-                          />
-                        </div>
+
 
                         <div>
                           <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Shift Schedule</label>
@@ -2170,7 +2142,7 @@ export default function Seats() {
                           </div>
                         </div>
 
-                        <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)', width: '100%', marginTop: '6px' }} disabled={!renewPlanId || !renewShiftId || !renewStartDate || !renewEndDate || isRenewing} isLoading={isRenewing}>
+                        <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)', width: '100%', marginTop: '6px' }} disabled={!renewShiftId || !renewStartDate || !renewEndDate || isRenewing} isLoading={isRenewing}>
                           Confirm Renewal
                         </Button>
                       </form>
