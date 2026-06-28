@@ -1,12 +1,8 @@
-import { useMemo, useState } from 'react';
-import { useGetMetricsQuery, useTriggerSafetyAlarmMutation, useGetBranchesQuery } from '../store/api';
+import { useState } from 'react';
+import { useGetMetricsQuery } from '../store/api';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
-import { Modal } from '../components/ui/Modal';
-import { Select } from '../components/ui/Select';
-import { Input } from '../components/ui/Input';
-import { Button } from '../components/ui/Button';
 import { useToast } from '../components/ui/ToastContext';
 import {
   ResponsiveContainer,
@@ -73,81 +69,9 @@ export default function Dashboard() {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showToast } = useToast();
   
-  const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
-  const [triggerSafetyAlarm, { isLoading: isTriggeringAlarm }] = useTriggerSafetyAlarmMutation();
 
-  const [isSosModalOpen, setIsSosModalOpen] = useState(false);
-  const [alarmType, setAlarmType] = useState('FIRE');
-  const [exitGate, setExitGate] = useState('Gate No 2');
-  const [targetBranchId, setTargetBranchId] = useState('');
-  const [customMsg, setCustomMsg] = useState('');
 
-  const playBuzzerSound = () => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(440, ctx.currentTime);
-      
-      // Siren modulation
-      for (let i = 0; i < 10; i++) {
-        osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + i * 0.5 + 0.25);
-        osc.frequency.linearRampToValueAtTime(440, ctx.currentTime + i * 0.5 + 0.5);
-      }
 
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 5.0);
-      
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc.start();
-      osc.stop(ctx.currentTime + 5.0);
-    } catch (e) {
-      console.warn('Failed to play buzzer audio:', e);
-    }
-  };
-
-  const handleTriggerAlarm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await triggerSafetyAlarm({
-        type: alarmType,
-        gate: exitGate,
-        message: customMsg.trim() || undefined,
-        branchId: targetBranchId || undefined,
-      }).unwrap();
-
-      showToast('Emergency safety alarm broadcasted successfully!', 'success');
-      playBuzzerSound();
-      setIsSosModalOpen(false);
-      setCustomMsg('');
-    } catch (err: any) {
-      showToast(err?.data?.message || 'Failed to trigger safety alarm', 'error');
-    }
-  };
-
-  // Dynamic Greeting based on current time
-  const greeting = useMemo(() => {
-    const hours = new Date().getHours();
-    if (hours < 12) return 'Good Morning 👋';
-    if (hours < 17) return 'Good Afternoon 👋';
-    return 'Good Evening 👋';
-  }, []);
-
-  // Today's Date string
-  const todayDate = useMemo(() => {
-    return new Date().toLocaleDateString(undefined, {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  }, []);
 
   if (isLoading) {
     return (
@@ -264,19 +188,7 @@ export default function Dashboard() {
       {/* LEFT COLUMN: Main dashboard space */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
         
-        {/* 1. WELCOME SECTION */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' }}>
-            <div>
-              <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-navy)', letterSpacing: '-0.025em' }}>
-                {greeting}, Rakesh
-              </h1>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-slate)', fontWeight: 500 }}>
-                {todayDate} • <span style={{ color: 'var(--status-emerald)', fontWeight: 600 }}>Main Branch is running smoothly today.</span>
-              </span>
-            </div>
-          </div>
-        </div>
+
 
         {/* 2. KPI GRID */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
@@ -475,52 +387,7 @@ export default function Dashboard() {
       {/* RIGHT COLUMN: Summary & Activity TIMELINE Panel */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         
-        {/* EMERGENCY SOS TRIGGER CARD */}
-        <div style={{
-          background: 'linear-gradient(135deg, #FEF2F2, #FFF1F2)',
-          border: '1px solid #FECDD3',
-          borderRadius: '18px',
-          padding: '20px',
-          boxShadow: 'var(--shadow-soft)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <AlertTriangle size={18} />
-            </div>
-            <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: '#991B1B', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-              Emergency Safety SOS
-            </h3>
-          </div>
-          <p style={{ margin: 0, fontSize: '0.75rem', color: '#7F1D1D', lineHeight: 1.4 }}>
-            Broadcast real-time emergency safety alarms & evacuation routes to all student mobile devices instantly.
-          </p>
-          <button
-            onClick={() => setIsSosModalOpen(true)}
-            style={{
-              background: '#DC2626',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '10px',
-              fontWeight: 700,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              transition: 'background 150ms ease'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#B91C1C'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#DC2626'}
-          >
-            <AlertCircle size={14} />
-            Trigger Emergency Alarm
-          </button>
-        </div>
+
 
         {/* 1. TODAY'S SUMMARY */}
         <div style={{ background: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '18px', padding: '20px', boxShadow: 'var(--shadow-soft)' }}>
@@ -631,91 +498,7 @@ export default function Dashboard() {
 
       </div>
 
-      {/* EMERGENCY SOS TRIGGER DIALOG MODAL */}
-      <Modal
-        isOpen={isSosModalOpen}
-        onClose={() => setIsSosModalOpen(false)}
-        title="⚠️ Trigger Emergency SOS Broadcast"
-        maxWidth="sm"
-      >
-        <form onSubmit={handleTriggerAlarm} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p style={{ margin: 0, fontSize: '0.825rem', color: 'var(--text-slate)', lineHeight: 1.4 }}>
-            Warning: This action will broadcast a real-time safety alert to all student mobile devices in the selected scope.
-          </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-navy)' }}>Target Scope (Branch)</label>
-            <Select
-              value={targetBranchId}
-              onChange={(val) => setTargetBranchId(val)}
-              placeholder="All Branches (Workspace-wide)"
-              options={[
-                { value: '', label: 'All Branches (Workspace-wide)' },
-                ...(branches?.map((b: any) => ({ value: b.id, label: b.name })) || [])
-              ]}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-navy)' }}>Alarm Type</label>
-              <Select
-                value={alarmType}
-                onChange={(val) => setAlarmType(val)}
-                options={[
-                  { value: 'FIRE', label: '🔥 Fire Alarm' },
-                  { value: 'EARTHQUAKE', label: '🌋 Earthquake Alarm' },
-                  { value: 'MEDICAL', label: '🚨 Medical Emergency' },
-                  { value: 'SECURITY', label: '🔒 Security / Lockdown' },
-                  { value: 'TEST', label: '🛠️ Drill / Test Alarm' },
-                ]}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-navy)' }}>Evacuation Route / Gate</label>
-              <Select
-                value={exitGate}
-                onChange={(val) => setExitGate(val)}
-                options={[
-                  { value: 'Gate No 1', label: 'Gate No 1 (Main Road)' },
-                  { value: 'Gate No 2', label: 'Gate No 2 (Parking Area)' },
-                  { value: 'Emergency Fire Exit', label: 'Emergency Fire Exit' },
-                  { value: 'Main Entrance', label: 'Main Entrance' },
-                  { value: 'Assembly Area', label: 'Assembly Area (Outside)' },
-                ]}
-              />
-            </div>
-          </div>
-
-          <Input
-            label="Additional Custom Instructions (Optional)"
-            placeholder="e.g. Please leave your personal items behind and proceed calmly."
-            value={customMsg}
-            onChange={(e) => setCustomMsg(e.target.value)}
-          />
-
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsSosModalOpen(false)}
-              disabled={isTriggeringAlarm}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
-              disabled={isTriggeringAlarm}
-              isLoading={isTriggeringAlarm}
-            >
-              🚀 Broadcast Alarm Now
-            </Button>
-          </div>
-        </form>
-      </Modal>
 
     </div>
   );
