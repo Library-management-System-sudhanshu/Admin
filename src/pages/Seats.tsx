@@ -186,6 +186,46 @@ export default function Seats() {
   const [isFloorVisualization, setIsFloorVisualization] = useState(false);
   const [tempLayout, setTempLayout] = useState<Record<string, { x: number; y: number; rotation?: number }>>({});
   const [activeRoomEditingId, setActiveRoomEditingId] = useState<string | null>(null);
+
+  // Undo History state for visual arranger
+  const [layoutHistory, setLayoutHistory] = useState<Array<{
+    tempLayout: Record<string, { x: number; y: number; rotation?: number }>;
+    spacers: Array<{ id: string; x: number; y: number; w?: number; h?: number; type?: string }>;
+    visualizerWidths: Record<string, number>;
+    visualizerHeights: Record<string, number>;
+  }>>([]);
+
+  const pushToHistory = (
+    currentLayout = tempLayout,
+    currentSpacers = spacers,
+    currentWidths = visualizerWidths,
+    currentHeights = visualizerHeights
+  ) => {
+    setLayoutHistory(prev => [
+      ...prev,
+      {
+        tempLayout: JSON.parse(JSON.stringify(currentLayout)),
+        spacers: JSON.parse(JSON.stringify(currentSpacers)),
+        visualizerWidths: { ...currentWidths },
+        visualizerHeights: { ...currentHeights }
+      }
+    ]);
+  };
+
+  const handleUndo = () => {
+    if (layoutHistory.length === 0) return;
+    setLayoutHistory(prev => {
+      const nextHistory = [...prev];
+      const previousState = nextHistory.pop();
+      if (previousState) {
+        setTempLayout(previousState.tempLayout);
+        setSpacers(previousState.spacers);
+        setVisualizerWidths(previousState.visualizerWidths);
+        setVisualizerHeights(previousState.visualizerHeights);
+      }
+      return nextHistory;
+    });
+  };
   const [selectedArrangeIds, setSelectedArrangeIds] = useState<string[]>([]);
   const [dragSelectStart, setDragSelectStart] = useState<{ x: number; y: number } | null>(null);
   const [dragSelectEnd, setDragSelectEnd] = useState<{ x: number; y: number } | null>(null);
@@ -373,6 +413,15 @@ export default function Seats() {
     if (activeRoomEditingId === null) return;
     const roomId = activeRoomEditingId;
     e.preventDefault();
+
+    // Take snapshot for undo history
+    const snapshot = {
+      tempLayout: JSON.parse(JSON.stringify(tempLayout)),
+      spacers: JSON.parse(JSON.stringify(spacers)),
+      visualizerWidths: { ...visualizerWidths },
+      visualizerHeights: { ...visualizerHeights }
+    };
+
     const element = e.currentTarget;
     element.setPointerCapture(e.pointerId);
     
@@ -424,6 +473,11 @@ export default function Seats() {
       if (seat) {
         const pos = tempLayout[id] || getSeatPixelPosition(seat, findSeatIndexById(id), currentWidth, currentHeight);
         startPositions[id] = { x: pos.x, y: pos.y };
+      } else {
+        const spacer = spacers.find(s => s.id === id);
+        if (spacer) {
+          startPositions[id] = { x: spacer.x, y: spacer.y };
+        }
       }
     });
 
@@ -441,7 +495,7 @@ export default function Seats() {
       const currentWidth = visualizerWidths[roomId] || roomObj?.canvasWidth || 1000;
       const currentHeight = visualizerHeights[roomId] || roomObj?.canvasHeight || 450;
       
-      // Auto-expand canvas if dragging near/past bounds (80px is seat width/height)
+      // Auto-expand canvas if dragging near/past bounds
       let nextWidth = currentWidth;
       let nextHeight = currentHeight;
 
@@ -450,11 +504,20 @@ export default function Seats() {
         if (startPositions[id]) {
           const leftPx = startPositions[id].x + deltaX;
           const topPx = startPositions[id].y + deltaY;
-          if (leftPx + 120 > nextWidth) {
-            nextWidth = leftPx + 200;
+          
+          let w = 80;
+          let h = 80;
+          const spacer = spacers.find(s => s.id === id);
+          if (spacer) {
+            w = spacer.w || 78;
+            h = spacer.h || 78;
           }
-          if (topPx + 120 > nextHeight) {
-            nextHeight = topPx + 200;
+          
+          if (leftPx + w + 40 > nextWidth) {
+            nextWidth = leftPx + w + 120;
+          }
+          if (topPx + h + 40 > nextHeight) {
+            nextHeight = topPx + h + 120;
           }
         }
       });
@@ -468,10 +531,35 @@ export default function Seats() {
 
       const snapPx = 15;
       
+      // Also update spacers in-place so resolveCollisions has the new spacer positions!
+      let updatedSpacers = [...spacers];
+      let spacersChanged = false;
+      
+      updatedSpacers = spacers.map(sp => {
+        if (nextSelected.includes(sp.id) && startPositions[sp.id]) {
+          spacersChanged = true;
+          let leftPx = startPositions[sp.id].x + deltaX;
+          let topPx = startPositions[sp.id].y + deltaY;
+          
+          leftPx = Math.max(0, Math.min(nextWidth - (sp.w || 78), leftPx));
+          topPx = Math.max(60, Math.min(nextHeight - (sp.h || 78), topPx));
+          
+          leftPx = Math.round(leftPx / snapPx) * snapPx;
+          topPx = Math.round(topPx / snapPx) * snapPx;
+          
+          return { ...sp, x: leftPx, y: topPx };
+        }
+        return sp;
+      });
+
+      if (spacersChanged) {
+        setSpacers(updatedSpacers);
+      }
+
       setTempLayout(prev => {
         const nextLayout = { ...prev };
         nextSelected.forEach(id => {
-          if (startPositions[id]) {
+          if (startPositions[id] && findSeatById(id)) {
             let leftPx = startPositions[id].x + deltaX;
             let topPx = startPositions[id].y + deltaY;
 
@@ -490,7 +578,7 @@ export default function Seats() {
             };
           }
         });
-        return resolveCollisions(nextLayout, spacers, roomObj);
+        return resolveCollisions(nextLayout, updatedSpacers, roomObj);
       });
       
       // Auto-scrolling the viewport
@@ -523,6 +611,10 @@ export default function Seats() {
       // If they clicked without dragging and did not use modifier key, select only this seat
       if (!didDrag && !isModifierPressed) {
         setSelectedArrangeIds([seatId]);
+      }
+
+      if (didDrag) {
+        setLayoutHistory(prev => [...prev, snapshot]);
       }
     };
     
@@ -594,6 +686,20 @@ export default function Seats() {
         }
       });
 
+      // Check intersection with desk spacers
+      spacers.forEach((sp) => {
+        if (sp.type === 'desk') {
+          const spW = sp.w || 78;
+          const spH = sp.h || 78;
+          const overlapX = Math.max(0, Math.min(sp.x + spW, boxX + boxW) - Math.max(sp.x, boxX));
+          const overlapY = Math.max(0, Math.min(sp.y + spH, boxY + boxH) - Math.max(sp.y, boxY));
+
+          if (overlapX > 0 && overlapY > 0) {
+            intersectingIds.push(sp.id);
+          }
+        }
+      });
+
       // Update selected seats
       if (isModifier) {
         const union = new Set([...initialSelection, ...intersectingIds]);
@@ -618,6 +724,7 @@ export default function Seats() {
 
   const alignSelectedSeats = (direction: 'horizontal' | 'vertical') => {
     if (selectedArrangeIds.length === 0 || activeRoomEditingId === null) return;
+    pushToHistory();
     const roomId = activeRoomEditingId;
 
     // Lookup room defaults if visualizer state not initialized
@@ -710,6 +817,7 @@ export default function Seats() {
 
   const alignStraight = (axis: 'horizontal' | 'vertical') => {
     if (selectedArrangeIds.length === 0 || activeRoomEditingId === null) return;
+    pushToHistory();
     const roomId = activeRoomEditingId;
 
     // Lookup room defaults
@@ -773,6 +881,7 @@ export default function Seats() {
 
   const rotateSelectedSeats = () => {
     if (selectedArrangeIds.length === 0 || activeRoomEditingId === null) return;
+    pushToHistory();
     const roomId = activeRoomEditingId;
 
     // Lookup room defaults
@@ -813,6 +922,8 @@ export default function Seats() {
 
     const roomId = activeRoomEditingId;
     if (!roomId) return;
+
+    pushToHistory();
 
     let roomObj: any = null;
     seatMap?.forEach((floor: any) => {
@@ -880,8 +991,18 @@ export default function Seats() {
     const startHeight = startRect.height;
     const startX = e.clientX;
     const startY = e.clientY;
+
+    // Take snapshot for undo
+    const snapshot = {
+      tempLayout: JSON.parse(JSON.stringify(tempLayout)),
+      spacers: JSON.parse(JSON.stringify(spacers)),
+      visualizerWidths: { ...visualizerWidths },
+      visualizerHeights: { ...visualizerHeights }
+    };
+    let didDrag = false;
     
     const handlePointerMove = (moveEvent: PointerEvent) => {
+      didDrag = true;
       const deltaX = moveEvent.clientX - startX;
       const deltaY = moveEvent.clientY - startY;
       
@@ -917,6 +1038,10 @@ export default function Seats() {
       handleElement.releasePointerCapture(upEvent.pointerId);
       handleElement.removeEventListener('pointermove', handlePointerMove);
       handleElement.removeEventListener('pointerup', handlePointerUp);
+
+      if (didDrag) {
+        setLayoutHistory(prev => [...prev, snapshot]);
+      }
     };
     
     handleElement.addEventListener('pointermove', handlePointerMove);
@@ -925,9 +1050,17 @@ export default function Seats() {
 
   const handleSpacerPointerDown = (e: React.PointerEvent<HTMLDivElement>, spacerId: string) => {
     if (activeRoomEditingId === null) return;
-    setSelectedArrangeIds([spacerId]);
     const roomId = activeRoomEditingId;
     e.preventDefault();
+
+    // Take snapshot for undo
+    const snapshot = {
+      tempLayout: JSON.parse(JSON.stringify(tempLayout)),
+      spacers: JSON.parse(JSON.stringify(spacers)),
+      visualizerWidths: { ...visualizerWidths },
+      visualizerHeights: { ...visualizerHeights }
+    };
+
     const element = e.currentTarget;
     element.setPointerCapture(e.pointerId);
     
@@ -935,14 +1068,6 @@ export default function Seats() {
     if (!container) return;
     
     const scrollContainer = container.parentElement;
-    
-    const spacerRect = element.getBoundingClientRect();
-    const offsetX = e.clientX - spacerRect.left;
-    const offsetY = e.clientY - spacerRect.top;
-    
-    const currentSpacer = spacers.find(s => s.id === spacerId);
-    const spacerW = currentSpacer?.w || 78;
-    const spacerH = currentSpacer?.h || 78;
     
     let roomObj: any = null;
     seatMap?.forEach((floor: any) => {
@@ -952,24 +1077,84 @@ export default function Seats() {
         }
       });
     });
+
+    const currentWidth = visualizerWidths[roomId] || roomObj?.canvasWidth || 1000;
+    const currentHeight = visualizerHeights[roomId] || roomObj?.canvasHeight || 450;
+
+    const findSeatById = (id: string) => roomObj?.seats?.find((s: any) => s.id === id);
+    const findSeatIndexById = (id: string) => roomObj?.seats?.findIndex((s: any) => s.id === id) ?? 0;
+
+    // Determine selection list
+    let nextSelected = [...selectedArrangeIds];
+    const isModifierPressed = e.shiftKey || e.ctrlKey || e.metaKey;
+    const isAlreadySelected = nextSelected.includes(spacerId);
+
+    if (isModifierPressed) {
+      if (isAlreadySelected) {
+        nextSelected = nextSelected.filter(id => id !== spacerId);
+      } else {
+        nextSelected.push(spacerId);
+      }
+    } else {
+      if (!isAlreadySelected) {
+        nextSelected = [spacerId];
+      }
+    }
+    setSelectedArrangeIds(nextSelected);
+
+    // Record starting coordinates of all elements in nextSelected
+    const startPositions: Record<string, { x: number; y: number }> = {};
+    nextSelected.forEach(id => {
+      const seat = findSeatById(id);
+      if (seat) {
+        const pos = tempLayout[id] || getSeatPixelPosition(seat, findSeatIndexById(id), currentWidth, currentHeight);
+        startPositions[id] = { x: pos.x, y: pos.y };
+      } else {
+        const spacer = spacers.find(s => s.id === id);
+        if (spacer) {
+          startPositions[id] = { x: spacer.x, y: spacer.y };
+        }
+      }
+    });
+
+    // We track drag starting mouse position
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    let didDrag = false;
     
     const handlePointerMove = (moveEvent: PointerEvent) => {
-      const currentContainerRect = container.getBoundingClientRect();
-      let leftPx = moveEvent.clientX - currentContainerRect.left - offsetX;
-      let topPx = moveEvent.clientY - currentContainerRect.top - offsetY;
+      didDrag = true;
+      const deltaX = moveEvent.clientX - startMouseX;
+      const deltaY = moveEvent.clientY - startMouseY;
       
       const currentWidth = visualizerWidths[roomId] || roomObj?.canvasWidth || 1000;
       const currentHeight = visualizerHeights[roomId] || roomObj?.canvasHeight || 450;
       
       let nextWidth = currentWidth;
       let nextHeight = currentHeight;
-      
-      if (leftPx + 120 > currentWidth) {
-        nextWidth = leftPx + 200;
-      }
-      if (topPx + 120 > currentHeight) {
-        nextHeight = topPx + 200;
-      }
+
+      // Calculate candidate bounds to see if we expand the canvas
+      nextSelected.forEach(id => {
+        if (startPositions[id]) {
+          const leftPx = startPositions[id].x + deltaX;
+          const topPx = startPositions[id].y + deltaY;
+          
+          let w = 80;
+          let h = 80;
+          const spacer = spacers.find(s => s.id === id);
+          if (spacer) {
+            w = spacer.w || 78;
+            h = spacer.h || 78;
+          }
+          
+          if (leftPx + w + 40 > nextWidth) {
+            nextWidth = leftPx + w + 120;
+          }
+          if (topPx + h + 40 > nextHeight) {
+            nextHeight = topPx + h + 120;
+          }
+        }
+      });
       
       if (nextWidth !== currentWidth) {
         setVisualizerWidths(prev => ({ ...prev, [roomId]: nextWidth }));
@@ -977,18 +1162,55 @@ export default function Seats() {
       if (nextHeight !== currentHeight) {
         setVisualizerHeights(prev => ({ ...prev, [roomId]: nextHeight }));
       }
-      
-      leftPx = Math.max(0, Math.min(nextWidth - spacerW, leftPx));
-      topPx = Math.max(60, Math.min(nextHeight - spacerH, topPx));
-      
+
       const snapPx = 15;
-      leftPx = Math.round(leftPx / snapPx) * snapPx;
-      topPx = Math.round(topPx / snapPx) * snapPx;
       
-      setSpacers(prev => {
-        const nextSpacers = prev.map(s => s.id === spacerId ? { ...s, x: leftPx, y: topPx } : s);
-        setTempLayout(currentTemp => resolveCollisions(currentTemp, nextSpacers, roomObj));
-        return nextSpacers;
+      // Update spacers in-place
+      let updatedSpacers = [...spacers];
+      let spacersChanged = false;
+      
+      updatedSpacers = spacers.map(sp => {
+        if (nextSelected.includes(sp.id) && startPositions[sp.id]) {
+          spacersChanged = true;
+          let leftPx = startPositions[sp.id].x + deltaX;
+          let topPx = startPositions[sp.id].y + deltaY;
+          
+          leftPx = Math.max(0, Math.min(nextWidth - (sp.w || 78), leftPx));
+          topPx = Math.max(60, Math.min(nextHeight - (sp.h || 78), topPx));
+          
+          leftPx = Math.round(leftPx / snapPx) * snapPx;
+          topPx = Math.round(topPx / snapPx) * snapPx;
+          
+          return { ...sp, x: leftPx, y: topPx };
+        }
+        return sp;
+      });
+
+      if (spacersChanged) {
+        setSpacers(updatedSpacers);
+      }
+
+      setTempLayout(prev => {
+        const nextLayout = { ...prev };
+        nextSelected.forEach(id => {
+          if (startPositions[id] && findSeatById(id)) {
+            let leftPx = startPositions[id].x + deltaX;
+            let topPx = startPositions[id].y + deltaY;
+
+            leftPx = Math.max(0, Math.min(nextWidth - 80, leftPx));
+            topPx = Math.max(60, Math.min(nextHeight - 80, topPx));
+            
+            leftPx = Math.round(leftPx / snapPx) * snapPx;
+            topPx = Math.round(topPx / snapPx) * snapPx;
+
+            nextLayout[id] = {
+              ...nextLayout[id],
+              x: leftPx,
+              y: topPx
+            };
+          }
+        });
+        return resolveCollisions(nextLayout, updatedSpacers, roomObj);
       });
       
       if (scrollContainer) {
@@ -1016,6 +1238,10 @@ export default function Seats() {
       element.releasePointerCapture(upEvent.pointerId);
       element.removeEventListener('pointermove', handlePointerMove);
       element.removeEventListener('pointerup', handlePointerUp);
+
+      if (didDrag) {
+        setLayoutHistory(prev => [...prev, snapshot]);
+      }
     };
     
     element.addEventListener('pointermove', handlePointerMove);
@@ -1023,6 +1249,7 @@ export default function Seats() {
   };
 
   const handleArrangeAscending = (room: any) => {
+    pushToHistory();
     const sortedSeats = [...(room.seats || [])].sort((a: any, b: any) =>
       a.number.localeCompare(b.number, undefined, { numeric: true, sensitivity: 'base' })
     );
@@ -1082,6 +1309,7 @@ export default function Seats() {
       setTempLayout({});
       setSelectedArrangeIds([]);
       setSpacers([]);
+      setLayoutHistory([]);
       
       // Update local state to trimmed dimensions
       setVisualizerWidths(prev => ({ ...prev, [room.id]: trimmedWidth }));
@@ -1666,6 +1894,7 @@ export default function Seats() {
             }}
             onClick={(e) => {
               e.stopPropagation();
+              pushToHistory();
               setTempLayout(prev => {
                 const currentSeatLayout = prev[seat.id] || { x: 0, y: 0 };
                 const currentRotation = currentSeatLayout.rotation !== undefined ? currentSeatLayout.rotation : (seat.rotation || 0);
@@ -1943,6 +2172,7 @@ export default function Seats() {
                   if (!exit) return;
                   setActiveRoomEditingId(null);
                   setTempLayout({});
+                  setLayoutHistory([]);
                 }
                 setIsFloorVisualization(!isFloorVisualization);
               }}
@@ -2482,6 +2712,7 @@ export default function Seats() {
                                           }}
                                           onClick={(e) => {
                                             e.stopPropagation();
+                                            pushToHistory();
                                             setSpacers(prev => prev.filter(s => s.id !== spacer.id));
                                           }}
                                           style={{
@@ -2513,7 +2744,7 @@ export default function Seats() {
 
                                         {/* Resize drag handle at bottom-right corner */}
                                         <div
-                                          onPointerDown={(e) => handleResizePointerDown(e, spacer.id)}
+                                          onPointerDown={(e) => { pushToHistory(); handleResizePointerDown(e, spacer.id); }}
                                           style={{
                                             position: 'absolute',
                                             right: '0',
@@ -2610,6 +2841,16 @@ export default function Seats() {
                                         if (pos.y < minY) minY = pos.y;
                                         if (pos.x + 78 > maxX) maxX = pos.x + 78;
                                         if (pos.y + 78 > maxY) maxY = pos.y + 78;
+                                      } else {
+                                        const spacer = spacers.find((s: any) => s.id === id);
+                                        if (spacer) {
+                                          const w = spacer.w || 78;
+                                          const h = spacer.h || 78;
+                                          if (spacer.x < minX) minX = spacer.x;
+                                          if (spacer.y < minY) minY = spacer.y;
+                                          if (spacer.x + w > maxX) maxX = spacer.x + w;
+                                          if (spacer.y + h > maxY) maxY = spacer.y + h;
+                                        }
                                       }
                                     });
 
@@ -2675,7 +2916,7 @@ export default function Seats() {
                                           >
                                             <button
                                               type="button"
-                                              onClick={() => alignSelectedSeats('horizontal')}
+                                              onClick={() => { pushToHistory(); alignSelectedSeats('horizontal'); }}
                                               style={{
                                                 width: '100%',
                                                 textAlign: 'left',
@@ -2698,7 +2939,7 @@ export default function Seats() {
                                             </button>
                                             <button
                                               type="button"
-                                              onClick={() => alignSelectedSeats('vertical')}
+                                              onClick={() => { pushToHistory(); alignSelectedSeats('vertical'); }}
                                               style={{
                                                 width: '100%',
                                                 textAlign: 'left',
@@ -2721,7 +2962,7 @@ export default function Seats() {
                                             </button>
                                             <button
                                               type="button"
-                                              onClick={() => alignStraight('horizontal')}
+                                              onClick={() => { pushToHistory(); alignStraight('horizontal'); }}
                                               style={{
                                                 width: '100%',
                                                 textAlign: 'left',
@@ -2744,7 +2985,7 @@ export default function Seats() {
                                             </button>
                                             <button
                                               type="button"
-                                              onClick={() => alignStraight('vertical')}
+                                              onClick={() => { pushToHistory(); alignStraight('vertical'); }}
                                               style={{
                                                 width: '100%',
                                                 textAlign: 'left',
@@ -2767,7 +3008,7 @@ export default function Seats() {
                                             </button>
                                             <button
                                               type="button"
-                                              onClick={rotateSelectedSeats}
+                                              onClick={() => { pushToHistory(); rotateSelectedSeats(); }}
                                               style={{
                                                 width: '100%',
                                                 textAlign: 'left',
@@ -2799,24 +3040,9 @@ export default function Seats() {
                                </div>
                             </div>
 
-                            {/* Floating Instruction HUD */}
-                            {isEditingThisRoom && (
-                              <div style={{ position: 'absolute', top: '12px', left: '12px', backgroundColor: 'rgba(15, 23, 42, 0.85)', color: '#ffffff', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500, zIndex: 10, pointerEvents: 'none' }}>
-                                💡 Drag seats to arrange. Scroll context active. Canvas grows automatically.
-                              </div>
-                            )}
 
-                            {/* Floating Canvas Size Info & Arrange Toolbar */}
+                            {/* Floating Arrange Toolbar */}
                             <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10, background: 'rgba(255,255,255,0.95)', padding: '6px 12px', borderRadius: '12px', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-soft)' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-slate)' }}>Canvas Size:</span>
-                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-navy)' }}>{roomWidth} × {roomHeight} px</span>
-                                {isEditingThisRoom && (
-                                  <span style={{ fontSize: '0.65rem', color: 'var(--accent-blue)', marginLeft: '4px', fontWeight: 500 }}>
-                                    (Auto-growing)
-                                  </span>
-                                )}
-                              </div>
                               
                               {isEditingThisRoom ? (
                                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -2827,6 +3053,7 @@ export default function Seats() {
                                      onClick={() => {
                                         const nextSpacerId = `spacer-${Date.now()}`;
                                         const newSpacer = { id: nextSpacerId, x: 100, y: 100 };
+                                        pushToHistory();
                                         setSpacers(prev => {
                                           const nextSpacers = [...prev, newSpacer];
                                           setTempLayout(currentTemp => resolveCollisions(currentTemp, nextSpacers, room));
@@ -2862,11 +3089,21 @@ export default function Seats() {
                                      variant="outline"
                                      size="sm"
                                      style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', color: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
-                                     onClick={() => handleArrangeAscending(room)}
+                                     onClick={() => { pushToHistory(); handleArrangeAscending(room); }}
                                    >
                                      Ascending
                                    </Button>
-                                   <Button variant="outline" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem' }} onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); setSpacers([]); setSelectedArrangeIds([]); }}>Cancel</Button>
+                                   <Button
+                                      variant="outline"
+                                      size="sm"
+                                      style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', color: 'var(--text-navy)', borderColor: 'var(--border-color)' }}
+                                      onClick={handleUndo}
+                                      disabled={layoutHistory.length === 0}
+                                    >
+                                      <History size={12} style={{ marginRight: '4px' }} />
+                                      Undo
+                                    </Button>
+                                   <Button variant="outline" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem' }} onClick={() => { setActiveRoomEditingId(null); setTempLayout({}); setSpacers([]); setSelectedArrangeIds([]); setLayoutHistory([]); }}>Cancel</Button>
                                    <Button variant="primary" size="sm" style={{ padding: '4px 10px', height: '28px', fontSize: '0.7rem', backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)' }} onClick={() => { handleSaveLayout(room); }} disabled={isUpdatingLayout}>Save</Button>
                                  </div>
                               ) : (
@@ -2890,6 +3127,7 @@ export default function Seats() {
                                       } else {
                                         setSpacers([]);
                                       }
+                                      setLayoutHistory([]);
                                     }}
                                     style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--accent-blue)', background: 'transparent', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer' }}
                                   >
@@ -3809,6 +4047,7 @@ export default function Seats() {
                       const deskSpacerId = `spacer-desk-${Date.now()}`;
                       const deskSpacer = { id: deskSpacerId, x: deskX, y: deskY, w: deskW, h: deskH, type: 'desk' };
 
+                      pushToHistory();
                       setSpacers(prev => {
                         const nextSpacers = [...prev, deskSpacer];
                         setTempLayout(currentTemp => {
