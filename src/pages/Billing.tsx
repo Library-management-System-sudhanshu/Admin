@@ -118,11 +118,11 @@ export default function Billing() {
 
   const [openShiftModal, setOpenShiftModal] = useState(false);
   const [editShiftMode, setEditShiftMode] = useState(false);
-  const [shiftFormData, setShiftFormData] = useState({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: 0, price3Months: '' as any, price6Months: '' as any });
+  const [shiftFormData, setShiftFormData] = useState({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: '' as any, price3Months: '' as any, price6Months: '' as any });
 
   const handleOpenCreateShift = () => {
     setEditShiftMode(false);
-    setShiftFormData({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: 0, price3Months: '' as any, price6Months: '' as any });
+    setShiftFormData({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: '' as any, price3Months: '' as any, price6Months: '' as any });
     setOpenShiftModal(true);
   };
 
@@ -157,6 +157,7 @@ export default function Billing() {
       const dataToSave = {
         ...shiftFormData,
         capacity: shiftFormData.capacity === '' || shiftFormData.capacity === null || shiftFormData.capacity === undefined ? null : parseInt(shiftFormData.capacity as any),
+        price: shiftFormData.price === '' || shiftFormData.price === null || shiftFormData.price === undefined ? 0 : parseFloat(shiftFormData.price as any),
         price3Months: shiftFormData.price3Months === '' || shiftFormData.price3Months === null || shiftFormData.price3Months === undefined ? null : parseFloat(shiftFormData.price3Months as any),
         price6Months: shiftFormData.price6Months === '' || shiftFormData.price6Months === null || shiftFormData.price6Months === undefined ? null : parseFloat(shiftFormData.price6Months as any),
       };
@@ -633,8 +634,8 @@ export default function Billing() {
                 type="number"
                 fullWidth
                 required
-                value={shiftFormData.price}
-                onChange={(e) => setShiftFormData({ ...shiftFormData, price: parseFloat(e.target.value) || 0 })}
+                value={shiftFormData.price ?? ''}
+                onChange={(e) => setShiftFormData({ ...shiftFormData, price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
               />
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
