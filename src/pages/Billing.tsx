@@ -17,7 +17,6 @@ import {
   Box,
   Typography,
   Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -106,6 +105,7 @@ export default function Billing() {
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
   const [selectedShiftId, setSelectedShiftId] = useState('');
+  const [billingDurationMonths, setBillingDurationMonths] = useState<number>(1);
 
   // Toast
   const { showToast } = useToast();
@@ -118,11 +118,11 @@ export default function Billing() {
 
   const [openShiftModal, setOpenShiftModal] = useState(false);
   const [editShiftMode, setEditShiftMode] = useState(false);
-  const [shiftFormData, setShiftFormData] = useState({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: 0 });
+  const [shiftFormData, setShiftFormData] = useState({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: 0, price3Months: '' as any, price6Months: '' as any });
 
   const handleOpenCreateShift = () => {
     setEditShiftMode(false);
-    setShiftFormData({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: 0 });
+    setShiftFormData({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: 0, price3Months: '' as any, price6Months: '' as any });
     setOpenShiftModal(true);
   };
 
@@ -147,7 +147,7 @@ export default function Billing() {
 
   const handleOpenEditShift = (shift: any) => {
     setEditShiftMode(true);
-    setShiftFormData({ ...shift, capacity: shift.capacity ?? '' });
+    setShiftFormData({ ...shift, capacity: shift.capacity ?? '', price3Months: shift.price3Months ?? '', price6Months: shift.price6Months ?? '' });
     setOpenShiftModal(true);
   };
 
@@ -157,6 +157,8 @@ export default function Billing() {
       const dataToSave = {
         ...shiftFormData,
         capacity: shiftFormData.capacity === '' || shiftFormData.capacity === null || shiftFormData.capacity === undefined ? null : parseInt(shiftFormData.capacity as any),
+        price3Months: shiftFormData.price3Months === '' || shiftFormData.price3Months === null || shiftFormData.price3Months === undefined ? null : parseFloat(shiftFormData.price3Months as any),
+        price6Months: shiftFormData.price6Months === '' || shiftFormData.price6Months === null || shiftFormData.price6Months === undefined ? null : parseFloat(shiftFormData.price6Months as any),
       };
       if (editShiftMode) {
         await updateShift({ id: shiftFormData.id, data: dataToSave }).unwrap();
@@ -192,11 +194,13 @@ export default function Billing() {
         amount: Number(amount),
         method,
         shiftId: selectedShiftId || undefined,
+        durationMonths: selectedShiftId ? billingDurationMonths : undefined,
       }).unwrap();
       setOpenCollect(false);
       setStudentProfileId('');
       setAmount('');
       setSelectedShiftId('');
+      setBillingDurationMonths(1);
     } catch (err) {
       showToast('Error generating invoice', 'error');
     }
@@ -356,6 +360,8 @@ export default function Billing() {
                     <TableCell sx={{ fontWeight: 600 }}>End Time</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Capacity</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Monthly Price</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>3-Month Price</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>6-Month Price</TableCell>
                     <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -367,6 +373,12 @@ export default function Billing() {
                       <TableCell sx={{ fontSize: '0.875rem' }}>{shift.endTime}</TableCell>
                       <TableCell sx={{ fontSize: '0.875rem' }}>{shift.capacity ?? 'Unlimited'}</TableCell>
                       <TableCell sx={{ fontWeight: 600, fontSize: '0.9rem' }}>₹{shift.price}</TableCell>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.9rem', color: 'text.secondary' }}>
+                        {shift.price3Months ? `₹${shift.price3Months}` : '—'}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.9rem', color: 'text.secondary' }}>
+                        {shift.price6Months ? `₹${shift.price6Months}` : '—'}
+                      </TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
                           <IconButton size="small" color="primary" onClick={() => handleOpenEditShift(shift)}>
@@ -381,7 +393,7 @@ export default function Billing() {
                   ))}
                   {(!shifts || shifts.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                         No shifts found. Create your first shift to get started.
                       </TableCell>
                     </TableRow>
@@ -427,7 +439,15 @@ export default function Billing() {
                   setSelectedShiftId(val);
                   const shift = shifts?.find((s: any) => s.id === val);
                   if (shift) {
-                    setAmount(shift.price.toString());
+                    if (billingDurationMonths === 3) {
+                      setAmount((shift.price3Months || (shift.price * 3)).toString());
+                    } else if (billingDurationMonths === 6) {
+                      setAmount((shift.price6Months || (shift.price * 6)).toString());
+                    } else {
+                      setAmount(shift.price.toString());
+                    }
+                  } else {
+                    setAmount('');
                   }
                 }}
               >
@@ -439,6 +459,34 @@ export default function Billing() {
                 ))}
               </Select>
             </FormControl>
+
+            {selectedShiftId && (
+              <FormControl fullWidth>
+                <InputLabel>Plan Duration</InputLabel>
+                <Select
+                  value={billingDurationMonths}
+                  label="Plan Duration"
+                  onChange={(e) => {
+                    const months = Number(e.target.value);
+                    setBillingDurationMonths(months);
+                    const shift = shifts?.find((s: any) => s.id === selectedShiftId);
+                    if (shift) {
+                      if (months === 3) {
+                        setAmount((shift.price3Months || (shift.price * 3)).toString());
+                      } else if (months === 6) {
+                        setAmount((shift.price6Months || (shift.price * 6)).toString());
+                      } else {
+                        setAmount(shift.price.toString());
+                      }
+                    }
+                  }}
+                >
+                  <MenuItem value={1}>1 Month (Monthly)</MenuItem>
+                  <MenuItem value={3}>3 Months (Quarterly)</MenuItem>
+                  <MenuItem value={6}>6 Months (Half-Yearly)</MenuItem>
+                </Select>
+              </FormControl>
+            )}
 
             <TextField
               label="Billing Amount (₹)"
@@ -572,7 +620,7 @@ export default function Billing() {
                 </Box>
               </Box>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
               <TextField
                 label="Capacity (Optional)"
                 type="number"
@@ -587,6 +635,24 @@ export default function Billing() {
                 required
                 value={shiftFormData.price}
                 onChange={(e) => setShiftFormData({ ...shiftFormData, price: parseFloat(e.target.value) || 0 })}
+              />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                label="3-Month Price (₹) - Optional"
+                type="number"
+                fullWidth
+                placeholder="Discounted price"
+                value={shiftFormData.price3Months ?? ''}
+                onChange={(e) => setShiftFormData({ ...shiftFormData, price3Months: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+              />
+              <TextField
+                label="6-Month Price (₹) - Optional"
+                type="number"
+                fullWidth
+                placeholder="Discounted price"
+                value={shiftFormData.price6Months ?? ''}
+                onChange={(e) => setShiftFormData({ ...shiftFormData, price6Months: e.target.value === '' ? '' : parseFloat(e.target.value) })}
               />
             </Box>
           </DialogContent>

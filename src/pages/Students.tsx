@@ -96,6 +96,7 @@ export default function Students() {
   const [renewEndDate, setRenewEndDate] = useState('');
   const [renewPaymentMethod, setRenewPaymentMethod] = useState<'UPI' | 'CASH' | 'RAZORPAY'>('UPI');
   const [renewAmount, setRenewAmount] = useState('');
+  const [renewDuration, setRenewDuration] = useState<number>(1);
   const [isRenewing, setIsRenewing] = useState(false);
 
 
@@ -130,7 +131,7 @@ export default function Students() {
     return data?.students || [];
   }, [data?.students]);
 
-  const [createStudent, { isLoading: isCreating }] = useCreateStudentMutation();
+  const [_createStudent] = useCreateStudentMutation();
   const [updateStudent, { isLoading: isUpdating }] = useUpdateStudentMutation();
   const [updateStatus] = useUpdateStudentStatusMutation();
   const [deleteStudent] = useDeleteStudentMutation();
@@ -192,101 +193,33 @@ export default function Students() {
     }
   };
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    
-    if (!name.trim()) {
-      newErrors.name = 'Name is required';
-    } else if (!/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
-      newErrors.name = 'Name must be 2-50 characters and contain only letters';
-    }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!emailRegex.test(email.trim())) {
-      newErrors.email = 'Invalid email address';
-    }
 
-    if (!mobile.trim()) {
-      newErrors.mobile = 'Mobile number is required';
-    } else if (!/^\d{10}$/.test(mobile.trim())) {
-      newErrors.mobile = 'Mobile number must be exactly 10 digits';
-    }
-
-    if (password && password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-    
-    if (guardianName.trim() && !/^[a-zA-Z\s]{2,50}$/.test(guardianName.trim())) {
-      newErrors.guardianName = 'Guardian name must contain only letters';
-    }
-    
-    if (guardianMobile.trim() && !/^\d{10}$/.test(guardianMobile.trim())) {
-      newErrors.guardianMobile = 'Guardian mobile must be exactly 10 digits';
-    }
-    
-    if (aadharNumber.trim() && !/^\d{12}$/.test(aadharNumber.trim())) {
-      newErrors.aadharNumber = 'Aadhar number must be exactly 12 digits';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleChange = (field: string, value: string, setter: (val: string) => void) => {
-    setter(value);
-    validateField(field, value);
-  };
-
-  const handleAddStudent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    try {
-      await createStudent({
-        name,
-        email,
-        mobile,
-        password: password || undefined,
-        guardianName,
-        guardianMobile,
-        aadharNumber,
-        branchId,
-        workspaceId: user?.workspaceId,
-      }).unwrap();
-      setOpenAdd(false);
-      setErrors({});
-      // Reset form
-      setName('');
-      setEmail('');
-      setMobile('');
-      setPassword('Student@123');
-      setGuardianName('');
-      setGuardianMobile('');
-      setAadharNumber('');
-      setBranchId('');
-    } catch (err) {
-      alert('Error creating student');
-    }
-  };
-
-  // 1. useEffect to automatically calculate renewEndDate and renewAmount when renewShiftId or renewStartDate changes
+  // 1. useEffect to automatically calculate renewEndDate and renewAmount when renewShiftId or renewStartDate or renewDuration changes
   useEffect(() => {
     if (renewShiftId && shifts) {
       const shift = shifts.find((s: any) => s.id === renewShiftId);
       if (shift && renewStartDate) {
         const start = new Date(renewStartDate);
-        // Calculate end date based on default 30 days
-        start.setDate(start.getDate() + 30);
+        // Calculate end date based on renewDuration
+        start.setMonth(start.getMonth() + renewDuration);
         try {
           setRenewEndDate(start.toISOString().split('T')[0]);
-          setRenewAmount(shift.price.toString());
+          
+          let price = shift.price || 0;
+          if (renewDuration === 3 && shift.price3Months) {
+            price = shift.price3Months;
+          } else if (renewDuration === 6 && shift.price6Months) {
+            price = shift.price6Months;
+          } else {
+            price = price * renewDuration;
+          }
+          setRenewAmount(price.toString());
         } catch (e) {
           // ignore
         }
       }
     }
-  }, [renewShiftId, renewStartDate, shifts]);
+  }, [renewShiftId, renewStartDate, renewDuration, shifts]);
 
   // 2. useEffect to prefill renew dates and shift when RENEW tab is selected
   useEffect(() => {
@@ -308,6 +241,7 @@ export default function Students() {
 
       setRenewEndDate('');
       setRenewAmount('');
+      setRenewDuration(1);
       setRenewPaymentMethod('UPI');
     }
   }, [drawerActiveSection, fullStudent]);
@@ -351,6 +285,7 @@ export default function Students() {
         amount: Number(renewAmount),
         method: renewPaymentMethod,
         shiftId: renewShiftId || undefined,
+        durationMonths: renewDuration,
       }).unwrap();
 
       setDrawerActiveSection('DETAILS');
@@ -1020,6 +955,20 @@ export default function Students() {
                             onChange={(val) => setRenewShiftId(val)}
                             placeholder="Select Shift"
                             options={shifts?.map((s: any) => ({ value: s.id, label: s.name })) || []}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Plan Duration</label>
+                          <Select
+                            value={renewDuration}
+                            onChange={(val: any) => setRenewDuration(Number(val))}
+                            placeholder="Select Duration"
+                            options={[
+                              { value: 1, label: '1 Month' },
+                              { value: 3, label: '3 Months (Discounted)' },
+                              { value: 6, label: '6 Months (Discounted)' },
+                            ]}
                           />
                         </div>
 

@@ -1455,7 +1455,6 @@ export default function Seats() {
       }
       setDurationMode(1);
       setShouldGenerateInvoice(true);
-      setSelectedPlanId('');
       setInvoiceAmount('');
       setPaymentMethod('CASH');
     } else if (seat.status === 'OCCUPIED') {
@@ -1469,7 +1468,6 @@ export default function Seats() {
         setEditEndDate(activeAllocation.endDate ? activeAllocation.endDate.split('T')[0] : '');
       }
       setIsEditingDates(false);
-      setRenewPlanId('');
       setRenewEndDate('');
       setRenewAmount('');
       setRenewPaymentMethod('UPI');
@@ -1497,6 +1495,12 @@ export default function Seats() {
 
     const basePrice = shift.price || 0;
     if (typeof durationMode === 'number') {
+      if (durationMode === 3 && shift.price3Months) {
+        return shift.price3Months;
+      }
+      if (durationMode === 6 && shift.price6Months) {
+        return shift.price6Months;
+      }
       return basePrice * durationMode;
     } else if (durationMode === 'flex' && startDate && endDate) {
       const start = new Date(startDate);
@@ -1552,6 +1556,7 @@ export default function Seats() {
           amount: Number(invoiceAmount),
           method: paymentMethod,
           shiftId: shiftId || undefined,
+          durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
         }).unwrap();
 
         const invoiceInfo = {

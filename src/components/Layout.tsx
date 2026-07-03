@@ -123,14 +123,6 @@ export default function Layout() {
     menuItems.push({ text: 'Workspaces', icon: <Building2 className="sidebar-link-icon" />, path: '/super-admin' });
   }
 
-  // Generate breadcrumb text
-  const getBreadcrumbLabel = () => {
-    const path = location.pathname;
-    if (path === '/') return 'Dashboard';
-    const matched = menuItems.find(item => item.path === path);
-    return matched ? matched.text : 'Page';
-  };
-
   return (
     <div className="layout-container">
       {/* 1. SOFT LIGHT SIDEBAR */}

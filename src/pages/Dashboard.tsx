@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { useGetMetricsQuery } from '../store/api';
 import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import type { RootState } from '../store';
-import { useToast } from '../components/ui/ToastContext';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -66,9 +63,7 @@ export default function Dashboard() {
   const { data: metrics, isLoading, error } = useGetMetricsQuery({});
   const [hoveredAction, setHoveredAction] = useState<number | null>(null);
 
-  const { user } = useSelector((state: RootState) => state.auth);
-  const { showToast } = useToast();
-  
+
 
 
 
