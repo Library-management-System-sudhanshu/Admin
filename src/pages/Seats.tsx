@@ -71,11 +71,40 @@ const getDaysRemainingText = (endDateStr: string) => {
   return `${diffDays} days remaining`;
 };
 
+const getSeatStatusInfo = (seat: any) => {
+  if (!seat) return { isOccupied: false, isExpired: false, activeAllocations: [], currentAllocations: [], expiredAllocations: [] };
+  const activeAllocations = seat.allocations?.filter((a: any) => a.isActive) || [];
+  
+  const isAllocationExpired = (alloc: any) => {
+    if (!alloc.endDate) return false;
+    const end = new Date(alloc.endDate);
+    const today = new Date();
+    end.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    return end.getTime() < today.getTime();
+  };
+
+  const currentAllocations = activeAllocations.filter((a: any) => !isAllocationExpired(a));
+  const expiredAllocations = activeAllocations.filter((a: any) => isAllocationExpired(a));
+
+  const isOccupied = currentAllocations.length > 0;
+  const isExpired = currentAllocations.length === 0 && expiredAllocations.length > 0;
+
+  return {
+    isOccupied,
+    isExpired,
+    activeAllocations,
+    currentAllocations,
+    expiredAllocations
+  };
+};
+
 export default function Seats() {
   const { showAlert } = useAlert();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
+
   
   // Branches API
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
@@ -129,6 +158,20 @@ export default function Seats() {
   const [editFloorName, setEditFloorName] = useState('');
   const [selectedFloorToEdit, setSelectedFloorToEdit] = useState<any>(null);
 
+  // Allocate Seat Modal (Popup)
+  const [openAllocateModal, setOpenAllocateModal] = useState(false);
+  const [allocModalStudentId, setAllocModalStudentId] = useState('');
+  const [allocModalSearchQuery, setAllocModalSearchQuery] = useState('');
+  const [showModalStudentDropdown, setShowModalStudentDropdown] = useState(false);
+  const [isModalSearchFocused, setIsModalSearchFocused] = useState(false);
+  const [allocModalShiftId, setAllocModalShiftId] = useState('');
+  const [allocModalStartDate, setAllocModalStartDate] = useState('');
+  const [allocModalEndDate, setAllocModalEndDate] = useState('');
+  const [allocModalDuration, setAllocModalDuration] = useState<number | 'flex'>(1);
+  const [allocModalGenerateInvoice, setAllocModalGenerateInvoice] = useState(true);
+  const [allocModalAmount, setAllocModalAmount] = useState('');
+  const [allocModalPaymentMethod, setAllocModalPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('UPI');
+
   // Allocation variables
   const [studentProfileId, setStudentProfileId] = useState('');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
@@ -146,10 +189,12 @@ export default function Seats() {
   // Success Receipt Modal
   const [openInvoiceReceipt, setOpenInvoiceReceipt] = useState(false);
   const [createdInvoiceData, setCreatedInvoiceData] = useState<any>(null);
+  const [selectedAllocationId, setSelectedAllocationId] = useState<string | null>(null);
 
   // Renewal form
 
   const [renewShiftId, setRenewShiftId] = useState('');
+  const [renewDuration, setRenewDuration] = useState<number>(1);
   const [spacers, setSpacers] = useState<{ id: string; x: number; y: number; w?: number; h?: number; type?: string }[]>([]);
   const [renewStartDate, setRenewStartDate] = useState('');
   const [renewEndDate, setRenewEndDate] = useState('');
@@ -1333,9 +1378,10 @@ export default function Seats() {
     seatMap.forEach((floor: any) => {
       floor.rooms?.forEach((room: any) => {
         room.seats?.forEach((seat: any) => {
-          if (seat.status === 'AVAILABLE') available++;
-          else if (seat.status === 'OCCUPIED') occupied++;
-          else if (seat.status === 'BLOCKED') maintenance++;
+          const { isOccupied, isExpired } = getSeatStatusInfo(seat);
+          if (seat.status === 'BLOCKED') maintenance++;
+          else if (isOccupied) occupied++;
+          else available++;
         });
       });
     });
@@ -1424,7 +1470,27 @@ export default function Seats() {
   const filteredStudents = useMemo(() => {
     if (!studentsData?.students) return [];
     const query = studentSearchQuery.trim().toLowerCase();
+
+    // Gather set of student profile IDs who already have active allocations
+    const allocatedIds = new Set<string>();
+    if (seatMap) {
+      seatMap.forEach((floor: any) => {
+        floor.rooms?.forEach((room: any) => {
+          room.seats?.forEach((seat: any) => {
+            seat.allocations?.forEach((alloc: any) => {
+              if (alloc.isActive && alloc.studentProfileId) {
+                allocatedIds.add(alloc.studentProfileId);
+              }
+            });
+          });
+        });
+      });
+    }
+
     return studentsData.students.filter((student: any) => {
+      // Exclude if already allocated to any seat
+      if (allocatedIds.has(student.id)) return false;
+
       if (!query) return true;
       return (
         student.user?.name?.toLowerCase().includes(query) ||
@@ -1432,11 +1498,133 @@ export default function Seats() {
         student.user?.email?.toLowerCase().includes(query)
       );
     });
-  }, [studentsData, studentSearchQuery]);
+  }, [studentsData, studentSearchQuery, seatMap]);
 
   const displayedStudents = useMemo(() => {
     return filteredStudents.slice(0, 8);
   }, [filteredStudents]);
+
+  // Modal Student filtering autocomplete
+  const filteredModalStudents = useMemo(() => {
+    if (!studentsData?.students) return [];
+    if (!allocModalSearchQuery.trim()) return [];
+    const query = allocModalSearchQuery.toLowerCase();
+    return studentsData.students.filter((st: any) => {
+      return (
+        st.user?.name?.toLowerCase().includes(query) ||
+        st.user?.email?.toLowerCase().includes(query) ||
+        st.user?.mobile?.includes(query)
+      );
+    });
+  }, [studentsData, allocModalSearchQuery]);
+
+  const displayedModalStudents = useMemo(() => {
+    return filteredModalStudents.slice(0, 8);
+  }, [filteredModalStudents]);
+
+  // DO NOT show the shifts already booked for this seat
+  const availableShiftsForModal = useMemo(() => {
+    if (!shifts || !selectedSeat) return [];
+    const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
+    const occupiedShiftIds = activeAllocations.map((a: any) => a.shiftId);
+    return shifts.filter((s: any) => !occupiedShiftIds.includes(s.id));
+  }, [shifts, selectedSeat]);
+
+  // Modal allocate duration calculations
+  useEffect(() => {
+    if (allocModalDuration === 'flex') return;
+    if (allocModalStartDate && typeof allocModalDuration === 'number') {
+      const date = new Date(allocModalStartDate);
+      if (!isNaN(date.getTime())) {
+        date.setMonth(date.getMonth() + allocModalDuration);
+        setAllocModalEndDate(date.toISOString().split('T')[0]);
+      }
+    }
+  }, [allocModalStartDate, allocModalDuration]);
+
+  // Modal allocate amount calculations
+  const calculatedModalBaseAmount = useMemo(() => {
+    if (!allocModalShiftId || !shifts) return 0;
+    const shift = shifts.find((s: any) => s.id === allocModalShiftId);
+    if (!shift) return 0;
+
+    const basePrice = shift.price || 0;
+    if (typeof allocModalDuration === 'number') {
+      if (allocModalDuration === 3 && shift.price3Months) {
+        return shift.price3Months;
+      }
+      if (allocModalDuration === 6 && shift.price6Months) {
+        return shift.price6Months;
+      }
+      return basePrice * allocModalDuration;
+    } else if (allocModalDuration === 'flex' && allocModalStartDate && allocModalEndDate) {
+      const start = new Date(allocModalStartDate);
+      const end = new Date(allocModalEndDate);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const diffTime = end.getTime() - start.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays > 0) {
+          return Math.round(basePrice * (diffDays / 30));
+        }
+      }
+    }
+    return basePrice;
+  }, [allocModalShiftId, shifts, allocModalDuration, allocModalStartDate, allocModalEndDate]);
+
+  useEffect(() => {
+    if (calculatedModalBaseAmount > 0) {
+      setAllocModalAmount(calculatedModalBaseAmount.toString());
+    } else {
+      setAllocModalAmount('');
+    }
+  }, [calculatedModalBaseAmount]);
+
+  // Submit Allocate Seat Modal (Popup)
+  const handleModalAllocate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSeat) return;
+    try {
+      await allocateSeat({
+        studentProfileId: allocModalStudentId,
+        seatId: selectedSeat.id,
+        shiftId: allocModalShiftId,
+        startDate: allocModalStartDate,
+        endDate: allocModalEndDate,
+      }).unwrap();
+
+      if (allocModalGenerateInvoice) {
+        const paymentResult = await createPayment({
+          studentProfileId: allocModalStudentId,
+          amount: Number(allocModalAmount),
+          method: allocModalPaymentMethod,
+          shiftId: allocModalShiftId || undefined,
+          durationMonths: typeof allocModalDuration === 'number' ? allocModalDuration : 1,
+        }).unwrap();
+
+        const invoiceInfo = {
+          payment: paymentResult.payment,
+          student: studentsData?.students?.find((s: any) => s.id === allocModalStudentId),
+          seatNumber: selectedSeat?.number,
+          shift: shifts?.find((s: any) => s.id === allocModalShiftId),
+          startDate: allocModalStartDate,
+          endDate: allocModalEndDate,
+          branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
+          originalAmount: calculatedModalBaseAmount,
+          payableAmount: Number(allocModalAmount),
+        };
+        setCreatedInvoiceData(invoiceInfo);
+        setOpenAllocateModal(false);
+        setIsDrawerOpen(false);
+        setOpenInvoiceReceipt(true);
+      } else {
+        showToast('Seat allocated successfully!', 'success');
+        setOpenAllocateModal(false);
+        setIsDrawerOpen(false);
+      }
+    } catch (err: any) {
+      showToast(err.data?.message || 'Seat allocation failed', 'error');
+    }
+  };
 
   // Handle seat clicks
   const handleSeatClick = (seat: any) => {
@@ -1448,6 +1636,9 @@ export default function Seats() {
     if (seat.status === 'AVAILABLE') {
       const today = new Date().toISOString().split('T')[0];
       setStartDate(today);
+      const end = new Date(today);
+      end.setMonth(end.getMonth() + 1);
+      setEndDate(end.toISOString().split('T')[0]);
       setStudentProfileId('');
       setStudentSearchQuery('');
       if (shifts && shifts.length > 0) {
@@ -1458,21 +1649,70 @@ export default function Seats() {
       setInvoiceAmount('');
       setPaymentMethod('CASH');
     } else if (seat.status === 'OCCUPIED') {
-      const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
-      if (activeAllocation) {
+      const activeAllocations = seat.allocations?.filter((a: any) => a.isActive) || [];
+      if (activeAllocations.length > 0) {
+        setSelectedAllocationId(activeAllocations[0].id);
+        const activeAllocation = activeAllocations[0];
         const nextDay = new Date(activeAllocation.endDate);
         nextDay.setDate(nextDay.getDate() + 1);
         setRenewStartDate(nextDay.toISOString().split('T')[0]);
         setRenewShiftId(activeAllocation.shiftId || '');
         setEditStartDate(activeAllocation.startDate ? activeAllocation.startDate.split('T')[0] : '');
         setEditEndDate(activeAllocation.endDate ? activeAllocation.endDate.split('T')[0] : '');
+      } else {
+        setSelectedAllocationId(null);
       }
       setIsEditingDates(false);
       setRenewEndDate('');
       setRenewAmount('');
+      setRenewDuration(1);
       setRenewPaymentMethod('UPI');
     }
   };
+
+  const handleOpenAllocateModal = () => {
+    if (!selectedSeat) return;
+    const today = new Date().toISOString().split('T')[0];
+    setStartDate(today);
+    const end = new Date(today);
+    end.setMonth(end.getMonth() + 1);
+    setEndDate(end.toISOString().split('T')[0]);
+    setStudentProfileId('');
+    setStudentSearchQuery('');
+    
+    // Find active allocations to get booked shifts
+    const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
+    const bookedShiftIds = activeAllocations.map((a: any) => a.shiftId || a.shift?.id);
+    
+    // Filter available shifts
+    const availableShifts = shifts?.filter((s: any) => !bookedShiftIds.includes(s.id)) || [];
+    
+    if (availableShifts.length > 0) {
+      setShiftId(availableShifts[0].id);
+    } else {
+      setShiftId('');
+    }
+    setDurationMode(1);
+    setShouldGenerateInvoice(true);
+    setInvoiceAmount('');
+    setPaymentMethod('CASH');
+    setOpenAllocateModal(true);
+  };
+
+  // Sync dates and renew states when selected allocation changes
+  useEffect(() => {
+    if (selectedSeat && selectedAllocationId) {
+      const alloc = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
+      if (alloc) {
+        const nextDay = new Date(alloc.endDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        setRenewStartDate(nextDay.toISOString().split('T')[0]);
+        setRenewShiftId(alloc.shiftId || '');
+        setEditStartDate(alloc.startDate ? alloc.startDate.split('T')[0] : '');
+        setEditEndDate(alloc.endDate ? alloc.endDate.split('T')[0] : '');
+      }
+    }
+  }, [selectedAllocationId, selectedSeat]);
 
   // Duration modes calculations
   useEffect(() => {
@@ -1530,13 +1770,22 @@ export default function Seats() {
       if (shift && renewStartDate) {
         const start = new Date(renewStartDate);
         if (!isNaN(start.getTime())) {
-          start.setDate(start.getDate() + 30);
+          start.setMonth(start.getMonth() + renewDuration);
           setRenewEndDate(start.toISOString().split('T')[0]);
-          setRenewAmount(shift.price.toString());
+          
+          let price = shift.price || 0;
+          if (renewDuration === 3 && shift.price3Months) {
+            price = shift.price3Months;
+          } else if (renewDuration === 6 && shift.price6Months) {
+            price = shift.price6Months;
+          } else {
+            price = price * renewDuration;
+          }
+          setRenewAmount(price.toString());
         }
       }
     }
-  }, [renewShiftId, renewStartDate, shifts]);
+  }, [renewShiftId, renewStartDate, renewDuration, shifts]);
 
   // Submit assign seat
   const handleAllocate = async (e: React.FormEvent) => {
@@ -1572,10 +1821,12 @@ export default function Seats() {
         };
         setCreatedInvoiceData(invoiceInfo);
         setIsDrawerOpen(false);
+        setOpenAllocateModal(false);
         setOpenInvoiceReceipt(true);
       } else {
         showToast('Seat allocated successfully!', 'success');
         setIsDrawerOpen(false);
+        setOpenAllocateModal(false);
       }
     } catch (err: any) {
       showToast(err.data?.message || 'Seat allocation failed', 'error');
@@ -1584,14 +1835,17 @@ export default function Seats() {
 
   // Submit vacate seat
   const handleVacateSeat = async () => {
-    if (!selectedSeat) return;
-    const confirmVacate = window.confirm("Are you sure you want to vacate this seat?");
+    if (!selectedSeat || !selectedAllocationId) return;
+    const activeAllocation = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
+    if (!activeAllocation) return;
+
+    const confirmVacate = window.confirm(`Are you sure you want to vacate ${activeAllocation.studentProfile?.user?.name || 'this student'}?`);
     if (!confirmVacate) return;
     try {
-      await vacateSeat(selectedSeat.id).unwrap();
+      await vacateSeat({ id: selectedSeat.id, studentProfileId: activeAllocation.studentProfileId }).unwrap();
       setIsDrawerOpen(false);
       setSelectedSeat(null);
-      showToast('Seat vacated successfully!', 'success');
+      showToast('Student vacated successfully!', 'success');
     } catch (err: any) {
       showToast(err.data?.message || 'Failed to vacate seat', 'error');
     }
@@ -1600,8 +1854,8 @@ export default function Seats() {
   // Submit update dates
   const handleUpdateAllocationDates = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSeat) return;
-    const activeAllocation = selectedSeat.allocations?.find((a: any) => a.isActive);
+    if (!selectedSeat || !selectedAllocationId) return;
+    const activeAllocation = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
     if (!activeAllocation) return;
 
     try {
@@ -1623,13 +1877,13 @@ export default function Seats() {
   // Submit Renewal
   const handleRenewSeat = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSeat) return;
-    const activeAllocation = selectedSeat.allocations?.find((a: any) => a.isActive);
+    if (!selectedSeat || !selectedAllocationId) return;
+    const activeAllocation = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
     if (!activeAllocation) return;
 
     setIsRenewing(true);
     try {
-      await vacateSeat(selectedSeat.id).unwrap();
+      await vacateSeat({ id: selectedSeat.id, studentProfileId: activeAllocation.studentProfileId }).unwrap();
       await allocateSeat({
         studentProfileId: activeAllocation.studentProfileId,
         seatId: selectedSeat.id,
@@ -1643,6 +1897,7 @@ export default function Seats() {
         amount: Number(renewAmount),
         method: renewPaymentMethod,
         shiftId: renewShiftId || undefined,
+        durationMonths: renewDuration,
       }).unwrap();
 
       const invoiceInfo = {
@@ -1763,7 +2018,16 @@ export default function Seats() {
 
     // Apply status filter
     if (roomFilter !== 'ALL') {
-      filtered = filtered.filter((s: any) => s.status === roomFilter);
+      filtered = filtered.filter((s: any) => {
+        const { isOccupied, isExpired } = getSeatStatusInfo(s);
+        if (roomFilter === 'AVAILABLE') {
+          return s.status === 'AVAILABLE' || isExpired;
+        }
+        if (roomFilter === 'OCCUPIED') {
+          return isOccupied;
+        }
+        return s.status === roomFilter;
+      });
     }
 
     // Apply Sorting
@@ -1843,39 +2107,49 @@ export default function Seats() {
 
   // Render Seat card helper
   const renderSeatCard = (seat: any, isFloorCanvas?: boolean, rotationVal?: number) => {
-    const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
-    const isOccupied = seat.status === 'OCCUPIED';
+    const { isOccupied, isExpired, activeAllocations, currentAllocations, expiredAllocations } = getSeatStatusInfo(seat);
 
     let isExpiringSoon = false;
-    let daysLeft = 0;
+    let daysLeft = 99;
     let isCritical = false;
-    if (isOccupied && activeAllocation?.endDate) {
-      const end = new Date(activeAllocation.endDate);
-      const today = new Date();
-      end.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-      const diffTime = end.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      if (diffDays >= 0 && diffDays <= 7) {
-        isExpiringSoon = true;
-        daysLeft = diffDays;
-        isCritical = diffDays <= 3;
+    
+    currentAllocations.forEach((alloc: any) => {
+      if (alloc.endDate) {
+        const end = new Date(alloc.endDate);
+        const today = new Date();
+        end.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
+        const diffTime = end.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 7) {
+          isExpiringSoon = true;
+          if (diffDays < daysLeft) {
+            daysLeft = diffDays;
+          }
+          if (diffDays <= 3) {
+            isCritical = true;
+          }
+        }
       }
-    }
-
-    const formattedEnd = activeAllocation?.endDate 
-      ? new Date(activeAllocation.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
-      : 'N/A';
+    });
 
     const isHighlighted = highlightedSeatId === seat.id;
-    const seatClass = seat.status.toLowerCase();
+    const seatClass = seat.status === 'BLOCKED' ? 'blocked' : seat.status === 'RESERVED' ? 'reserved' : isOccupied ? 'occupied' : 'available';
 
+    const getShiftBadgeStyle = (shiftName: string) => {
+      const name = shiftName.toLowerCase();
+      if (name.includes('morning')) return { bg: '#e0f2fe', fg: '#0369a1', border: '#bae6fd', label: 'M' };
+      if (name.includes('evening')) return { bg: '#ffedd5', fg: '#c2410c', border: '#fed7aa', label: 'E' };
+      if (name.includes('night')) return { bg: '#faf5ff', fg: '#6b21a8', border: '#e9d5ff', label: 'N' };
+      if (name.includes('afternoon')) return { bg: '#fef9c3', fg: '#854d0e', border: '#fef08a', label: 'A' };
+      return { bg: '#f1f5f9', fg: '#475569', border: '#e2e8f0', label: shiftName.charAt(0).toUpperCase() };
+    };
 
     return (
       <div
         key={seat.id}
         id={`seat-${seat.id}`}
-        className={`seat-tile ${seatClass}`}
+        className={`seat-tile ${seatClass} seat-container-hover`}
         onClick={(e) => {
           if (activeRoomEditingId !== null) {
             e.stopPropagation();
@@ -1979,51 +2253,121 @@ export default function Seats() {
             }}
           />
         ) : (
-          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', zIndex: 1 }}>
+          <span style={{
+            position: 'absolute',
+            top: '4px',
+            right: '6px',
+            fontSize: '0.625rem',
+            fontWeight: 800,
+            color: 'var(--text-slate)',
+            opacity: 0.85,
+            zIndex: 2
+          }}>
             {seat.number}
           </span>
         )}
 
         {/* Occupant/Status indicator */}
-        {isOccupied && activeAllocation ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, marginTop: '4px' }}>
-            <span style={{
-              fontSize: '0.55rem',
-              fontWeight: 600,
-              color: 'var(--text-slate)',
-              maxWidth: '68px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}>
-              {activeAllocation.studentProfile?.user?.name?.split(' ')[0]}
-            </span>
+        {isOccupied ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            width: '100%',
+            paddingLeft: '8px',
+            paddingRight: '8px',
+            marginTop: '12px',
+            gap: '2px',
+            overflow: 'hidden',
+            zIndex: 1
+          }}>
+            {currentAllocations.map((alloc: any) => {
+              const badge = getShiftBadgeStyle(alloc.shift?.name || '');
+              return (
+                <div
+                  key={alloc.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    gap: '2px',
+                    lineHeight: '1.2'
+                  }}
+                  title={`${alloc.studentProfile?.user?.name} (${alloc.shift?.name})`}
+                >
+                  <span style={{
+                    fontSize: '0.52rem',
+                    fontWeight: 700,
+                    color: 'var(--text-navy)',
+                    maxWidth: '46px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {alloc.studentProfile?.user?.name?.split(' ')[0]}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.45rem',
+                      fontWeight: 800,
+                      backgroundColor: badge.bg,
+                      color: badge.fg,
+                      border: `1px solid ${badge.border}`,
+                      padding: '0px 3px',
+                      borderRadius: '4px',
+                      lineHeight: '1',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '10px',
+                      height: '10px',
+                      flexShrink: 0
+                    }}
+                  >
+                    {badge.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : isExpired ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, marginTop: '8px', gap: '2px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+              <span className="seat-dot available" style={{ width: '4px', height: '4px' }} />
+              <span style={{ fontSize: '0.48rem', fontWeight: 700, color: 'var(--status-emerald)' }}>FREE</span>
+            </div>
           </div>
         ) : seat.status === 'BLOCKED' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, marginTop: '4px', gap: '2px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, marginTop: '8px', gap: '2px' }}>
             <Wrench size={10} style={{ color: 'var(--status-amber)' }} />
             <span style={{ fontSize: '0.525rem', fontWeight: 700, color: 'var(--status-amber)' }}>MAINT</span>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, marginTop: '4px', gap: '2px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, marginTop: '8px', gap: '2px' }}>
             <span className="seat-dot available" />
             <span style={{ fontSize: '0.525rem', fontWeight: 600, color: 'var(--status-emerald)' }}>FREE</span>
           </div>
         )}
 
-        {/* Expiration badge */}
-        {isExpiringSoon && (
-          <span className={`expiring-badge ${isCritical ? 'critical' : 'warning'}`}>
-            {daysLeft}d
-          </span>
-        )}
-
-        <div className="custom-tooltip">
-          {isOccupied && activeAllocation ? (
-            <>
-              <strong>{activeAllocation.studentProfile?.user?.name}</strong>
-              <span>Ends: {formattedEnd}</span>
-            </>
+        <div className="custom-tooltip" style={{ minWidth: 'auto', width: 'max-content', padding: '5px 8px', borderRadius: '8px' }}>
+          {activeAllocations.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+              <strong style={{ fontSize: '0.725rem', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '2px', marginBottom: '1px', display: 'block' }}>Occupants ({activeAllocations.length})</strong>
+              {activeAllocations.map((alloc: any) => {
+                const formattedEnd = alloc.endDate 
+                  ? new Date(alloc.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
+                  : 'N/A';
+                return (
+                  <div key={alloc.id} style={{ display: 'flex', flexDirection: 'column', fontSize: '0.75rem', lineHeight: '1.2' }}>
+                    <span style={{ fontWeight: 700 }}>{alloc.studentProfile?.user?.name}</span>
+                    <span style={{ opacity: 0.8, fontSize: '0.65rem' }}>Shift: {alloc.shift?.name}</span>
+                    <span style={{ opacity: 0.8, fontSize: '0.65rem' }}>Ends: {formattedEnd}</span>
+                  </div>
+                );
+              })}
+            </div>
           ) : seat.status === 'BLOCKED' ? (
             <strong>Maintenance</strong>
           ) : (
@@ -2031,6 +2375,189 @@ export default function Seats() {
           )}
         </div>
       </div>
+    );
+  };
+
+  const renderAssignForm = () => {
+    const activeAllocations = selectedSeat?.allocations?.filter((a: any) => a.isActive) || [];
+
+    return (
+      <form onSubmit={handleAllocate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
+          <Sparkles size={16} />
+          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Assign Student Seat</h4>
+        </div>
+
+        {/* Shared Seat Warning Alert */}
+        {activeAllocations.length > 0 && (
+          <div style={{ padding: '10px 12px', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b45309', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              ⚠️ Shared Seat Warning
+            </span>
+            <span style={{ fontSize: '0.675rem', color: '#b45309', lineHeight: '1.3' }}>
+              This seat is already occupied during:
+              <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                {activeAllocations.map((alloc: any) => (
+                  <li key={alloc.id}>
+                    <strong>{alloc.shift?.name}</strong>: {alloc.studentProfile?.user?.name}
+                  </li>
+                ))}
+              </ul>
+            </span>
+          </div>
+        )}
+
+        {/* Student autocomplete search */}
+        <div style={{ position: 'relative' }}>
+          <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Search Student</label>
+          <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: '12px', padding: '4px 12px', border: isSearchFocused ? '1px solid var(--accent-blue)' : '1px solid transparent', transition: 'all 150ms ease' }}>
+            <Search size={16} style={{ color: '#94a3b8', marginRight: '6px' }} />
+            <input
+              type="text"
+              placeholder="Name, email, phone..."
+              value={studentSearchQuery}
+              onChange={(e) => {
+                setStudentSearchQuery(e.target.value);
+                setShowStudentDropdown(true);
+                if (studentProfileId) setStudentProfileId('');
+              }}
+              onFocus={() => { setShowStudentDropdown(true); setIsSearchFocused(true); }}
+              onBlur={() => { setIsSearchFocused(false); setTimeout(() => setShowStudentDropdown(false), 250); }}
+              style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', padding: '6px 0', fontSize: '0.85rem', color: 'var(--text-navy)' }}
+            />
+          </div>
+
+          {showStudentDropdown && displayedStudents.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '12px', boxShadow: 'var(--shadow-hover)', zIndex: 1000, marginTop: '4px', maxHeight: '180px', overflowY: 'auto' }}>
+              {displayedStudents.map((st: any) => (
+                <div
+                  key={st.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setStudentProfileId(st.id);
+                    setStudentSearchQuery(st.user?.name || '');
+                    setShowStudentDropdown(false);
+                  }}
+                  style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', borderBottom: '1px solid #f1f5f9' }}
+                >
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{st.user?.name}</span>
+                  <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{st.user?.email || 'No email'} • {st.user?.mobile || 'No mobile'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Shift select */}
+        <div>
+          <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Shift Schedule</label>
+          {shifts && (
+            <Select
+              value={shiftId}
+              onChange={(val) => setShiftId(val)}
+              placeholder="Select schedule shift"
+              options={shifts.map((s: any) => ({
+                value: s.id,
+                label: `${s.name} (${s.startTime} - ${s.endTime})`,
+              }))}
+            />
+          )}
+        </div>
+
+        {/* Duration mode */}
+        <div>
+          <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Duration</label>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Select
+              value={typeof durationMode === 'number' ? durationMode : ''}
+              onChange={(val) => setDurationMode(Number(val))}
+              placeholder="Months"
+              style={{ flex: 1 }}
+              options={[
+                { value: 1, label: '1 Month' },
+                { value: 2, label: '2 Months' },
+                { value: 3, label: '3 Months' },
+                { value: 6, label: '6 Months' }
+              ]}
+            />
+            <button
+              type="button"
+              onClick={() => setDurationMode('flex')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '12px',
+                border: durationMode === 'flex' ? '2px solid var(--accent-blue)' : '1px solid rgba(15, 23, 42, 0.05)',
+                backgroundColor: durationMode === 'flex' ? 'var(--accent-blue)' : '#ffffff',
+                color: durationMode === 'flex' ? '#ffffff' : 'var(--text-navy)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 150ms ease'
+              }}
+            >
+              Flex Dates
+            </button>
+          </div>
+        </div>
+
+        {/* Dates Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <div>
+            <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Start Date</label>
+            <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>End Date</label>
+            <input type="date" required disabled={durationMode !== 'flex'} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: durationMode !== 'flex' ? '#f1f5f9' : '#ffffff', cursor: durationMode !== 'flex' ? 'not-allowed' : 'text' }} />
+          </div>
+        </div>
+
+        {/* Generate Fee Invoice checkbox toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0' }}>
+          <input
+            type="checkbox"
+            id="generate-invoice-drawer"
+            checked={shouldGenerateInvoice}
+            onChange={(e) => setShouldGenerateInvoice(e.target.checked)}
+            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+          />
+          <label htmlFor="generate-invoice-drawer" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)', cursor: 'pointer' }}>
+            Generate invoice & fee receipt
+          </label>
+        </div>
+
+        {/* Invoicing details fields */}
+        {shouldGenerateInvoice && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px dashed rgba(15, 23, 42, 0.05)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div>
+                <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Amount (₹)</label>
+                <input type="number" required={shouldGenerateInvoice} placeholder="e.g. 1500" value={invoiceAmount} onChange={(e) => setInvoiceAmount(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', width: '100%', outline: 'none' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Method</label>
+                <Select
+                  value={paymentMethod}
+                  onChange={(val: any) => setPaymentMethod(val)}
+                  placeholder="Select channel"
+                  options={[
+                    { value: 'CASH', label: 'Cash' },
+                    { value: 'UPI', label: 'UPI' },
+                    { value: 'RAZORPAY', label: 'Online' }
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Submit / Cancel actions */}
+        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+          <Button type="submit" variant="primary" style={{ flex: 1, backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }} disabled={!studentProfileId || !shiftId || !startDate || !endDate || (shouldGenerateInvoice && !invoiceAmount)} isLoading={isAllocating || isCreatingPayment}>
+            Assign Student
+          </Button>
+        </div>
+      </form>
     );
   };
 
@@ -2387,7 +2914,10 @@ export default function Seats() {
             const isExpanded = !collapsedRooms[room.id];
             
             const total = room.seats?.length || 0;
-            const occupied = room.seats?.filter((s: any) => s.status === 'OCCUPIED').length || 0;
+            const occupied = room.seats?.filter((s: any) => {
+              const { isOccupied } = getSeatStatusInfo(s);
+              return isOccupied;
+            }).length || 0;
             const percent = total > 0 ? Math.round((occupied / total) * 100) : 0;
 
             return (
@@ -3169,186 +3699,61 @@ export default function Seats() {
           <div>
             <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               Seat {selectedSeat?.number}
-              {selectedSeat && (
-                <span className={`status-pill ${selectedSeat.status.toLowerCase()}`}>
-                  {selectedSeat.status === 'BLOCKED' ? 'Maintenance' : selectedSeat.status.charAt(0) + selectedSeat.status.slice(1).toLowerCase()}
-                </span>
-              )}
+              {selectedSeat && (() => {
+                const { isExpired } = getSeatStatusInfo(selectedSeat);
+                return (
+                  <span 
+                    className={`status-pill ${isExpired ? 'expired' : selectedSeat.status.toLowerCase()}`}
+                    style={isExpired ? { backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-red)' } : undefined}
+                  >
+                    {selectedSeat.status === 'BLOCKED' ? 'Maintenance' : isExpired ? 'Expired' : selectedSeat.status.charAt(0) + selectedSeat.status.slice(1).toLowerCase()}
+                  </span>
+                );
+              })()}
             </h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Branch: {branches?.find((b: any) => b.id === selectedBranch)?.name} • Floor: {currentFloor?.name}</span>
           </div>
-          <button 
-            onClick={() => setIsDrawerOpen(false)}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-slate)', padding: '4px' }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {selectedSeat && selectedSeat.status !== 'BLOCKED' && (
+              <button
+                type="button"
+                onClick={handleOpenAllocateModal}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: 'var(--accent-blue)',
+                  color: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: 'var(--shadow-soft)',
+                  transition: 'opacity 150ms ease'
+                }}
+              >
+                <Plus size={14} />
+                <span>Add Student</span>
+              </button>
+            )}
+            <button 
+              onClick={() => setIsDrawerOpen(false)}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-slate)', padding: '4px' }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Drawer Body content depends on Status */}
         <div className="drawer-body">
           {selectedSeat?.status === 'AVAILABLE' && (
-            <form onSubmit={handleAllocate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
-                <Sparkles size={16} />
-                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Assign Student Seat</h4>
-              </div>
-
-              {/* Student autocomplete search */}
-              <div style={{ position: 'relative' }}>
-                <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Search Student</label>
-                <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: '12px', padding: '4px 12px', border: isSearchFocused ? '1px solid var(--accent-blue)' : '1px solid transparent', transition: 'all 150ms ease' }}>
-                  <Search size={16} style={{ color: '#94a3b8', marginRight: '6px' }} />
-                  <input
-                    type="text"
-                    placeholder="Name, email, phone..."
-                    value={studentSearchQuery}
-                    onChange={(e) => {
-                      setStudentSearchQuery(e.target.value);
-                      setShowStudentDropdown(true);
-                      if (studentProfileId) setStudentProfileId('');
-                    }}
-                    onFocus={() => { setShowStudentDropdown(true); setIsSearchFocused(true); }}
-                    onBlur={() => { setIsSearchFocused(false); setTimeout(() => setShowStudentDropdown(false), 250); }}
-                    style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', padding: '6px 0', fontSize: '0.85rem', color: 'var(--text-navy)' }}
-                  />
-                </div>
-
-                {showStudentDropdown && displayedStudents.length > 0 && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '12px', boxShadow: 'var(--shadow-hover)', zIndex: 1000, marginTop: '4px', maxHeight: '180px', overflowY: 'auto' }}>
-                    {displayedStudents.map((st: any) => (
-                      <div
-                        key={st.id}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setStudentProfileId(st.id);
-                          setStudentSearchQuery(st.user?.name || '');
-                          setShowStudentDropdown(false);
-                        }}
-                        style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', borderBottom: '1px solid #f1f5f9' }}
-                      >
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{st.user?.name}</span>
-                        <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{st.user?.email || 'No email'} • {st.user?.mobile || 'No mobile'}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Shift select */}
-              <div>
-                <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Shift Schedule</label>
-                {shifts && (
-                  <Select
-                    value={shiftId}
-                    onChange={(val) => setShiftId(val)}
-                    placeholder="Select schedule shift"
-                    options={shifts.map((s: any) => ({
-                      value: s.id,
-                      label: `${s.name} (${s.startTime} - ${s.endTime})`,
-                    }))}
-                  />
-                )}
-              </div>
-
-              {/* Duration mode */}
-              <div>
-                <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Duration</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <Select
-                    value={typeof durationMode === 'number' ? durationMode : ''}
-                    onChange={(val) => setDurationMode(Number(val))}
-                    placeholder="Months"
-                    style={{ flex: 1 }}
-                    options={[
-                      { value: 1, label: '1 Month' },
-                      { value: 2, label: '2 Months' },
-                      { value: 3, label: '3 Months' },
-                      { value: 6, label: '6 Months' }
-                    ]}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setDurationMode('flex')}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: '12px',
-                      border: durationMode === 'flex' ? '2px solid var(--accent-blue)' : '1px solid rgba(15, 23, 42, 0.05)',
-                      backgroundColor: durationMode === 'flex' ? 'var(--accent-blue)' : '#ffffff',
-                      color: durationMode === 'flex' ? '#ffffff' : 'var(--text-navy)',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 150ms ease'
-                    }}
-                  >
-                    Flex Dates
-                  </button>
-                </div>
-              </div>
-
-              {/* Dates Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Start Date</label>
-                  <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>End Date</label>
-                  <input type="date" required disabled={durationMode !== 'flex'} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: durationMode !== 'flex' ? '#f1f5f9' : '#ffffff', cursor: durationMode !== 'flex' ? 'not-allowed' : 'text' }} />
-                </div>
-              </div>
-
-              {/* Generate Fee Invoice checkbox toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0' }}>
-                <input
-                  type="checkbox"
-                  id="generate-invoice-drawer"
-                  checked={shouldGenerateInvoice}
-                  onChange={(e) => setShouldGenerateInvoice(e.target.checked)}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <label htmlFor="generate-invoice-drawer" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)', cursor: 'pointer' }}>
-                  Generate invoice & fee receipt
-                </label>
-              </div>
-
-              {/* Invoicing details fields */}
-              {shouldGenerateInvoice && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px dashed rgba(15, 23, 42, 0.05)' }}>
-
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <div>
-                      <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Amount (₹)</label>
-                      <input type="number" required={shouldGenerateInvoice} placeholder="e.g. 1500" value={invoiceAmount} onChange={(e) => setInvoiceAmount(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', width: '100%', outline: 'none' }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Method</label>
-                      <Select
-                        value={paymentMethod}
-                        onChange={(val: any) => setPaymentMethod(val)}
-                        placeholder="Select channel"
-                        options={[
-                          { value: 'CASH', label: 'Cash' },
-                          { value: 'UPI', label: 'UPI' },
-                          { value: 'RAZORPAY', label: 'Online' }
-                        ]}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Submit / Cancel actions */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <Button type="submit" variant="primary" style={{ flex: 1, backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }} disabled={!studentProfileId || !shiftId || !startDate || !endDate || (shouldGenerateInvoice && !invoiceAmount)} isLoading={isAllocating || isCreatingPayment}>
-                  Assign Student
-                </Button>
-              </div>
-
+            <>
+              {renderAssignForm()}
               {/* Delete Seat / Mark Maintenance actions */}
-              <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-card)', paddingTop: '12px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-card)', paddingTop: '12px', marginTop: '16px' }}>
                 <button
                   type="button"
                   onClick={() => handleDeleteSeat(selectedSeat?.id)}
@@ -3372,13 +3777,14 @@ export default function Seats() {
                   Block Seat
                 </button>
               </div>
-            </form>
+            </>
           )}
 
           {selectedSeat?.status === 'OCCUPIED' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {(() => {
-                const activeAllocation = selectedSeat.allocations?.find((a: any) => a.isActive);
+                const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
+                const activeAllocation = activeAllocations.find((a: any) => a.id === selectedAllocationId) || activeAllocations[0];
                 if (!activeAllocation) return <p style={{ fontSize: '0.8rem', color: 'var(--text-slate)' }}>Error: Active allocation details not found.</p>;
                 
                 const nameInit = activeAllocation.studentProfile?.user?.name?.charAt(0).toUpperCase() || 'S';
@@ -3388,6 +3794,43 @@ export default function Seats() {
 
                 return (
                   <>
+                    {/* Multi-occupant Selector Tabs at Top */}
+                    {activeAllocations.length > 1 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderBottom: '1px solid rgba(15,23,42,0.05)', paddingBottom: '12px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Current Occupants</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {activeAllocations.map((alloc: any) => {
+                            const isCurrent = alloc.id === activeAllocation.id;
+                            return (
+                              <div
+                                key={alloc.id}
+                                onClick={() => setSelectedAllocationId(alloc.id)}
+                                style={{
+                                  padding: '8px 12px',
+                                  borderRadius: '10px',
+                                  border: isCurrent ? '1.5px solid var(--accent-blue)' : '1px solid rgba(15,23,42,0.08)',
+                                  backgroundColor: isCurrent ? '#f0fdf4' : '#ffffff',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  transition: 'all 150ms ease'
+                                }}
+                              >
+                                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-navy)' }}>{alloc.studentProfile?.user?.name}</span>
+                                  <span style={{ fontSize: '0.65rem', color: 'var(--text-slate)' }}>Shift: {alloc.shift?.name}</span>
+                                </div>
+                                <span style={{ fontSize: '0.6rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: isCurrent ? 'var(--accent-blue)' : '#f1f5f9', color: isCurrent ? '#ffffff' : 'var(--text-slate)', fontWeight: 600 }}>
+                                  {isCurrent ? 'Viewing' : 'Select'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Drawer sub-tab selectors */}
                     <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
                       {['DETAILS', 'TRANSFER', 'RENEW'].map((tab: any) => (
@@ -3515,6 +3958,10 @@ export default function Seats() {
                             </form>
                           ) : (
                             <div style={{ background: '#ffffff', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #f1f5f9', paddingBottom: '4px', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Shift Batch:</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-blue)' }}>{activeAllocation.shift?.name}</span>
+                              </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Start date:</span>
                                 <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>{new Date(activeAllocation.startDate).toLocaleDateString()}</span>
@@ -3606,6 +4053,20 @@ export default function Seats() {
                           />
                         </div>
 
+                        <div>
+                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Plan Duration</label>
+                          <Select
+                            value={renewDuration}
+                            onChange={(val: any) => setRenewDuration(Number(val))}
+                            placeholder="Select Duration"
+                            options={[
+                              { value: 1, label: '1 Month' },
+                              { value: 3, label: '3 Months (Discounted)' },
+                              { value: 6, label: '6 Months (Discounted)' },
+                            ]}
+                          />
+                        </div>
+
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                           <div>
                             <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Start Date</label>
@@ -3641,6 +4102,12 @@ export default function Seats() {
                           Confirm Renewal
                         </Button>
                       </form>
+                    )}
+
+                    {drawerActiveSection === 'ASSIGN' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        {renderAssignForm()}
+                      </div>
                     )}
                   </>
                 );
@@ -4215,6 +4682,250 @@ export default function Seats() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Allocate Seat Modal (Popup) */}
+      <Modal
+        isOpen={openAllocateModal}
+        onClose={() => setOpenAllocateModal(false)}
+        title={`Allocate Seat ${selectedSeat?.number}`}
+        maxWidth="lg"
+      >
+        {selectedSeat && (() => {
+          const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
+          const bookedShiftIds = activeAllocations.map((a: any) => a.shiftId || a.shift?.id);
+          const availableShifts = shifts?.filter((s: any) => !bookedShiftIds.includes(s.id)) || [];
+
+          return (
+            <form onSubmit={handleAllocate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
+                <Sparkles size={16} />
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Assign Student to Seat</h4>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
+                {/* Left Column: Student & Shift */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Shared Seat Info / Warning */}
+                  {activeAllocations.length > 0 && (
+                    <div style={{ padding: '10px 12px', backgroundColor: '#eff6ff', border: '1px solid #dbeafe', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        ℹ️ Shared Seat Allocation
+                      </span>
+                      <span style={{ fontSize: '0.675rem', color: 'var(--text-navy)', lineHeight: '1.3' }}>
+                        This seat is already occupied by:
+                        <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                          {activeAllocations.map((alloc: any) => (
+                            <li key={alloc.id}>
+                              <strong>{alloc.shift?.name}</strong>: {alloc.studentProfile?.user?.name}
+                            </li>
+                          ))}
+                        </ul>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Student Search */}
+                  <div style={{ position: 'relative' }}>
+                    <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Search Student</label>
+                    <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: '12px', padding: '4px 12px', border: isSearchFocused ? '1px solid var(--accent-blue)' : '1px solid transparent', transition: 'all 150ms ease' }}>
+                      <Search size={16} style={{ color: '#94a3b8', marginRight: '6px' }} />
+                      <input
+                        type="text"
+                        placeholder="Name, email, phone..."
+                        value={studentSearchQuery}
+                        onChange={(e) => {
+                          setStudentSearchQuery(e.target.value);
+                          setShowStudentDropdown(true);
+                          if (studentProfileId) setStudentProfileId('');
+                        }}
+                        onFocus={() => { setShowStudentDropdown(true); setIsSearchFocused(true); }}
+                        onBlur={() => { setIsSearchFocused(false); setTimeout(() => setShowStudentDropdown(false), 250); }}
+                        style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', padding: '6px 0', fontSize: '0.85rem', color: 'var(--text-navy)' }}
+                      />
+                    </div>
+
+                    {showStudentDropdown && displayedStudents.length > 0 && (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '12px', boxShadow: 'var(--shadow-hover)', zIndex: 1000, marginTop: '4px', maxHeight: '180px', overflowY: 'auto' }}>
+                        {displayedStudents.map((st: any) => (
+                          <div
+                            key={st.id}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setStudentProfileId(st.id);
+                              setStudentSearchQuery(st.user?.name || '');
+                              setShowStudentDropdown(false);
+                            }}
+                            style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', borderBottom: '1px solid #f1f5f9' }}
+                          >
+                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{st.user?.name}</span>
+                            <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{st.user?.email || 'No email'} • {st.user?.mobile || 'No mobile'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Shift Schedule Selection (Excludes booked shifts) */}
+                  <div>
+                    <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Shift Schedule</label>
+                    {availableShifts.length > 0 ? (
+                      <Select
+                        value={shiftId}
+                        onChange={(val) => setShiftId(val)}
+                        placeholder="Select schedule shift"
+                        options={availableShifts.map((s: any) => ({
+                          value: s.id,
+                          label: `${s.name} (${s.startTime} - ${s.endTime})`,
+                        }))}
+                      />
+                    ) : (
+                      <div style={{ padding: '8px 12px', backgroundColor: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '12px', fontSize: '0.75rem', color: 'var(--status-red)', fontWeight: 600 }}>
+                        All shifts are already occupied for this seat.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Start Date */}
+                  <div>
+                    <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Start Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none' }}
+                    />
+                  </div>
+
+                  {/* Duration mode */}
+                  <div>
+                    <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Duration</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <Select
+                        value={typeof durationMode === 'number' ? durationMode : ''}
+                        onChange={(val) => setDurationMode(Number(val))}
+                        placeholder="Months"
+                        style={{ flex: 1 }}
+                        options={[
+                          { value: 1, label: '1 Month' },
+                          { value: 2, label: '2 Months' },
+                          { value: 3, label: '3 Months' },
+                          { value: 6, label: '6 Months' }
+                        ]}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setDurationMode('flex')}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '12px',
+                          border: durationMode === 'flex' ? '2px solid var(--accent-blue)' : '1px solid rgba(15, 23, 42, 0.05)',
+                          backgroundColor: durationMode === 'flex' ? 'var(--accent-blue)' : '#ffffff',
+                          color: durationMode === 'flex' ? '#ffffff' : 'var(--text-navy)',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 150ms ease'
+                        }}
+                      >
+                        Flex Dates
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* End Date (flex mode) */}
+                  {durationMode === 'flex' && (
+                    <div>
+                      <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>End Date</label>
+                      <input
+                        type="date"
+                        required
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none' }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column: Invoicing & Payment */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Generate Invoice Checkbox */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--border-card)', marginBottom: '4px' }}>
+                    <input
+                      type="checkbox"
+                      id="modal-generate-invoice"
+                      checked={shouldGenerateInvoice}
+                      onChange={(e) => setShouldGenerateInvoice(e.target.checked)}
+                      style={{ width: '18px', height: '18px', borderRadius: '4px', accentColor: 'var(--accent-blue)', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="modal-generate-invoice" style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-navy)', cursor: 'pointer' }}>
+                      Generate Invoice & Collect Payment
+                    </label>
+                  </div>
+
+                  {/* Invoice settings */}
+                  {shouldGenerateInvoice ? (
+                    <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '16px', border: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', borderBottom: '1px dashed var(--border-card)', paddingBottom: '8px' }}>
+                        <span style={{ color: 'var(--text-slate)', fontWeight: 600 }}>Standard Plan Price:</span>
+                        <strong style={{ color: 'var(--text-navy)', fontSize: '0.9rem' }}>₹{calculatedBaseAmount}</strong>
+                      </div>
+                      <div>
+                        <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Payment Method</label>
+                        <Select
+                          value={paymentMethod}
+                          onChange={(val: any) => setPaymentMethod(val)}
+                          options={[
+                            { value: 'CASH', label: 'Cash' },
+                            { value: 'UPI', label: 'UPI / NetBanking' },
+                            { value: 'RAZORPAY', label: 'Razorpay Online' }
+                          ]}
+                        />
+                      </div>
+                      <div>
+                        <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Collect Amount (₹)</label>
+                        <input
+                          type="number"
+                          required
+                          value={invoiceAmount}
+                          onChange={(e) => setInvoiceAmount(e.target.value)}
+                          style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: '#ffffff' }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '16px', border: '1px dashed var(--border-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '140px' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', textAlign: 'center' }}>
+                        No invoice will be generated. The student will be allocated to the seat directly without any billing records.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Form Buttons */}
+              <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-card)', paddingTop: '12px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setOpenAllocateModal(false)}
+                  style={{ flex: 1, padding: '10px', background: 'none', border: '1px solid var(--border-card)', color: 'var(--text-slate)', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={!studentProfileId || !shiftId || (shouldGenerateInvoice && !invoiceAmount)}
+                  style={{ flex: 1, backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }}
+                >
+                  Allocate Seat
+                </Button>
+              </div>
+            </form>
+          );
+        })()}
       </Modal>
 
       {/* Invoice Receipt Modal */}

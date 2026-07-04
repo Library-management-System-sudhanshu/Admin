@@ -251,7 +251,7 @@ export default function Students() {
     const confirmVacate = window.confirm("Are you sure you want to vacate this seat?");
     if (!confirmVacate) return;
     try {
-      await vacateSeat(seatId).unwrap();
+      await vacateSeat({ id: seatId, studentProfileId: fullStudent?.profile?.id }).unwrap();
       showToast('Seat vacated successfully!', 'success');
     } catch (err: any) {
       showToast(err.data?.message || 'Failed to vacate seat', 'error');

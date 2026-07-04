@@ -136,10 +136,15 @@ export const api = createApi({
       invalidatesTags: ['Seats', 'Students', 'Metrics'],
     }),
     vacateSeat: builder.mutation({
-      query: (id) => ({
-        url: `seats/${id}/vacate`,
-        method: 'POST',
-      }),
+      query: (arg) => {
+        const id = typeof arg === 'string' ? arg : arg.id;
+        const studentProfileId = typeof arg === 'object' ? arg.studentProfileId : undefined;
+        return {
+          url: `seats/${id}/vacate`,
+          method: 'POST',
+          body: studentProfileId ? { studentProfileId } : undefined,
+        };
+      },
       invalidatesTags: ['Seats', 'Students', 'Metrics'],
     }),
     updateSeatStatus: builder.mutation({
