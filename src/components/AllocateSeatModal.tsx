@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store';
 import { useAllocateSeatMutation, useCreatePaymentMutation, useGetStudentsQuery, useVerifyRazorpayMutation } from '../store/api';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
@@ -28,6 +30,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   seatMap,
   onSuccess,
 }) => {
+  const { user } = useSelector((state: RootState) => state.auth);
   const { showToast } = useToast();
   const { data: studentsData } = useGetStudentsQuery(undefined);
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
@@ -220,7 +223,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
             key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_T9hh97PsK4bGuG',
             amount: paymentResult.razorpayOrder.amount,
             currency: paymentResult.razorpayOrder.currency,
-            name: 'StudyFlow',
+            name: user?.workspace?.name || 'N/A',
             description: `Seat ${selectedSeat.number} Allocation`,
             order_id: paymentResult.razorpayOrder.id,
             handler: async function (response: any) {

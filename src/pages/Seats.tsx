@@ -1953,7 +1953,7 @@ export default function Seats() {
           key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_T9hh97PsK4bGuG',
           amount: paymentResult.razorpayOrder.amount,
           currency: paymentResult.razorpayOrder.currency,
-          name: 'StudyFlow',
+          name: user?.workspace?.name || 'N/A',
           description: `Seat ${selectedSeat.number} Renewal`,
           order_id: paymentResult.razorpayOrder.id,
           handler: async function (response: any) {

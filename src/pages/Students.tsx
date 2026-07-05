@@ -756,7 +756,7 @@ export default function Students() {
             >
               {/* Card Header */}
               <div style={{ backgroundColor: 'var(--primary)', padding: '1rem', textAlign: 'center', color: '#ffffff' }}>
-                <h3 style={{ margin: 0, fontWeight: 700, fontSize: '1.125rem' }}>STUDYFLOW HALL</h3>
+                <h3 style={{ margin: 0, fontWeight: 700, fontSize: '1.125rem' }}>{user?.workspace?.name?.toUpperCase() || 'N/A'}</h3>
                 <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Digital Student Badge</span>
               </div>
 

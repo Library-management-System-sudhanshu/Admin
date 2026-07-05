@@ -60,8 +60,8 @@ export default function NewAdmission() {
     
     switch (field) {
       case 'name':
-        if (!/^[a-zA-Z\s]*$/.test(value)) {
-          errorMsg = 'Name must contain only letters';
+        if (!/^[a-zA-Z0-9\s\.\-]*$/.test(value)) {
+          errorMsg = 'Name can contain only letters, numbers, spaces, dots, and hyphens';
         } else if (value.trim().length > 0 && value.trim().length < 2) {
           errorMsg = 'Name must be at least 2 characters';
         } else if (value.trim().length > 50) {
@@ -87,8 +87,8 @@ export default function NewAdmission() {
         }
         break;
       case 'guardianName':
-        if (!/^[a-zA-Z\s]*$/.test(value)) {
-          errorMsg = 'Guardian name must contain only letters';
+        if (!/^[a-zA-Z0-9\s\.\-]*$/.test(value)) {
+          errorMsg = 'Guardian name can contain only letters, numbers, spaces, dots, and hyphens';
         } else if (value.trim().length > 0 && value.trim().length < 2) {
           errorMsg = 'Guardian name must be at least 2 characters';
         }
@@ -127,8 +127,8 @@ export default function NewAdmission() {
     if (!mobile.trim()) newErrors.mobile = 'Mobile number is required';
     if (!branchId) newErrors.branchId = 'Target branch is required';
 
-    if (name.trim() && !/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
-      newErrors.name = 'Name must contain only letters (2-50 chars)';
+    if (name.trim() && !/^[a-zA-Z0-9\s\.\-]{2,50}$/.test(name.trim())) {
+      newErrors.name = 'Name must be 2-50 characters';
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -144,8 +144,8 @@ export default function NewAdmission() {
       newErrors.password = 'Password must be at least 6 characters';
     }
     
-    if (guardianName.trim() && !/^[a-zA-Z\s]{2,50}$/.test(guardianName.trim())) {
-      newErrors.guardianName = 'Guardian name must contain only letters';
+    if (guardianName.trim() && !/^[a-zA-Z0-9\s\.\-]{2,50}$/.test(guardianName.trim())) {
+      newErrors.guardianName = 'Guardian name must be 2-50 characters';
     }
     
     if (guardianMobile.trim() && !/^\d{10}$/.test(guardianMobile.trim())) {

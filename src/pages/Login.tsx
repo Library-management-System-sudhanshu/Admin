@@ -53,8 +53,8 @@ export default function Login() {
     let errorMsg = '';
     switch (field) {
       case 'name':
-        if (!/^[a-zA-Z\s]*$/.test(value)) {
-          errorMsg = 'Name must contain only letters';
+        if (!/^[a-zA-Z0-9\s\.\-]*$/.test(value)) {
+          errorMsg = 'Name can contain only letters, numbers, spaces, dots, and hyphens';
         } else if (value.trim().length > 0 && value.trim().length < 2) {
           errorMsg = 'Name must be at least 2 characters';
         } else if (value.trim().length > 50) {
@@ -101,8 +101,8 @@ export default function Login() {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) {
       newErrors.name = 'Name is required';
-    } else if (!/^[a-zA-Z\s]{2,50}$/.test(name.trim())) {
-      newErrors.name = 'Name must be 2-50 characters and contain only letters';
+    } else if (!/^[a-zA-Z0-9\s\.\-]{2,50}$/.test(name.trim())) {
+      newErrors.name = 'Name must be 2-50 characters';
     }
 
     if (!workspaceName.trim()) {
@@ -169,7 +169,7 @@ export default function Login() {
       <Card elevation="lg" style={{ width: '100%', maxWidth: '450px', margin: '2rem' }}>
         <div className="card-content">
           <h1 className="text-center" style={{ color: 'var(--primary)', marginBottom: '0.25rem', fontWeight: 700, fontSize: '1.75rem' }}>
-            SRi Ram Digital Library
+            {tab === 0 ? 'Trishul Study Hall' : 'Trishul Study Hall Registration'}
           </h1>
           <p className="text-center text-muted" style={{ marginBottom: '2rem' }}>
             Study Hall Management System
