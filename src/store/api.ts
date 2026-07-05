@@ -1,17 +1,32 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { logout } from './authSlice';
+
+const baseQuery = fetchBaseQuery({
+  baseUrl: '/api',
+  prepareHeaders: (headers, { getState }) => {
+    const token = (getState() as any).auth.token;
+    if (token) {
+      headers.set('authorization', `Bearer ${token}`);
+    }
+    return headers;
+  },
+});
+
+const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
+  let result = await baseQuery(args, api, extraOptions);
+  if (result.error && result.error.status === 401) {
+    const errorData = result.error.data as any;
+    if (errorData?.message === 'Token has expired') {
+      api.dispatch(logout());
+      window.location.href = '/login?expired=true';
+    }
+  }
+  return result;
+};
 
 export const api = createApi({
   reducerPath: 'api',
-  baseQuery: fetchBaseQuery({
-    baseUrl: '/api',
-    prepareHeaders: (headers, { getState }) => {
-      const token = (getState() as any).auth.token;
-      if (token) {
-        headers.set('authorization', `Bearer ${token}`);
-      }
-      return headers;
-    },
-  }),
+  baseQuery: baseQueryWithReauth,
   tagTypes: [
     'Metrics',
     'Students',
@@ -253,6 +268,14 @@ export const api = createApi({
       }),
       invalidatesTags: ['Payments', 'Metrics'],
     }),
+    verifyRazorpay: builder.mutation({
+      query: ({ id, ...data }) => ({
+        url: `payments/${id}/verify`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Payments', 'Seats', 'Students', 'Metrics'],
+    }),
 
     // Library
     getBooks: builder.query({
@@ -440,6 +463,7 @@ export const {
   useGetCollectionReportQuery,
   useCreatePaymentMutation,
   useRecordManualPaymentMutation,
+  useVerifyRazorpayMutation,
   useGetBooksQuery,
   useCreateBookMutation,
   useIssueBookMutation,

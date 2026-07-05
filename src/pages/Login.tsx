@@ -1,19 +1,30 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useLoginMutation, useRegisterTenantMutation } from '../store/api';
 import { setCredentials } from '../store/authSlice';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { useToast } from '../components/ui/ToastContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
+  const { showToast } = useToast();
   const [tab, setTab] = useState(0); // 0 = Login, 1 = Register
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('expired') === 'true') {
+      showToast('Session expired. Please log in again.', 'error');
+      navigate('/login', { replace: true });
+    }
+  }, [location.search, showToast, navigate]);
 
   // Register Fields
   const [name, setName] = useState('');

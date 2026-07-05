@@ -21,6 +21,7 @@ import {
   useUpdateFloorMutation,
   useUpdateRoomMutation,
   useCreatePaymentMutation,
+  useVerifyRazorpayMutation,
 } from '../store/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -28,6 +29,7 @@ import { Modal } from '../components/ui/Modal';
 import { AllocateSeatModal } from '../components/AllocateSeatModal';
 import { InvoiceReceiptModal } from '../components/InvoiceReceiptModal';
 import { LayoutCreatorModal } from '../components/LayoutCreatorModal';
+import { Switch } from '../components/ui/Switch';
 import { Select } from '../components/ui/Select';
 import { useAlert } from '../components/ui/AlertContext';
 import { useToast } from '../components/ui/ToastContext';
@@ -217,7 +219,22 @@ export default function Seats() {
   // API mutations
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
   const [createPayment, { isLoading: isCreatingPayment }] = useCreatePaymentMutation();
+  const [verifyRazorpay] = useVerifyRazorpayMutation();
   const [updateAllocation, { isLoading: isUpdatingAllocation }] = useUpdateAllocationMutation();
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
   const [vacateSeat, { isLoading: isVacating }] = useVacateSeatMutation();
   const [addFloor] = useAddFloorMutation();
   const [addRoom] = useAddRoomMutation();
@@ -1923,10 +1940,61 @@ export default function Seats() {
         originalAmount: Number(renewAmount),
         payableAmount: Number(renewAmount),
       };
-      setCreatedInvoiceData(invoiceInfo);
-      setIsDrawerOpen(false);
-      setOpenInvoiceReceipt(true);
-      showToast('Seat renewed successfully!', 'success');
+
+      if (renewPaymentMethod === 'RAZORPAY' && paymentResult.razorpayOrder) {
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          showToast('Failed to load Razorpay SDK. Check internet connection.', 'error');
+          setIsRenewing(false);
+          return;
+        }
+
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_T9hh97PsK4bGuG',
+          amount: paymentResult.razorpayOrder.amount,
+          currency: paymentResult.razorpayOrder.currency,
+          name: 'StudyFlow',
+          description: `Seat ${selectedSeat.number} Renewal`,
+          order_id: paymentResult.razorpayOrder.id,
+          handler: async function (response: any) {
+            try {
+              const verifiedPayment = await verifyRazorpay({
+                id: paymentResult.payment.id,
+                transactionId: response.razorpay_payment_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+              }).unwrap();
+
+              showToast('Payment verified & seat renewed successfully!', 'success');
+              setCreatedInvoiceData({
+                ...invoiceInfo,
+                payment: verifiedPayment,
+              });
+              setIsDrawerOpen(false);
+              setOpenInvoiceReceipt(true);
+            } catch (err: any) {
+              showToast(err.data?.message || 'Payment verification failed', 'error');
+            }
+          },
+          prefill: {
+            name: activeAllocation.studentProfile?.user?.name || '',
+            email: activeAllocation.studentProfile?.user?.email || '',
+            contact: activeAllocation.studentProfile?.user?.mobile || '',
+          },
+          theme: {
+            color: '#2563eb',
+          },
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      } else {
+        setCreatedInvoiceData(invoiceInfo);
+        setIsDrawerOpen(false);
+        setOpenInvoiceReceipt(true);
+        showToast('Seat renewed successfully!', 'success');
+      }
     } catch (err: any) {
       showToast(err?.data?.message || 'Seat renewal failed', 'error');
     } finally {
@@ -2524,18 +2592,14 @@ export default function Seats() {
           </div>
         </div>
 
-        {/* Generate Fee Invoice checkbox toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0' }}>
-          <input
-            type="checkbox"
-            id="generate-invoice-drawer"
+        {/* Generate Fee Invoice Switch */}
+        <div style={{ margin: '6px 0' }}>
+          <Switch
             checked={shouldGenerateInvoice}
-            onChange={(e) => setShouldGenerateInvoice(e.target.checked)}
-            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+            onChange={setShouldGenerateInvoice}
+            label="Generate invoice & fee receipt"
+            id="generate-invoice-drawer"
           />
-          <label htmlFor="generate-invoice-drawer" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)', cursor: 'pointer' }}>
-            Generate invoice & fee receipt
-          </label>
         </div>
 
         {/* Invoicing details fields */}

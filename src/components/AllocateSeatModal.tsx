@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useAllocateSeatMutation, useCreatePaymentMutation, useGetStudentsQuery } from '../store/api';
+import { useAllocateSeatMutation, useCreatePaymentMutation, useGetStudentsQuery, useVerifyRazorpayMutation } from '../store/api';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
@@ -32,6 +32,21 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   const { data: studentsData } = useGetStudentsQuery(undefined);
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
   const [createPayment, { isLoading: isCreatingPayment }] = useCreatePaymentMutation();
+  const [verifyRazorpay] = useVerifyRazorpayMutation();
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   const [studentProfileId, setStudentProfileId] = useState('');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
@@ -181,9 +196,10 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
         }).unwrap();
 
+        const student = studentsData?.students?.find((s: any) => s.id === studentProfileId);
         const invoiceInfo = {
           payment: paymentResult.payment,
-          student: studentsData?.students?.find((s: any) => s.id === studentProfileId),
+          student,
           seatNumber: selectedSeat?.number,
           shift: shifts?.find((s: any) => s.id === shiftId),
           startDate,
@@ -192,7 +208,56 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           originalAmount: calculatedBaseAmount,
           payableAmount: Number(invoiceAmount),
         };
-        onSuccess(invoiceInfo);
+
+        if (paymentMethod === 'RAZORPAY' && paymentResult.razorpayOrder) {
+          const scriptLoaded = await loadRazorpayScript();
+          if (!scriptLoaded) {
+            showToast('Failed to load Razorpay SDK. Check internet connection.', 'error');
+            return;
+          }
+
+          const options = {
+            key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_T9hh97PsK4bGuG',
+            amount: paymentResult.razorpayOrder.amount,
+            currency: paymentResult.razorpayOrder.currency,
+            name: 'StudyFlow',
+            description: `Seat ${selectedSeat.number} Allocation`,
+            order_id: paymentResult.razorpayOrder.id,
+            handler: async function (response: any) {
+              try {
+                const verifiedPayment = await verifyRazorpay({
+                  id: paymentResult.payment.id,
+                  transactionId: response.razorpay_payment_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_signature: response.razorpay_signature,
+                }).unwrap();
+
+                showToast('Payment verified & seat allocated successfully!', 'success');
+                onSuccess({
+                  ...invoiceInfo,
+                  payment: verifiedPayment,
+                });
+              } catch (err: any) {
+                showToast(err.data?.message || 'Payment verification failed', 'error');
+              }
+            },
+            prefill: {
+              name: student?.user?.name || '',
+              email: student?.user?.email || '',
+              contact: student?.user?.mobile || '',
+            },
+            theme: {
+              color: '#2563eb',
+            },
+          };
+
+          const rzp = new (window as any).Razorpay(options);
+          rzp.open();
+        } else {
+          showToast('Seat allocated successfully!', 'success');
+          onSuccess(invoiceInfo);
+        }
       } else {
         showToast('Seat allocated successfully!', 'success');
         onClose();

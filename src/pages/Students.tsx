@@ -35,7 +35,9 @@ import {
   Phone,
   Clock,
   History,
-  LogOut
+  LogOut,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 export default function Students() {
@@ -63,11 +65,16 @@ export default function Students() {
 
   const [search, setSearch] = useState('');
   const [branchId, setBranchId] = useState('');
-  const [page] = useState(1);
+  const [page, setPage] = useState(1);
   const [filterShiftId, setFilterShiftId] = useState('');
   const [filterExpiration, setFilterExpiration] = useState(() => {
     return (location.state as any)?.filterExpiration || '';
   });
+
+  // Reset page to 1 when filters or search change
+  useEffect(() => {
+    setPage(1);
+  }, [search, branchId, filterShiftId, filterExpiration]);
 
   React.useEffect(() => {
     if (location.state && (location.state as any).filterExpiration !== undefined) {
@@ -397,7 +404,8 @@ export default function Students() {
           <Loader2 className="spinner" size={40} />
         </div>
       ) : (
-        <div className="custom-table-container">
+        <>
+          <div className="custom-table-container">
           <table className="custom-table" style={{ minWidth: '900px' }}>
             <thead>
               <tr>
@@ -411,11 +419,16 @@ export default function Students() {
             </thead>
             <tbody>
                {filteredStudents.map((student: any) => {
-                const avatarBorderColor = 
-                  student.status === 'APPROVED' ? 'var(--success)' :
-                  student.status === 'PENDING' ? 'var(--warning)' :
-                  student.status === 'REJECTED' ? 'var(--danger)' :
-                  'var(--border-color)';
+                 const activeAllocation = student.allocations?.find((a: any) => a.isActive);
+                 const isSubscriptionExpired = activeAllocation && activeAllocation.endDate && new Date(activeAllocation.endDate).getTime() < new Date().getTime();
+                 const hasSeat = !!activeAllocation;
+
+                 const avatarBorderColor = 
+                   isSubscriptionExpired ? '#ef4444' :
+                   student.status === 'APPROVED' ? (hasSeat ? 'var(--success)' : '#cbd5e1') :
+                   student.status === 'PENDING' ? 'var(--warning)' :
+                   student.status === 'REJECTED' ? 'var(--danger)' :
+                   'var(--border-color)';
 
                 return (
                   <tr 
@@ -565,7 +578,78 @@ export default function Students() {
             </tbody>
           </table>
         </div>
-      )}
+
+        {/* Pagination Controls */}
+        {data && data.total > 0 && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '12px 24px',
+            backgroundColor: '#ffffff',
+            borderTop: '1px solid rgba(15, 23, 42, 0.05)',
+            borderBottomLeftRadius: '16px',
+            borderBottomRightRadius: '16px',
+            marginTop: '-1px'
+          }}>
+            <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 500 }}>
+              Showing <span style={{ color: '#0F172A', fontWeight: 600 }}>{((page - 1) * 10) + 1}</span> to{' '}
+              <span style={{ color: '#0F172A', fontWeight: 600 }}>
+                {Math.min(page * 10, data.total)}
+              </span> of{' '}
+              <span style={{ color: '#0F172A', fontWeight: 600 }}>{data.total}</span> students
+            </span>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(15, 23, 42, 0.06)',
+                  backgroundColor: '#ffffff',
+                  color: page === 1 ? '#cbd5e1' : '#475569',
+                  cursor: page === 1 ? 'not-allowed' : 'pointer',
+                  transition: 'all 150ms ease',
+                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.02)'
+                }}
+              >
+                <ChevronLeft size={14} />
+              </button>
+              
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>
+                {page} / {Math.ceil(data.total / 10)}
+              </span>
+
+              <button
+                disabled={page >= Math.ceil(data.total / 10)}
+                onClick={() => setPage(prev => Math.min(prev + 1, Math.ceil(data.total / 10)))}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(15, 23, 42, 0.06)',
+                  backgroundColor: '#ffffff',
+                  color: page >= Math.ceil(data.total / 10) ? '#cbd5e1' : '#475569',
+                  cursor: page >= Math.ceil(data.total / 10) ? 'not-allowed' : 'pointer',
+                  transition: 'all 150ms ease',
+                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.02)'
+                }}
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    )}
 
 
 
