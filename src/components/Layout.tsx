@@ -132,7 +132,7 @@ export default function Layout() {
         <div className="sidebar-header">
           <div className="sidebar-logo-container">
             <div className="sidebar-logo-dot" />
-            <div className="sidebar-logo">StudyFlow</div>
+            <div className="sidebar-logo" style={{ fontSize: '0.9rem', whiteSpace: 'nowrap' }}>SRi Ram Digital Library</div>
           </div>
           {isSidebarOpen && (
             <button className="mobile-menu-btn" onClick={toggleSidebar}>

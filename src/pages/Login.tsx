@@ -168,8 +168,8 @@ export default function Login() {
     }}>
       <Card elevation="lg" style={{ width: '100%', maxWidth: '450px', margin: '2rem' }}>
         <div className="card-content">
-          <h1 className="text-center" style={{ color: 'var(--primary)', marginBottom: '0.25rem', fontWeight: 700 }}>
-            StudyFlow
+          <h1 className="text-center" style={{ color: 'var(--primary)', marginBottom: '0.25rem', fontWeight: 700, fontSize: '1.75rem' }}>
+            SRi Ram Digital Library
           </h1>
           <p className="text-center text-muted" style={{ marginBottom: '2rem' }}>
             Study Hall Management System

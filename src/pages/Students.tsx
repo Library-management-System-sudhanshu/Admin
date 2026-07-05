@@ -316,6 +316,37 @@ export default function Students() {
 
   return (
     <div style={{ width: '100%' }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .student-hover-card-trigger {
+          position: relative;
+        }
+
+        .student-hover-details-card {
+          opacity: 0;
+          visibility: hidden;
+          position: absolute;
+          top: -20px;
+          left: 105%;
+          width: 280px;
+          background: #ffffff;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          border-radius: 12px;
+          box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+          padding: 14px;
+          z-index: 999;
+          text-align: left;
+          white-space: normal;
+          pointer-events: none;
+          transform: translateX(10px);
+          transition: opacity 150ms ease, transform 150ms ease, visibility 150ms;
+        }
+
+        .student-hover-card-trigger:hover .student-hover-details-card {
+          opacity: 1;
+          visibility: visible;
+          transform: translateX(0);
+        }
+      `}} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>
           Student Records
@@ -405,8 +436,8 @@ export default function Students() {
         </div>
       ) : (
         <>
-          <div className="custom-table-container">
-          <table className="custom-table" style={{ minWidth: '900px' }}>
+          <div className="custom-table-container" style={{ overflow: 'visible' }}>
+            <table className="custom-table" style={{ width: '100%' }}>
             <thead>
               <tr>
                 <th>Student</th>
@@ -440,13 +471,63 @@ export default function Students() {
                     style={{ cursor: 'pointer' }}
                   >
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div className="student-hover-card-trigger" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <div className="avatar" style={{ border: `2.5px solid ${avatarBorderColor}`, boxSizing: 'border-box' }}>
                           {student.user?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <div style={{ fontWeight: 600 }}>{student.user?.name}</div>
                           <div className="text-muted">{student.branch?.name || 'No Branch'}</div>
+                        </div>
+
+                        {/* Hover Details Card */}
+                        <div className="student-hover-details-card" onClick={(e) => e.stopPropagation()}>
+                          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0F172A', borderBottom: '1px solid #F1F5F9', paddingBottom: '6px', marginBottom: '8px' }}>
+                            Seat & Shift History
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem' }}>
+                            {student.allocations && student.allocations.length > 0 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+                                {student.allocations.map((alloc: any, idx: number) => {
+                                  const isAllocExpired = alloc.endDate && new Date(alloc.endDate).getTime() < new Date().getTime();
+                                  return (
+                                    <div key={alloc.id || idx} style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: '6px', marginBottom: '2px' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#0F172A' }}>
+                                        <span>Seat {alloc.seat?.number || 'N/A'}</span>
+                                        <span style={{ 
+                                          fontSize: '0.65rem',
+                                          padding: '2px 6px',
+                                          borderRadius: '4px',
+                                          fontWeight: 700,
+                                          color: alloc.isActive ? (isAllocExpired ? '#ef4444' : '#10b981') : '#64748b',
+                                          backgroundColor: alloc.isActive ? (isAllocExpired ? 'rgba(239,68,68,0.06)' : 'rgba(16,185,129,0.06)') : 'rgba(100,116,139,0.06)',
+                                          border: alloc.isActive ? (isAllocExpired ? '1px solid rgba(239,68,68,0.1)' : '1px solid rgba(16,185,129,0.1)') : '1px solid rgba(100,116,139,0.1)'
+                                        }}>
+                                          {alloc.isActive ? (isAllocExpired ? 'Expired' : 'Active') : 'Past'}
+                                        </span>
+                                      </div>
+                                      <div style={{ fontSize: '0.725rem', color: '#334155', fontWeight: 600, marginTop: '2px' }}>
+                                        {alloc.shift?.name || 'N/A'} Shift ({alloc.shift?.startTime} - {alloc.shift?.endTime})
+                                      </div>
+                                      <div style={{ fontSize: '0.675rem', color: '#64748B', marginTop: '2px' }}>
+                                        {new Date(alloc.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(alloc.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div style={{ fontStyle: 'italic', color: '#94A3B8', fontSize: '0.725rem', padding: '8px 0', textAlign: 'center' }}>
+                                No active or past seat history
+                              </div>
+                            )}
+
+                            {/* Secondary metadata footer */}
+                            <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '8px', marginTop: '4px', fontSize: '0.675rem', color: '#64748B', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <div><strong>Guardian:</strong> {student.guardianName || 'N/A'} {student.guardianMobile && `(${student.guardianMobile})`}</div>
+                              <div><strong>Joining Date:</strong> {student.joiningDate ? new Date(student.joiningDate).toLocaleDateString() : 'N/A'}</div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </td>

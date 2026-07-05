@@ -54,7 +54,7 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #f1f5f9', paddingBottom: '16px', marginBottom: '16px' }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--accent-blue)', letterSpacing: '-0.025em' }}>StudyFlow</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-blue)', letterSpacing: '-0.025em' }}>SRi Ram Digital Library</h2>
               <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>Library & Study Space Management</span>
               {createdInvoiceData.branchName && (
                 <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
@@ -169,7 +169,7 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
               )}
             </div>
             <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>
-              Thank you for booking with StudyFlow!
+              Thank you for booking with SRi Ram Digital Library!
             </div>
           </div>
         </div>
