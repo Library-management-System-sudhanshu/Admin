@@ -58,6 +58,20 @@ export const api = createApi({
         body: data,
       }),
     }),
+    googleLogin: builder.mutation({
+      query: (data) => ({
+        url: 'auth/google',
+        method: 'POST',
+        body: data,
+      }),
+    }),
+    setupWorkspace: builder.mutation({
+      query: (data) => ({
+        url: 'auth/setup-workspace',
+        method: 'POST',
+        body: data,
+      }),
+    }),
     getProfile: builder.query({
       query: () => 'auth/profile',
       providesTags: ['Settings'],
@@ -435,6 +449,8 @@ export const api = createApi({
 export const {
   useLoginMutation,
   useRegisterTenantMutation,
+  useGoogleLoginMutation,
+  useSetupWorkspaceMutation,
   useGetProfileQuery,
   useUpdateProfileMutation,
   useGetMetricsQuery,

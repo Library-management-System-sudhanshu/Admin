@@ -15,6 +15,7 @@ import SuperAdmin from './pages/SuperAdmin';
 import Profile from './pages/Profile';
 import TransferSeat from './pages/TransferSeat';
 import NewAdmission from './pages/NewAdmission';
+import SetupWorkspace from './pages/SetupWorkspace';
 import { AlertProvider } from './components/ui/AlertContext';
 import { ToastProvider } from './components/ui/ToastContext';
 
@@ -28,6 +29,8 @@ export default function App() {
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
+            <Route path="/setup-workspace" element={<SetupWorkspace />} />
+            
             <Route element={<Layout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/new-admission" element={<NewAdmission />} />

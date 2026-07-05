@@ -187,6 +187,7 @@ export default function Profile() {
                   type="email"
                   required
                   value={email}
+                  disabled
                   onChange={(e) => setEmail(e.target.value)}
                 />
 
@@ -194,6 +195,7 @@ export default function Profile() {
                   label="Mobile Number"
                   placeholder="e.g. 9876543210"
                   value={mobile}
+                  disabled
                   onChange={(e) => setMobile(e.target.value)}
                 />
               </div>

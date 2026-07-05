@@ -216,7 +216,7 @@ export default function Layout() {
               <span className="profile-dropdown-title">{user?.name}</span>
               <span className="profile-dropdown-subtitle">{user?.email}</span>
             </div>
-            <button className="profile-dropdown-item" onClick={() => { setIsProfileDropdownOpen(false); navigate('/settings'); }}>
+            <button className="profile-dropdown-item" onClick={() => { setIsProfileDropdownOpen(false); navigate('/profile'); }}>
               <User size={14} />
               <span>My Account</span>
             </button>
