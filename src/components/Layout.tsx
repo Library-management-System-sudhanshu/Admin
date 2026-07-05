@@ -130,7 +130,11 @@ export default function Layout() {
         
         {/* Sidebar Header Logo */}
         <div className="sidebar-header">
-          <div className="sidebar-logo-container">
+          <div 
+            className="sidebar-logo-container" 
+            onClick={() => navigate('/')} 
+            style={{ cursor: 'pointer' }}
+          >
             <div className="sidebar-logo-dot" />
             <div className="sidebar-logo" style={{ fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
               {user?.workspace?.name || 'N/A'}
@@ -325,7 +329,7 @@ export default function Layout() {
               </div>
 
               {/* Profile Avatar Button */}
-              <button className="topbar-btn" style={{ padding: '2px' }} onClick={() => navigate('/settings')}>
+              <button className="topbar-btn" style={{ padding: '2px' }} onClick={() => navigate('/profile')}>
                 <div className="sidebar-avatar" style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}>
                   {user?.name?.charAt(0).toUpperCase() || 'U'}
                 </div>
@@ -343,7 +347,7 @@ export default function Layout() {
             <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-navy)', letterSpacing: '-0.01em' }}>
               {greeting}, {user?.name || 'Rakesh'}
             </div>
-            <button className="topbar-btn" onClick={() => navigate('/settings')} style={{ padding: '2px' }}>
+            <button className="topbar-btn" onClick={() => navigate('/profile')} style={{ padding: '2px' }}>
               <div className="sidebar-avatar" style={{ width: '30px', height: '30px', fontSize: '0.75rem' }}>
                 {user?.name?.charAt(0).toUpperCase() || 'U'}
               </div>
