@@ -1,17 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useToast } from '../components/ui/ToastContext';
 import type { RootState } from '../store';
-import { useGetProfileQuery, useUpdateProfileMutation } from '../store/api';
+import { useGetProfileQuery, useUpdateProfileMutation, useUploadImageMutation } from '../store/api';
 import { setCredentials } from '../store/authSlice';
 import { 
   Save as SaveIcon, 
   Lock as LockIcon, 
-  Shield as ShieldIcon
+  Shield as ShieldIcon,
+  Camera as CameraIcon
 } from 'lucide-react';
+
+const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+
+      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+      resolve(compressedBase64);
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+};
 
 export default function Profile() {
   const { showToast } = useToast();
@@ -20,16 +55,19 @@ export default function Profile() {
 
   const { data: profile, refetch } = useGetProfileQuery(undefined, { skip: !token });
   const [updateProfile, { isLoading: isUpdating }] = useUpdateProfileMutation();
+  const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
+  const [avatar, setAvatar] = useState('');
   
   // Workspace / Library Details
   const [workspaceName, setWorkspaceName] = useState('');
   const [address, setAddress] = useState('');
   const [pincode, setPincode] = useState('');
   const [gstNumber, setGstNumber] = useState('');
+  const [logo, setLogo] = useState('');
 
   // Password fields
   const [password, setPassword] = useState('');
@@ -41,14 +79,56 @@ export default function Profile() {
       setName(target.name || '');
       setEmail(target.email || '');
       setMobile(target.mobile || '');
+      setAvatar(target.avatar || '');
       if (target.workspace) {
         setWorkspaceName(target.workspace.name || '');
         setAddress(target.workspace.address || '');
         setPincode(target.workspace.pincode || '');
         setGstNumber(target.workspace.gstNumber || '');
+        setLogo(target.workspace.logo || '');
       }
     }
   }, [profile, user]);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const rawBase64 = reader.result as string;
+      try {
+        const compressedBase64 = await compressImage(rawBase64);
+        const uploadResult = await uploadImage({ base64: compressedBase64 }).unwrap();
+        const updatedUser = await updateProfile({ avatar: uploadResult.url }).unwrap();
+        dispatch(setCredentials({ user: updatedUser, accessToken: token || '' }));
+        setAvatar(uploadResult.url);
+        showToast('Profile photo updated successfully!', 'success');
+      } catch (err: any) {
+        showToast(err?.data?.message || 'Failed to upload photo.', 'error');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const rawBase64 = reader.result as string;
+      try {
+        const compressedBase64 = await compressImage(rawBase64);
+        const uploadResult = await uploadImage({ base64: compressedBase64 }).unwrap();
+        setLogo(uploadResult.url);
+        showToast('Logo uploaded. Click "Save Details" to persist changes.', 'success');
+      } catch (err: any) {
+        showToast(err?.data?.message || 'Failed to upload logo.', 'error');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +140,8 @@ export default function Profile() {
         workspaceName,
         address,
         pincode,
-        gstNumber
+        gstNumber,
+        logo
       };
       const updatedUser = await updateProfile(payload).unwrap();
       dispatch(setCredentials({ user: updatedUser, accessToken: token || '' }));
@@ -154,21 +235,52 @@ export default function Profile() {
         padding: '32px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
-          <div style={{
-            width: '80px',
-            height: '80px',
-            borderRadius: '50%',
-            fontSize: '2.25rem',
-            background: 'linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%)',
-            color: '#ffffff',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 30px rgba(37, 99, 235, 0.25)'
-          }}>
-            {name?.charAt(0).toUpperCase() || 'A'}
+          
+          {/* Avatar Upload Container */}
+          <div style={{ position: 'relative' }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              fontSize: '2.25rem',
+              background: avatar ? `url(${avatar}) no-repeat center center / cover` : 'linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%)',
+              color: '#ffffff',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 30px rgba(37, 99, 235, 0.25)',
+              overflow: 'hidden'
+            }}>
+              {!avatar && (name?.charAt(0).toUpperCase() || 'A')}
+            </div>
+            <label style={{
+              position: 'absolute',
+              bottom: '-4px',
+              right: '-4px',
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+              transition: 'transform 200ms ease'
+            }}>
+              <CameraIcon size={14} style={{ color: '#475569' }} />
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleAvatarUpload} 
+                style={{ display: 'none' }} 
+                disabled={isUploadingImage}
+              />
+            </label>
           </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.015em' }}>
@@ -281,6 +393,64 @@ export default function Profile() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                
+                {/* Logo Upload Section */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '4px' }}>
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '8px',
+                    border: '1px dashed #cbd5e1',
+                    background: logo ? `url(${logo}) no-repeat center center / cover` : '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden'
+                  }}>
+                    {!logo && <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>No Logo</span>}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      color: '#334155',
+                      cursor: 'pointer',
+                      textAlign: 'center'
+                    }}>
+                      Upload Logo
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload} 
+                        style={{ display: 'none' }} 
+                        disabled={isUploadingImage}
+                      />
+                    </label>
+                    {logo && (
+                      <button
+                        type="button"
+                        onClick={() => setLogo('')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--danger)',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          padding: 0
+                        }}
+                      >
+                        Remove Logo
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <Input
                   label="Workspace/Library Name"
                   required

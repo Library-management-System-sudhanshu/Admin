@@ -35,6 +35,7 @@ export const api = createApi({
     'Books',
     'Complaints',
     'WhatsAppLogs',
+    'WhatsAppTemplates',
     'Workspaces',
     'Branches',
     'Shifts',
@@ -68,6 +69,13 @@ export const api = createApi({
     setupWorkspace: builder.mutation({
       query: (data) => ({
         url: 'auth/setup-workspace',
+        method: 'POST',
+        body: data,
+      }),
+    }),
+    uploadImage: builder.mutation({
+      query: (data) => ({
+        url: 'upload',
         method: 'POST',
         body: data,
       }),
@@ -341,6 +349,15 @@ export const api = createApi({
     // WhatsApp Broadcasts
     getWhatsAppTemplates: builder.query({
       query: () => 'whatsapp/templates',
+      providesTags: ['WhatsAppTemplates'],
+    }),
+    createWhatsAppTemplate: builder.mutation({
+      query: (data) => ({
+        url: 'whatsapp/templates',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['WhatsAppTemplates'],
     }),
     sendWhatsAppBroadcast: builder.mutation({
       query: (data) => ({
@@ -451,6 +468,7 @@ export const {
   useRegisterTenantMutation,
   useGoogleLoginMutation,
   useSetupWorkspaceMutation,
+  useUploadImageMutation,
   useGetProfileQuery,
   useUpdateProfileMutation,
   useGetMetricsQuery,
@@ -488,6 +506,7 @@ export const {
   useGetComplaintsQuery,
   useUpdateComplaintStatusMutation,
   useGetWhatsAppTemplatesQuery,
+  useCreateWhatsAppTemplateMutation,
   useSendWhatsAppBroadcastMutation,
   useGetWhatsAppLogsQuery,
   useGetWorkspacesQuery,
