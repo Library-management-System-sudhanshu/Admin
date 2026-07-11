@@ -105,7 +105,9 @@ export default function Login() {
         }
         break;
       case 'address':
-        if (value.trim().length > 0 && value.trim().length < 5) {
+        if (value.trim().length === 0) {
+          errorMsg = 'Address is required';
+        } else if (value.trim().length < 5) {
           errorMsg = 'Address must be at least 5 characters';
         }
         break;
@@ -121,7 +123,9 @@ export default function Login() {
         }
         break;
       case 'pincode':
-        if (value.trim().length > 0 && !/^\d{6}$/.test(value.trim())) {
+        if (value.trim().length === 0) {
+          errorMsg = 'Pincode is required';
+        } else if (!/^\d{6}$/.test(value.trim())) {
           errorMsg = 'Pincode must be exactly 6 digits';
         }
         break;
@@ -178,7 +182,9 @@ export default function Login() {
       newErrors.password = 'Password must be at least 6 characters';
     }
 
-    if (pincode.trim() && !/^\d{6}$/.test(pincode.trim())) {
+    if (!pincode.trim()) {
+      newErrors.pincode = 'Pincode is required';
+    } else if (!/^\d{6}$/.test(pincode.trim())) {
       newErrors.pincode = 'Pincode must be exactly 6 digits';
     }
 
@@ -422,7 +428,7 @@ export default function Login() {
           background: '#ffffff',
         }}
       >
-        <div style={{ width: '100%', maxWidth: tab === 0 ? '400px' : '560px', transition: 'max-width 250ms cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        <div style={{ width: '100%', maxWidth: '560px' }}>
 
           <div style={{ marginBottom: '2rem' }}>
             <h2 style={{ margin: '0 0 0.35rem 0', fontWeight: 800, fontSize: '1.6rem', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
@@ -602,6 +608,14 @@ export default function Login() {
                     onChange={(e) => handleRegisterChange('address', e.target.value, setAddress)}
                   />
                   <Input
+                    label="Pincode"
+                    required
+                    placeholder="PIN code"
+                    value={pincode}
+                    error={errors.pincode}
+                    onChange={(e) => handleRegisterChange('pincode', e.target.value, setPincode)}
+                  />
+                  <Input
                     label="Password"
                     type="password"
                     required
@@ -640,13 +654,6 @@ export default function Login() {
                   gridTemplateColumns: '1fr 1fr 1fr',
                   gap: '0.75rem'
                 }}>
-                  <Input
-                    label="Pincode"
-                    placeholder="PIN code"
-                    value={pincode}
-                    error={errors.pincode}
-                    onChange={(e) => handleRegisterChange('pincode', e.target.value, setPincode)}
-                  />
                   <Input
                     label="GST Number"
                     placeholder="GSTIN"

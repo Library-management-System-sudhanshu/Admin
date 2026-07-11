@@ -60,7 +60,10 @@ import {
   FileText,
   MoreVertical,
   HelpCircle,
-  Building
+  Building,
+  Lock,
+  Unlock,
+  Link2
 } from 'lucide-react';
 
 const getDaysRemainingText = (endDateStr: string) => {
@@ -130,7 +133,7 @@ export default function Seats() {
   // Drawer Panel & Selection States
   const [selectedSeat, setSelectedSeat] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [drawerActiveSection, setDrawerActiveSection] = useState<'DETAILS' | 'TRANSFER' | 'RENEW'>('DETAILS');
+  const [drawerActiveSection, setDrawerActiveSection] = useState<'DETAILS' | 'TRANSFER' | 'RENEW' | 'ASSIGN'>('DETAILS');
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
 
   // Search filter inputs
@@ -200,7 +203,7 @@ export default function Seats() {
 
   const [renewShiftId, setRenewShiftId] = useState('');
   const [renewDuration, setRenewDuration] = useState<number>(1);
-  const [spacers, setSpacers] = useState<{ id: string; x: number; y: number; w?: number; h?: number; type?: string }[]>([]);
+  const [spacers, setSpacers] = useState<{ id: string; x: number; y: number; w?: number; h?: number; type?: string; groups?: any[] }[]>([]);
   const [renewStartDate, setRenewStartDate] = useState('');
   const [renewEndDate, setRenewEndDate] = useState('');
   const [renewPaymentMethod, setRenewPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('UPI');
@@ -255,7 +258,7 @@ export default function Seats() {
   // Undo History state for visual arranger
   const [layoutHistory, setLayoutHistory] = useState<Array<{
     tempLayout: Record<string, { x: number; y: number; rotation?: number }>;
-    spacers: Array<{ id: string; x: number; y: number; w?: number; h?: number; type?: string }>;
+    spacers: Array<{ id: string; x: number; y: number; w?: number; h?: number; type?: string; groups?: any[] }>;
     visualizerWidths: Record<string, number>;
     visualizerHeights: Record<string, number>;
   }>>([]);
@@ -292,6 +295,120 @@ export default function Seats() {
     });
   };
   const [selectedArrangeIds, setSelectedArrangeIds] = useState<string[]>([]);
+
+  const getRoomGroups = (currentSpacers = spacers): any[] => {
+    const groupMeta = currentSpacers.find(s => s.type === 'group_metadata');
+    return groupMeta?.groups || [];
+  };
+
+  const getGroupForItem = (itemId: string, currentSpacers = spacers) => {
+    const groups = getRoomGroups(currentSpacers);
+    return groups.find((g: any) => g.memberIds.includes(itemId));
+  };
+
+  const handleGroupAndLock = () => {
+    if (selectedArrangeIds.length < 2) {
+      showToast('Please select at least 2 items to group.', 'warning');
+      return;
+    }
+    pushToHistory();
+
+    const newGroup = {
+      id: `group-${Math.random().toString(36).substring(2, 9)}`,
+      locked: true,
+      memberIds: [...selectedArrangeIds]
+    };
+
+    setSpacers(prev => {
+      const groupMetaIdx = prev.findIndex(s => s.type === 'group_metadata');
+      const nextSpacers = [...prev];
+
+      if (groupMetaIdx > -1) {
+        const existingMeta = prev[groupMetaIdx];
+        const existingGroups = existingMeta.groups || [];
+        
+        // Remove selected items from any existing groups
+        const cleanedGroups = existingGroups.map((g: any) => ({
+          ...g,
+          memberIds: g.memberIds.filter((id: string) => !selectedArrangeIds.includes(id))
+        })).filter((g: any) => g.memberIds.length >= 2);
+
+        cleanedGroups.push(newGroup);
+
+        nextSpacers[groupMetaIdx] = {
+          ...existingMeta,
+          groups: cleanedGroups
+        };
+      } else {
+        nextSpacers.push({
+          id: 'room_groups_metadata',
+          x: 0,
+          y: 0,
+          type: 'group_metadata',
+          groups: [newGroup]
+        });
+      }
+      return nextSpacers;
+    });
+
+    showToast('Items grouped and locked!', 'success');
+    setShowSelectionMenu(false);
+  };
+
+  const handleUngroup = () => {
+    pushToHistory();
+    setSpacers(prev => {
+      const groupMetaIdx = prev.findIndex(s => s.type === 'group_metadata');
+      if (groupMetaIdx === -1) return prev;
+
+      const nextSpacers = [...prev];
+      const existingMeta = prev[groupMetaIdx];
+      const existingGroups = existingMeta.groups || [];
+
+      // Filter out any groups that contain any of the selected items
+      const remainingGroups = existingGroups.filter((g: any) => 
+        !g.memberIds.some((id: string) => selectedArrangeIds.includes(id))
+      );
+
+      nextSpacers[groupMetaIdx] = {
+        ...existingMeta,
+        groups: remainingGroups
+      };
+      return nextSpacers;
+    });
+
+    showToast('Items ungrouped!', 'success');
+    setShowSelectionMenu(false);
+  };
+
+  const handleToggleLock = (lock: boolean) => {
+    pushToHistory();
+    setSpacers(prev => {
+      const groupMetaIdx = prev.findIndex(s => s.type === 'group_metadata');
+      if (groupMetaIdx === -1) return prev;
+
+      const nextSpacers = [...prev];
+      const existingMeta = prev[groupMetaIdx];
+      const existingGroups = existingMeta.groups || [];
+
+      const updatedGroups = existingGroups.map((g: any) => {
+        const hasOverlap = g.memberIds.some((id: string) => selectedArrangeIds.includes(id));
+        if (hasOverlap) {
+          return { ...g, locked: lock };
+        }
+        return g;
+      });
+
+      nextSpacers[groupMetaIdx] = {
+        ...existingMeta,
+        groups: updatedGroups
+      };
+      return nextSpacers;
+    });
+
+    showToast(lock ? 'Group locked!' : 'Group unlocked!', 'success');
+    setShowSelectionMenu(false);
+  };
   const [dragSelectStart, setDragSelectStart] = useState<{ x: number; y: number } | null>(null);
   const [dragSelectEnd, setDragSelectEnd] = useState<{ x: number; y: number } | null>(null);
   const [showSelectionMenu, setShowSelectionMenu] = useState(false);
@@ -514,22 +631,35 @@ export default function Seats() {
     const findSeatIndexById = (id: string) => roomObj?.seats?.findIndex((s: any) => s.id === id) ?? 0;
 
     // Determine selection list
+    const group = getGroupForItem(seatId);
+    const affectedIds = group ? group.memberIds : [seatId];
+    const isLocked = group && group.locked;
+
     let nextSelected = [...selectedArrangeIds];
+    const isAlreadySelected = affectedIds.every((id: string) => nextSelected.includes(id));
     const isModifierPressed = e.shiftKey || e.ctrlKey || e.metaKey;
-    const isAlreadySelected = nextSelected.includes(seatId);
 
     if (isModifierPressed) {
       if (isAlreadySelected) {
-        nextSelected = nextSelected.filter(id => id !== seatId);
+        nextSelected = nextSelected.filter((id: string) => !affectedIds.includes(id));
       } else {
-        nextSelected.push(seatId);
+        affectedIds.forEach((id: string) => {
+          if (!nextSelected.includes(id)) {
+            nextSelected.push(id);
+          }
+        });
       }
     } else {
-      if (!isAlreadySelected) {
-        nextSelected = [seatId];
+      if (!isAlreadySelected || nextSelected.length > affectedIds.length) {
+        nextSelected = [...affectedIds];
       }
     }
     setSelectedArrangeIds(nextSelected);
+
+    if (isLocked) {
+      // Locked items cannot be dragged
+      return;
+    }
 
     // Record starting coordinates of all elements in nextSelected
     const startPositions: Record<string, { x: number; y: number }> = {};
@@ -766,11 +896,22 @@ export default function Seats() {
       });
 
       // Update selected seats
+      const groups = getRoomGroups(spacers);
+      const expandedIds = new Set<string>();
+      intersectingIds.forEach(id => {
+        expandedIds.add(id);
+        const group = groups.find((g: any) => g.memberIds.includes(id));
+        if (group) {
+          group.memberIds.forEach((mId: string) => expandedIds.add(mId));
+        }
+      });
+      const finalSelected = Array.from(expandedIds);
+
       if (isModifier) {
-        const union = new Set([...initialSelection, ...intersectingIds]);
+        const union = new Set([...initialSelection, ...finalSelected]);
         setSelectedArrangeIds(Array.from(union));
       } else {
-        setSelectedArrangeIds(intersectingIds);
+        setSelectedArrangeIds(finalSelected);
       }
     };
 
@@ -789,6 +930,16 @@ export default function Seats() {
 
   const alignSelectedSeats = (direction: 'horizontal' | 'vertical') => {
     if (selectedArrangeIds.length === 0 || activeRoomEditingId === null) return;
+
+    const hasLocked = selectedArrangeIds.some(id => {
+      const g = getGroupForItem(id);
+      return g && g.locked;
+    });
+    if (hasLocked) {
+      showToast('Cannot align locked items. Please unlock the group first.', 'warning');
+      return;
+    }
+
     pushToHistory();
     const roomId = activeRoomEditingId;
 
@@ -882,6 +1033,16 @@ export default function Seats() {
 
   const alignStraight = (axis: 'horizontal' | 'vertical') => {
     if (selectedArrangeIds.length === 0 || activeRoomEditingId === null) return;
+
+    const hasLocked = selectedArrangeIds.some(id => {
+      const g = getGroupForItem(id);
+      return g && g.locked;
+    });
+    if (hasLocked) {
+      showToast('Cannot align locked items. Please unlock the group first.', 'warning');
+      return;
+    }
+
     pushToHistory();
     const roomId = activeRoomEditingId;
 
@@ -946,6 +1107,16 @@ export default function Seats() {
 
   const rotateSelectedSeats = () => {
     if (selectedArrangeIds.length === 0 || activeRoomEditingId === null) return;
+
+    const hasLocked = selectedArrangeIds.some(id => {
+      const g = getGroupForItem(id);
+      return g && g.locked;
+    });
+    if (hasLocked) {
+      showToast('Cannot rotate locked items. Please unlock the group first.', 'warning');
+      return;
+    }
+
     pushToHistory();
     const roomId = activeRoomEditingId;
 
@@ -1150,22 +1321,35 @@ export default function Seats() {
     const findSeatIndexById = (id: string) => roomObj?.seats?.findIndex((s: any) => s.id === id) ?? 0;
 
     // Determine selection list
+    const group = getGroupForItem(spacerId);
+    const affectedIds = group ? group.memberIds : [spacerId];
+    const isLocked = group && group.locked;
+
     let nextSelected = [...selectedArrangeIds];
+    const isAlreadySelected = affectedIds.every((id: string) => nextSelected.includes(id));
     const isModifierPressed = e.shiftKey || e.ctrlKey || e.metaKey;
-    const isAlreadySelected = nextSelected.includes(spacerId);
 
     if (isModifierPressed) {
       if (isAlreadySelected) {
-        nextSelected = nextSelected.filter(id => id !== spacerId);
+        nextSelected = nextSelected.filter((id: string) => !affectedIds.includes(id));
       } else {
-        nextSelected.push(spacerId);
+        affectedIds.forEach((id: string) => {
+          if (!nextSelected.includes(id)) {
+            nextSelected.push(id);
+          }
+        });
       }
     } else {
-      if (!isAlreadySelected) {
-        nextSelected = [spacerId];
+      if (!isAlreadySelected || nextSelected.length > affectedIds.length) {
+        nextSelected = [...affectedIds];
       }
     }
     setSelectedArrangeIds(nextSelected);
+
+    if (isLocked) {
+      // Locked items cannot be dragged
+      return;
+    }
 
     // Record starting coordinates of all elements in nextSelected
     const startPositions: Record<string, { x: number; y: number }> = {};
@@ -1360,13 +1544,30 @@ export default function Seats() {
       return { id: sp.id, x: xPct, y: yPct, rotation: sp.rotation };
     });
 
+    // Clean up group metadata to only include active, existing seats/spacers
+    const validIds = new Set([
+      ...room.seats.map((s: any) => s.id),
+      ...spacers.filter(s => s.type !== 'group_metadata').map(s => s.id)
+    ]);
+
+    const cleanedSpacers = spacers.map(s => {
+      if (s.type === 'group_metadata') {
+        const cleanedGroups = (s.groups || []).map((g: any) => ({
+          ...g,
+          memberIds: g.memberIds.filter((id: string) => validIds.has(id))
+        })).filter((g: any) => g.memberIds.length >= 2);
+        return { ...s, groups: cleanedGroups };
+      }
+      return s;
+    });
+
     try {
       await updateSeatLayout({
         roomId: room.id,
         layout: layoutPayload,
         canvasWidth: trimmedWidth,
         canvasHeight: trimmedHeight,
-        spacers: spacers
+        spacers: cleanedSpacers
       }).unwrap();
       
       showToast('Seat positions and canvas bounds saved successfully!', 'success');
@@ -2187,6 +2388,8 @@ export default function Seats() {
 
   // Render Seat card helper
   const renderSeatCard = (seat: any, isFloorCanvas?: boolean, rotationVal?: number) => {
+    const seatGroup = getGroupForItem(seat.id);
+    const isSeatLocked = seatGroup && seatGroup.locked;
     const { isOccupied, isExpired, activeAllocations, currentAllocations, expiredAllocations } = getSeatStatusInfo(seat);
 
     let isExpiringSoon = false;
@@ -2243,8 +2446,53 @@ export default function Seats() {
           border: isHighlighted ? '2px solid var(--accent-blue)' : undefined,
           boxShadow: isHighlighted ? '0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-hover)' : undefined,
           transform: isHighlighted ? 'scale(1.05)' : undefined,
+          cursor: (activeRoomEditingId !== null) ? (isSeatLocked ? 'not-allowed' : 'move') : 'pointer',
         }}
       >
+        {isFloorCanvas && activeRoomEditingId !== null && isSeatLocked && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '4px',
+              left: '4px',
+              zIndex: 10,
+              color: '#ef4444',
+              backgroundColor: 'rgba(255,255,255,0.85)',
+              borderRadius: '4px',
+              padding: '2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+            title="Locked in Group"
+          >
+            <Lock size={10} />
+          </div>
+        )}
+
+        {isFloorCanvas && activeRoomEditingId !== null && seatGroup && !isSeatLocked && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '4px',
+              left: '4px',
+              zIndex: 10,
+              color: '#2563eb',
+              backgroundColor: 'rgba(255,255,255,0.85)',
+              borderRadius: '4px',
+              padding: '2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+            title="Grouped"
+          >
+            <Link2 size={10} />
+          </div>
+        )}
+
         {isFloorCanvas && activeRoomEditingId !== null && (
           <button
             type="button"
@@ -2253,6 +2501,10 @@ export default function Seats() {
             }}
             onClick={(e) => {
               e.stopPropagation();
+              if (isSeatLocked) {
+                showToast('Seat is locked. Please unlock the group first.', 'warning');
+                return;
+              }
               pushToHistory();
               setTempLayout(prev => {
                 const currentSeatLayout = prev[seat.id] || { x: 0, y: 0 };
@@ -3282,102 +3534,163 @@ export default function Seats() {
                                    );
                                  })}
 
-                                 {isEditingThisRoom && spacers.map((spacer) => {
-                                    const isDesk = spacer.type === 'desk';
-                                    const isSelected = selectedArrangeIds.includes(spacer.id);
-                                    return (
-                                      <div
-                                        key={spacer.id}
-                                        onPointerDown={(e) => { e.stopPropagation(); handleSpacerPointerDown(e, spacer.id); }}
-                                        style={{
-                                          position: 'absolute',
-                                          left: `${spacer.x}px`,
-                                          top: `${spacer.y}px`,
-                                          width: `${spacer.w || 78}px`,
-                                          height: `${spacer.h || 78}px`,
-                                          borderRadius: isDesk ? '6px' : '12px',
-                                          border: isSelected ? '2px solid var(--accent-blue)' : (isDesk ? 'none' : '2px dashed #cbd5e1'),
-                                          backgroundColor: isDesk
-                                            ? (isSelected ? '#1e293b' : '#000000')
-                                            : (isSelected ? 'rgba(239, 246, 255, 0.95)' : 'rgba(241, 245, 249, 0.95)'),
-                                          display: 'flex',
-                                          flexDirection: 'column',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          cursor: 'move',
-                                          zIndex: isSelected ? 5 : 4,
-                                          boxSizing: 'border-box',
-                                          padding: '4px',
-                                          overflow: 'hidden',
-                                          boxShadow: isSelected ? '0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-soft)' : 'var(--shadow-soft)'
-                                        }}
-                                      >
-                                        {/* Delete Spacer button */}
-                                        <button
-                                          type="button"
-                                          onPointerDown={(e) => {
-                                            e.stopPropagation();
-                                          }}
-                                          onMouseDown={(e) => {
-                                            e.stopPropagation();
-                                          }}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            pushToHistory();
-                                            setSpacers(prev => prev.filter(s => s.id !== spacer.id));
-                                          }}
-                                          style={{
-                                            position: 'absolute',
-                                            top: '4px',
-                                            right: '4px',
-                                            background: 'none',
-                                            border: 'none',
-                                            color: isDesk ? '#f87171' : '#ef4444',
-                                            cursor: 'pointer',
-                                            fontSize: '0.85rem',
-                                            fontWeight: 800,
-                                            padding: '0 4px',
-                                            zIndex: 10
-                                          }}
-                                          title={isDesk ? "Remove Desk" : "Remove Spacer"}
-                                        >
-                                          &times;
-                                        </button>
+                                 {isEditingThisRoom && spacers.filter(s => s.type !== 'group_metadata').map((spacer) => {
+                                     const isDesk = spacer.type === 'desk';
+                                     const isSelected = selectedArrangeIds.includes(spacer.id);
+                                     const spacerGroup = getGroupForItem(spacer.id);
+                                     const isSpacerLocked = spacerGroup && spacerGroup.locked;
+                                     return (
+                                       <div
+                                         key={spacer.id}
+                                         onPointerDown={(e) => {
+                                           if (isSpacerLocked) {
+                                             e.stopPropagation();
+                                             // Do not initiate drag, select group
+                                             const nextSelected = [...spacerGroup.memberIds];
+                                             setSelectedArrangeIds(nextSelected);
+                                             return;
+                                           }
+                                           e.stopPropagation();
+                                           handleSpacerPointerDown(e, spacer.id);
+                                         }}
+                                         style={{
+                                           position: 'absolute',
+                                           left: `${spacer.x}px`,
+                                           top: `${spacer.y}px`,
+                                           width: `${spacer.w || 78}px`,
+                                           height: `${spacer.h || 78}px`,
+                                           borderRadius: isDesk ? '6px' : '12px',
+                                           border: isSelected ? '2px solid var(--accent-blue)' : (isDesk ? 'none' : '2px dashed #cbd5e1'),
+                                           backgroundColor: isDesk
+                                             ? (isSelected ? '#1e293b' : '#000000')
+                                             : (isSelected ? 'rgba(239, 246, 255, 0.95)' : 'rgba(241, 245, 249, 0.95)'),
+                                           display: 'flex',
+                                           flexDirection: 'column',
+                                           alignItems: 'center',
+                                           justifyContent: 'center',
+                                           cursor: isSpacerLocked ? 'not-allowed' : 'move',
+                                           zIndex: isSelected ? 5 : 4,
+                                           boxSizing: 'border-box',
+                                           padding: '4px',
+                                           overflow: 'hidden',
+                                           boxShadow: isSelected ? '0 0 0 3px rgba(37, 99, 235, 0.25), var(--shadow-soft)' : 'var(--shadow-soft)'
+                                         }}
+                                       >
+                                         {/* Group and Lock badges */}
+                                         {isSpacerLocked && (
+                                           <div
+                                             style={{
+                                               position: 'absolute',
+                                               top: '4px',
+                                               left: '4px',
+                                               zIndex: 10,
+                                               color: '#ef4444',
+                                               backgroundColor: 'rgba(255,255,255,0.85)',
+                                               borderRadius: '4px',
+                                               padding: '2px',
+                                               display: 'flex',
+                                               alignItems: 'center',
+                                               justifyContent: 'center',
+                                               boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                             }}
+                                             title="Locked in Group"
+                                           >
+                                             <Lock size={10} />
+                                           </div>
+                                         )}
 
-                                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: isDesk ? '#ffffff' : '#94a3b8', zIndex: 1 }}>
-                                          {isDesk ? 'Desk' : 'Space'}
-                                        </span>
-                                        
-                                        {/* Visual drag boundary dimensions */}
-                                        <span style={{ fontSize: '0.55rem', color: isDesk ? 'rgba(255,255,255,0.7)' : '#cbd5e1', zIndex: 1, marginTop: '2px' }}>
-                                          {spacer.w || 78} x {spacer.h || 78}
-                                        </span>
+                                         {spacerGroup && !isSpacerLocked && (
+                                           <div
+                                             style={{
+                                               position: 'absolute',
+                                               top: '4px',
+                                               left: '4px',
+                                               zIndex: 10,
+                                               color: '#2563eb',
+                                               backgroundColor: 'rgba(255,255,255,0.85)',
+                                               borderRadius: '4px',
+                                               padding: '2px',
+                                               display: 'flex',
+                                               alignItems: 'center',
+                                               justifyContent: 'center',
+                                               boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                             }}
+                                             title="Grouped"
+                                           >
+                                             <Link2 size={10} />
+                                           </div>
+                                         )}
 
-                                        {/* Resize drag handle at bottom-right corner */}
-                                        <div
-                                          onPointerDown={(e) => { pushToHistory(); handleResizePointerDown(e, spacer.id); }}
-                                          style={{
-                                            position: 'absolute',
-                                            right: '0',
-                                            bottom: '0',
-                                            width: '14px',
-                                            height: '14px',
-                                            cursor: 'se-resize',
-                                            background: `linear-gradient(135deg, transparent 40%, ${isDesk ? '#ffffff' : '#cbd5e1'} 40%)`,
-                                            borderBottomRightRadius: isDesk ? '4px' : '10px',
-                                            zIndex: 15,
-                                          }}
-                                        />
-                                      </div>
-                                    );
-                                  })}
+                                         {/* Delete Spacer button */}
+                                         {!isSpacerLocked && (
+                                           <button
+                                             type="button"
+                                             onPointerDown={(e) => {
+                                               e.stopPropagation();
+                                             }}
+                                             onMouseDown={(e) => {
+                                               e.stopPropagation();
+                                             }}
+                                             onClick={(e) => {
+                                               e.stopPropagation();
+                                               pushToHistory();
+                                               setSpacers(prev => prev.filter(s => s.id !== spacer.id));
+                                             }}
+                                             style={{
+                                               position: 'absolute',
+                                               top: '4px',
+                                               right: '4px',
+                                               background: 'none',
+                                               border: 'none',
+                                               color: isDesk ? '#f87171' : '#ef4444',
+                                               cursor: 'pointer',
+                                               fontSize: '0.85rem',
+                                               fontWeight: 800,
+                                               padding: '0 4px',
+                                               zIndex: 10
+                                             }}
+                                             title={isDesk ? "Remove Desk" : "Remove Spacer"}
+                                           >
+                                             &times;
+                                           </button>
+                                         )}
+
+                                         <span style={{ fontSize: '0.65rem', fontWeight: 700, color: isDesk ? '#ffffff' : '#94a3b8', zIndex: 1 }}>
+                                           {isDesk ? 'Desk' : 'Space'}
+                                         </span>
+                                         
+                                         {/* Visual drag boundary dimensions */}
+                                         <span style={{ fontSize: '0.55rem', color: isDesk ? 'rgba(255,255,255,0.7)' : '#cbd5e1', zIndex: 1, marginTop: '2px' }}>
+                                           {spacer.w || 78} x {spacer.h || 78}
+                                         </span>
+
+                                         {/* Resize drag handle at bottom-right corner */}
+                                         {!isSpacerLocked && (
+                                           <div
+                                             onPointerDown={(e) => { pushToHistory(); handleResizePointerDown(e, spacer.id); }}
+                                             style={{
+                                               position: 'absolute',
+                                               right: '0',
+                                               bottom: '0',
+                                               width: '14px',
+                                               height: '14px',
+                                               cursor: 'se-resize',
+                                               background: `linear-gradient(135deg, transparent 40%, ${isDesk ? '#ffffff' : '#cbd5e1'} 40%)`,
+                                               borderBottomRightRadius: isDesk ? '4px' : '10px',
+                                               zIndex: 15,
+                                             }}
+                                           />
+                                         )}
+                                       </div>
+                                     );
+                                   })}
 
                                   {/* Render saved spacers in View Mode (Non-editing) */}
                                   {!isEditingThisRoom && room.spacers && (() => {
                                     try {
                                       const parsedSpacers = JSON.parse(room.spacers);
                                       if (!Array.isArray(parsedSpacers)) return null;
-                                      return parsedSpacers.map((spacer: any) => {
+                                      return parsedSpacers.filter((s: any) => s.type !== 'group_metadata').map((spacer: any) => {
                                         const isDesk = spacer.type === 'desk';
                                         return (
                                           <div
@@ -3643,6 +3956,131 @@ export default function Seats() {
                                             >
                                               ↻ Rotate Faces
                                             </button>
+                                            {(() => {
+                                              const hasGrouped = selectedArrangeIds.some(id => getGroupForItem(id));
+                                              const hasLockedGroup = selectedArrangeIds.some(id => {
+                                                const g = getGroupForItem(id);
+                                                return g && g.locked;
+                                              });
+                                              const hasUnlockedGroup = selectedArrangeIds.some(id => {
+                                                const g = getGroupForItem(id);
+                                                return g && !g.locked;
+                                              });
+
+                                              return (
+                                                <>
+                                                  {selectedArrangeIds.length >= 2 && !hasGrouped && (
+                                                    <>
+                                                      <div style={{ borderTop: '1px solid #f1f5f9', margin: '4px 0' }} />
+                                                      <button
+                                                        type="button"
+                                                        onClick={handleGroupAndLock}
+                                                        style={{
+                                                          width: '100%',
+                                                          textAlign: 'left',
+                                                          background: 'none',
+                                                          border: 'none',
+                                                          padding: '6px 10px',
+                                                          borderRadius: '8px',
+                                                          fontSize: '0.7rem',
+                                                          color: 'var(--accent-blue)',
+                                                          cursor: 'pointer',
+                                                          fontWeight: 600,
+                                                          display: 'flex',
+                                                          alignItems: 'center',
+                                                          gap: '6px'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                      >
+                                                        <Link2 size={12} /> Group & Lock
+                                                      </button>
+                                                    </>
+                                                  )}
+
+                                                  {hasGrouped && (
+                                                    <>
+                                                      <div style={{ borderTop: '1px solid #f1f5f9', margin: '4px 0' }} />
+                                                      <button
+                                                        type="button"
+                                                        onClick={handleUngroup}
+                                                        style={{
+                                                          width: '100%',
+                                                          textAlign: 'left',
+                                                          background: 'none',
+                                                          border: 'none',
+                                                          padding: '6px 10px',
+                                                          borderRadius: '8px',
+                                                          fontSize: '0.7rem',
+                                                          color: '#ef4444',
+                                                          cursor: 'pointer',
+                                                          fontWeight: 600,
+                                                          display: 'flex',
+                                                          alignItems: 'center',
+                                                          gap: '6px'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                      >
+                                                        <Link2 size={12} style={{ opacity: 0.7 }} /> Ungroup Items
+                                                      </button>
+                                                    </>
+                                                  )}
+
+                                                  {hasLockedGroup && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleToggleLock(false)}
+                                                      style={{
+                                                        width: '100%',
+                                                        textAlign: 'left',
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        padding: '6px 10px',
+                                                        borderRadius: '8px',
+                                                        fontSize: '0.7rem',
+                                                        color: 'var(--status-emerald)',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 600,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                      }}
+                                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                    >
+                                                      <Unlock size={12} /> Unlock Group
+                                                    </button>
+                                                  )}
+
+                                                  {hasUnlockedGroup && !hasLockedGroup && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleToggleLock(true)}
+                                                      style={{
+                                                        width: '100%',
+                                                        textAlign: 'left',
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        padding: '6px 10px',
+                                                        borderRadius: '8px',
+                                                        fontSize: '0.7rem',
+                                                        color: '#ef4444',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 600,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                      }}
+                                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                    >
+                                                      <Lock size={12} /> Lock Group
+                                                    </button>
+                                                  )}
+                                                </>
+                                              );
+                                            })()}
                                           </div>
                                         )}
                                       </div>
