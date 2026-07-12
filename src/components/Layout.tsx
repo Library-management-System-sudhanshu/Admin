@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/authSlice';
 import type { RootState } from '../store';
-import { useGetBranchesQuery, useGetMetricsQuery } from '../store/api';
+import { useGetBranchesQuery, useGetMetricsQuery, useGetSaaSSubscriptionQuery } from '../store/api';
 import {
   LayoutDashboard,
   Users,
@@ -51,6 +51,9 @@ export default function Layout() {
   // Fetch branches & metrics
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: metrics } = useGetMetricsQuery({});
+  const { data: saasSub } = useGetSaaSSubscriptionQuery(user?.workspaceId, { 
+    skip: !user?.workspaceId || user?.role === 'SUPER_ADMIN' 
+  });
 
   // Dynamic Greeting based on current time
   const greeting = useMemo(() => {
@@ -251,10 +254,26 @@ export default function Layout() {
                 <Menu size={20} />
               </button>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', lineHeight: 1.25 }}>
-                  {greeting}, {user?.name || 'Rakesh'}
-                </span>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-slate)', fontWeight: 500, marginTop: '2px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', lineHeight: 1.25 }}>
+                    {greeting}, {user?.name || 'Rakesh'}
+                  </span>
+                  {saasSub && (
+                    <span style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      background: saasSub.status === 'ACTIVE' ? '#dbeafe' : '#fef3c7',
+                      color: saasSub.status === 'ACTIVE' ? '#1e40af' : '#b45309',
+                      textTransform: 'uppercase',
+                      border: saasSub.status === 'ACTIVE' ? '1px solid #bfdbfe' : '1px solid #fde68a'
+                    }}>
+                      {saasSub.saasPlan?.name || saasSub.status} Plan
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-slate)', fontWeight: 500, marginTop: '4px' }}>
                   {todayDate} • <span style={{ color: 'var(--status-emerald)', fontWeight: 600 }}>{branchName} is running smoothly today.</span>
                 </span>
               </div>

@@ -11,6 +11,9 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const location = useLocation();
 
   if (!token) {
+    if (location.pathname.startsWith('/super-admin')) {
+      return <Navigate to="/super-admin/login" replace />;
+    }
     return <Navigate to="/login" replace />;
   }
 

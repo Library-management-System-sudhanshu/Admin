@@ -21,6 +21,13 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
       window.location.href = '/login?expired=true';
     }
   }
+  if (result.error && result.error.status === 403) {
+    const errorData = result.error.data as any;
+    if (errorData?.message?.includes('disabled') || errorData?.message?.includes('Access denied')) {
+      api.dispatch(logout());
+      window.location.href = '/login?disabled=true';
+    }
+  }
   return result;
 };
 
@@ -42,6 +49,9 @@ export const api = createApi({
     'Plans',
     'Notices',
     'Settings',
+    'SaaSPlans',
+    'SaaSSubscription',
+    'SuperAdminMetrics',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -377,13 +387,25 @@ export const api = createApi({
       query: () => 'workspaces',
       providesTags: ['Workspaces'],
     }),
+    getSuperAdminMetrics: builder.query({
+      query: () => 'dashboard/super-admin/metrics',
+      providesTags: ['SuperAdminMetrics'],
+    }),
     updateWorkspace: builder.mutation({
       query: ({ id, ...data }) => ({
         url: `workspaces/${id}`,
         method: 'PATCH',
         body: data,
       }),
-      invalidatesTags: ['Workspaces'],
+      invalidatesTags: ['Workspaces', 'SuperAdminMetrics'],
+    }),
+    createWorkspace: builder.mutation({
+      query: (data) => ({
+        url: 'workspaces',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Workspaces', 'SuperAdminMetrics'],
     }),
 
     // Branches & Shifts & Plans
@@ -460,6 +482,56 @@ export const api = createApi({
       }),
       invalidatesTags: ['Settings'],
     }),
+    // SaaS Plans (Trishul HQ)
+    getSaaSPlans: builder.query({
+      query: () => 'saas-plans',
+      providesTags: ['SaaSPlans'],
+    }),
+    createSaaSPlan: builder.mutation({
+      query: (data) => ({
+        url: 'saas-plans',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['SaaSPlans'],
+    }),
+    updateSaaSPlan: builder.mutation({
+      query: ({ id, ...data }) => ({
+        url: `saas-plans/${id}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['SaaSPlans'],
+    }),
+    
+    // SaaS Subscriptions (Library Owner's Workspace)
+    getSaaSSubscription: builder.query({
+      query: (workspaceId) => `workspaces/${workspaceId}/saas-subscription`,
+      providesTags: ['SaaSSubscription'],
+    }),
+    startSaaSTrial: builder.mutation({
+      query: ({ workspaceId, days }) => ({
+        url: `workspaces/${workspaceId}/start-trial`,
+        method: 'POST',
+        body: { days },
+      }),
+      invalidatesTags: ['SaaSSubscription'],
+    }),
+    createSaaSPayment: builder.mutation({
+      query: ({ workspaceId, saasPlanId }) => ({
+        url: `workspaces/${workspaceId}/saas-payment/create`,
+        method: 'POST',
+        body: { saasPlanId },
+      }),
+    }),
+    verifySaaSPayment: builder.mutation({
+      query: ({ workspaceId, paymentData }) => ({
+        url: `workspaces/${workspaceId}/saas-payment/verify`,
+        method: 'POST',
+        body: paymentData,
+      }),
+      invalidatesTags: ['SaaSSubscription'],
+    }),
   }),
 });
 
@@ -510,7 +582,9 @@ export const {
   useSendWhatsAppBroadcastMutation,
   useGetWhatsAppLogsQuery,
   useGetWorkspacesQuery,
+  useGetSuperAdminMetricsQuery,
   useUpdateWorkspaceMutation,
+  useCreateWorkspaceMutation,
   useGetBranchesQuery,
   useGetShiftsQuery,
   useCreateShiftMutation,
@@ -523,5 +597,12 @@ export const {
   useGetSettingsQuery,
   useUpdateSettingsMutation,
   useTriggerSafetyAlarmMutation,
+  useGetSaaSPlansQuery,
+  useCreateSaaSPlanMutation,
+  useUpdateSaaSPlanMutation,
+  useGetSaaSSubscriptionQuery,
+  useStartSaaSTrialMutation,
+  useCreateSaaSPaymentMutation,
+  useVerifySaaSPaymentMutation,
 } = api;
 

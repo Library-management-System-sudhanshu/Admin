@@ -5,6 +5,7 @@ import { useLoginMutation, useRegisterTenantMutation, useGoogleLoginMutation } f
 import { setCredentials } from '../store/authSlice';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/ToastContext';
 
 export default function Login() {
@@ -30,6 +31,7 @@ export default function Login() {
 
   // Google Simulation fields
   const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [showDisabledModal, setShowDisabledModal] = useState(false);
   const [googleEmail, setGoogleEmail] = useState('');
   const [googleName, setGoogleName] = useState('');
 
@@ -46,6 +48,10 @@ export default function Login() {
       showToast('Session expired. Please log in again.', 'error');
       navigate('/login', { replace: true });
     }
+    if (searchParams.get('disabled') === 'true') {
+      setShowDisabledModal(true);
+      navigate('/login', { replace: true });
+    }
   }, [location.search, showToast, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -56,7 +62,11 @@ export default function Login() {
       dispatch(setCredentials(res));
       navigate('/');
     } catch (err: any) {
-      setError(err?.data?.message || 'Login failed. Check credentials.');
+      if (err?.data?.message?.includes('disabled') || err?.data?.message?.includes('Access denied')) {
+        setShowDisabledModal(true);
+      } else {
+        setError(err?.data?.message || 'Login failed. Check credentials.');
+      }
     }
   };
 
@@ -810,6 +820,44 @@ export default function Login() {
           </div>
         </div>
       )}
+
+      {/* Workspace Disabled Alert Modal */}
+      <Modal
+        isOpen={showDisabledModal}
+        onClose={() => setShowDisabledModal(false)}
+        title={
+          <span style={{ color: '#ef4444', fontWeight: 700 }}>Access Suspended</span>
+        }
+        maxWidth="sm"
+      >
+        <div style={{ padding: '0.5rem 0' }}>
+          <p style={{ margin: '0 0 1.5rem 0', color: '#475569', fontSize: '0.95rem', lineHeight: 1.6 }}>
+            Your library workspace access has been suspended or disabled by the platform administrator. 
+            Please contact customer support to verify your billing status or reactivate your account.
+          </p>
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setShowDisabledModal(false)}
+              style={{ flex: 1 }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="button" 
+              variant="primary" 
+              onClick={() => {
+                window.location.href = 'mailto:support@studyflow.in?subject=Workspace%20Suspension%20Inquiry';
+              }}
+              style={{ flex: 1, backgroundColor: '#ef4444', borderColor: '#ef4444' }}
+            >
+              Contact Support
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
