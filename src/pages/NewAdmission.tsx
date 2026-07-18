@@ -354,115 +354,119 @@ export default function NewAdmission() {
             </h3>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-            <div style={{ position: 'relative' }}>
-              <div 
-                style={{ 
-                  width: '96px', 
-                  height: '96px', 
-                  borderRadius: '50%', 
-                  background: avatar ? `url(${avatar}) no-repeat center center / cover` : 'linear-gradient(135deg, var(--accent-blue) 0%, #3b82f6 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: 700,
-                  fontSize: '2.5rem',
-                  boxShadow: 'var(--shadow-soft)',
-                  border: '3px solid #ffffff'
-                }}
-              >
-                {!avatar && (name?.charAt(0).toUpperCase() || 'A')}
+          <div style={{ display: 'flex', gap: '28px', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            {/* Left Column: Avatar Photo Upload */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', minWidth: '140px' }}>
+              <div style={{ position: 'relative' }}>
+                <div 
+                  style={{ 
+                    width: '110px', 
+                    height: '110px', 
+                    borderRadius: '50%', 
+                    background: avatar ? `url(${avatar}) no-repeat center center / cover` : 'linear-gradient(135deg, var(--accent-blue) 0%, #3b82f6 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '2.8rem',
+                    boxShadow: 'var(--shadow-soft)',
+                    border: '3px solid #ffffff'
+                  }}
+                >
+                  {!avatar && (name?.charAt(0).toUpperCase() || 'A')}
+                </div>
+                <label 
+                  htmlFor="avatar-upload" 
+                  style={{ 
+                    position: 'absolute', 
+                    bottom: 2, 
+                    right: 2, 
+                    backgroundColor: 'var(--accent-blue)', 
+                    color: 'white', 
+                    width: '32px', 
+                    height: '32px', 
+                    borderRadius: '50%', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    cursor: 'pointer',
+                    border: '2px solid #ffffff',
+                    boxShadow: 'var(--shadow-soft)'
+                  }}
+                >
+                  <Camera size={14} />
+                </label>
+                <input 
+                  id="avatar-upload" 
+                  type="file" 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                  onChange={handleAvatarUpload} 
+                />
               </div>
-              <label 
-                htmlFor="avatar-upload" 
-                style={{ 
-                  position: 'absolute', 
-                  bottom: 0, 
-                  right: 0, 
-                  backgroundColor: 'var(--accent-blue)', 
-                  color: 'white', 
-                  width: '30px', 
-                  height: '30px', 
-                  borderRadius: '50%', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  cursor: 'pointer',
-                  border: '2px solid #ffffff',
-                  boxShadow: 'var(--shadow-soft)'
-                }}
-              >
-                <Camera size={14} />
-              </label>
-              <input 
-                id="avatar-upload" 
-                type="file" 
-                accept="image/*" 
-                style={{ display: 'none' }} 
-                onChange={handleAvatarUpload} 
-              />
+              {isUploadingImage ? (
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', textAlign: 'center' }}>Uploading...</span>
+              ) : (
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', textAlign: 'center', fontWeight: 600 }}>Student Photo</span>
+              )}
             </div>
-            {isUploadingImage ? (
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Compressing & Uploading...</span>
-            ) : (
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Upload Student Photo</span>
-            )}
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-            <Input
-              label="Full Name *"
-              placeholder="e.g. Rohan Sharma"
-              required
-              value={name}
-              error={errors.name}
-              onChange={(e) => handleChange('name', e.target.value, setName)}
-            />
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="e.g. rohan@gmail.com"
-              value={email}
-              error={errors.email}
-              onChange={(e) => handleChange('email', e.target.value, setEmail)}
-            />
-            <Input
-              label="Mobile Number *"
-              placeholder="e.g. 9876543210"
-              required
-              maxLength={10}
-              value={mobile}
-              error={errors.mobile}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, '');
-                handleChange('mobile', val, setMobile);
-              }}
-            />
-            <Input
-              label="Password *"
-              type="password"
-              placeholder="Min 6 characters"
-              required
-              value={password}
-              error={errors.password}
-              onChange={(e) => handleChange('password', e.target.value, setPassword)}
-            />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label className="custom-input-label">Gender</label>
-              <Select
-                value={gender}
-                onChange={(val) => setGender(val)}
-                options={genderOptions}
+            {/* Right Column: Personal Details Inputs */}
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', minWidth: '250px' }}>
+              <Input
+                label="Full Name *"
+                placeholder="e.g. Rohan Sharma"
+                required
+                value={name}
+                error={errors.name}
+                onChange={(e) => handleChange('name', e.target.value, setName)}
+              />
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="e.g. rohan@gmail.com"
+                value={email}
+                error={errors.email}
+                onChange={(e) => handleChange('email', e.target.value, setEmail)}
+              />
+              <Input
+                label="Mobile Number *"
+                placeholder="e.g. 9876543210"
+                required
+                maxLength={10}
+                value={mobile}
+                error={errors.mobile}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  handleChange('mobile', val, setMobile);
+                }}
+              />
+              <Input
+                label="Password *"
+                type="password"
+                placeholder="Min 6 characters"
+                required
+                value={password}
+                error={errors.password}
+                onChange={(e) => handleChange('password', e.target.value, setPassword)}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label className="custom-input-label">Gender</label>
+                <Select
+                  value={gender}
+                  onChange={(val) => setGender(val)}
+                  options={genderOptions}
+                />
+              </div>
+              <Input
+                label="Aadhar Card Number"
+                placeholder="e.g. 123456789012"
+                value={aadharNumber}
+                error={errors.aadharNumber}
+                onChange={(e) => handleChange('aadharNumber', e.target.value, setAadharNumber)}
               />
             </div>
-            <Input
-              label="Aadhar Card Number"
-              placeholder="e.g. 123456789012"
-              value={aadharNumber}
-              error={errors.aadharNumber}
-              onChange={(e) => handleChange('aadharNumber', e.target.value, setAadharNumber)}
-            />
           </div>
         </Card>
 

@@ -300,24 +300,123 @@ export default function Profile() {
         .profile-grid {
           display: grid;
           grid-template-columns: 1.8fr 1fr;
-          gap: 24px;
+          gap: 20px;
         }
         .profile-card {
           background: #ffffff;
-          border: 1px solid rgba(226, 232, 240, 0.8);
+          border: 1px solid rgba(15, 23, 42, 0.05);
           border-radius: 16px;
-          padding: 24px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.02);
-          transition: transform 200ms ease, box-shadow 200ms ease;
+          padding: 20px;
+          box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.02), 0 4px 12px -4px rgba(15, 23, 42, 0.02);
+          transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
         }
         .profile-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02);
+          box-shadow: 0 12px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 16px -6px rgba(15, 23, 42, 0.03);
+          border-color: rgba(37, 99, 235, 0.1);
         }
         .input-grid-2 {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 18px;
+          gap: 16px;
+        }
+        .profile-hero {
+          position: relative;
+          background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 20px;
+          padding: 24px;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          flex-wrap: wrap;
+          overflow: hidden;
+          box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.25);
+        }
+        .profile-hero::before {
+          content: "";
+          position: absolute;
+          top: -50%;
+          right: -20%;
+          width: 300px;
+          height: 300px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0) 70%);
+          pointer-events: none;
+        }
+        .hero-avatar-container {
+          position: relative;
+        }
+        .hero-avatar {
+          width: 76px;
+          height: 76px;
+          border-radius: 50%;
+          font-size: 2.2rem;
+          font-weight: 800;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 3.5px solid rgba(255, 255, 255, 0.15);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+          overflow: hidden;
+          transition: border-color 0.3s, transform 0.3s;
+        }
+        .hero-avatar-container:hover .hero-avatar {
+          border-color: var(--accent-blue);
+          transform: scale(1.02);
+        }
+        .hero-avatar-camera {
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          background: var(--accent-blue);
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          border: 2px solid #0f172a;
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+          transition: transform 0.2s, background-color 0.2s;
+        }
+        .hero-avatar-camera:hover {
+          transform: scale(1.1);
+          background: #1d4ed8;
+        }
+        .badge-super-admin {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+          color: #f472b6;
+          border: 1px solid rgba(236, 72, 153, 0.3);
+          padding: 3px 10px;
+          border-radius: 9999px;
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          box-shadow: 0 0 10px rgba(236, 72, 153, 0.15);
+        }
+        .badge-admin {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(56, 189, 248, 0.15);
+          color: #38bdf8;
+          border: 1px solid rgba(56, 189, 248, 0.3);
+          padding: 3px 10px;
+          border-radius: 9999px;
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
         @media (max-width: 900px) {
           .profile-grid {
@@ -342,53 +441,18 @@ export default function Profile() {
       </div>
 
       {/* Profile Hero Card */}
-      <div className="profile-card" style={{
-        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-        color: '#ffffff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '24px',
-        flexWrap: 'wrap',
-        padding: '32px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+      <div className="profile-hero">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', zIndex: 1 }}>
           
           {/* Avatar Upload Container */}
-          <div style={{ position: 'relative' }}>
-            <div style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              fontSize: '2.25rem',
-              background: avatar ? `url(${avatar}) no-repeat center center / cover` : 'linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%)',
-              color: '#ffffff',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 30px rgba(37, 99, 235, 0.25)',
-              overflow: 'hidden'
+          <div className="hero-avatar-container">
+            <div className="hero-avatar" style={{
+              background: avatar ? `url(${avatar}) no-repeat center center / cover` : 'linear-gradient(135deg, var(--accent-blue) 0%, #3b82f6 100%)',
             }}>
               {!avatar && (name?.charAt(0).toUpperCase() || 'A')}
             </div>
-            <label style={{
-              position: 'absolute',
-              bottom: '-4px',
-              right: '-4px',
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-              transition: 'transform 200ms ease'
-            }}>
-              <CameraIcon size={14} style={{ color: '#475569' }} />
+            <label className="hero-avatar-camera">
+              <CameraIcon size={14} />
               <input 
                 type="file" 
                 accept="image/*" 
@@ -399,53 +463,41 @@ export default function Profile() {
             </label>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.015em' }}>
+              <h2 style={{ fontSize: '1.65rem', fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
                 {name}
               </h2>
-              <div style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                gap: '4px', 
-                backgroundColor: 'rgba(255, 255, 255, 0.1)', 
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#38bdf8',
-                padding: '2px 8px',
-                borderRadius: '9999px',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em'
-              }}>
+              <div className={user?.role === 'SUPER_ADMIN' ? 'badge-super-admin' : 'badge-admin'}>
                 <ShieldIcon size={12} />
-                {user?.role}
+                {user?.role?.replace('_', ' ')}
               </div>
             </div>
-            <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.9rem' }}>
+            <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.9rem', fontWeight: 500 }}>
               {email}
             </p>
           </div>
         </div>
 
         {/* Small Statistics Cards */}
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end', minWidth: '280px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', flex: 1, justifyContent: 'flex-end', minWidth: '280px', zIndex: 1 }}>
           {[
             { label: 'Workspace', value: workspaceName || 'N/A' },
-            { label: 'Role', value: user?.role || 'Staff' },
-            { label: 'Status', value: 'Active', color: '#4ade80' }
+            { label: 'User Role', value: user?.role?.replace('_', ' ') || 'Staff' },
+            { label: 'Acc. Status', value: 'Active', color: '#4ade80' }
           ].map((stat, idx) => (
             <div key={idx} style={{
               background: 'rgba(255, 255, 255, 0.04)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '12px',
-              padding: '12px 18px',
-              minWidth: '110px'
+              borderRadius: '16px',
+              padding: '14px 20px',
+              minWidth: '120px',
+              backdropFilter: 'blur(8px)'
             }}>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 {stat.label}
               </div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, marginTop: '2px', color: stat.color || '#f8fafc' }}>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800, marginTop: '4px', color: stat.color || '#f8fafc' }}>
                 {stat.value}
               </div>
             </div>
@@ -481,9 +533,9 @@ export default function Profile() {
           <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
             {/* Personal Information Card */}
-            <div className="profile-card">
+            <div className="profile-card" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #eff6ff 100%)', borderLeft: '4px solid #3b82f6' }}>
               <div style={{ marginBottom: '18px' }}>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
                   Personal Information
                 </h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
@@ -520,9 +572,9 @@ export default function Profile() {
             </div>
 
             {/* Workspace Information Card */}
-            <div className="profile-card">
+            <div className="profile-card" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)', borderLeft: '4px solid #10b981' }}>
               <div style={{ marginBottom: '18px' }}>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
                   Workspace / Library Details
                 </h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
@@ -660,18 +712,18 @@ export default function Profile() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Security Card */}
-          <div className="profile-card">
+          <div className="profile-card" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #fff1f2 100%)', borderLeft: '4px solid #f43f5e' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '18px' }}>
               <div style={{
-                width: '36px', height: '36px', borderRadius: '8px',
-                background: 'rgba(99, 102, 241, 0.08)',
+                width: '32px', height: '32px', borderRadius: '8px',
+                background: 'rgba(244, 63, 94, 0.08)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--primary)', flexShrink: 0
+                color: '#f43f5e', flexShrink: 0
               }}>
                 <LockIcon size={18} />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px 0' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px 0' }}>
                   Change Password
                 </h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
@@ -782,9 +834,9 @@ export default function Profile() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Current Subscription Status */}
-          <div className="profile-card">
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <CreditCard size={20} style={{ color: 'var(--primary)' }} />
+          <div className="profile-card" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #faf5ff 100%)', borderLeft: '4px solid #a855f7' }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <CreditCard size={18} style={{ color: '#a855f7' }} />
               Current Subscription Status
             </h3>
 
