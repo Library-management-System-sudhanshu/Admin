@@ -89,11 +89,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       const bookedShiftIds = activeAllocations.map((a: any) => a.shiftId || a.shift?.id);
       const availableShifts = shifts?.filter((s: any) => !bookedShiftIds.includes(s.id)) || [];
 
-      if (availableShifts.length > 0) {
-        setShiftId(availableShifts[0].id);
-      } else {
-        setShiftId('');
-      }
+      setShiftId('');
 
       setDurationMode(1);
       setShouldGenerateInvoice(true);
@@ -137,6 +133,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         const end = new Date(today);
         end.setMonth(end.getMonth() + 1);
         setEndDate(end.toISOString().split('T')[0]);
+        setShiftId('');
       }
     }
   }, [isOpen, studentProfileId, studentsData, shifts]);
@@ -220,6 +217,11 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     return basePrice;
   }, [shiftId, shifts, durationMode, startDate, endDate]);
 
+  const dueAmount = useMemo(() => {
+    const paid = parseFloat(invoiceAmount) || 0;
+    return Math.max(0, calculatedBaseAmount - paid);
+  }, [calculatedBaseAmount, invoiceAmount]);
+
   useEffect(() => {
     if (calculatedBaseAmount > 0) {
       setInvoiceAmount(calculatedBaseAmount.toString());
@@ -247,6 +249,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           method: paymentMethod,
           shiftId: shiftId || undefined,
           durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
+          totalAmount: calculatedBaseAmount,
         }).unwrap();
 
         const student = studentsData?.students?.find((s: any) => s.id === studentProfileId);
@@ -542,6 +545,16 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                     onChange={(e) => setInvoiceAmount(e.target.value)}
                     style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: '#ffffff' }}
                   />
+                  {calculatedBaseAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.75rem' }}>
+                      <span style={{ color: 'var(--text-slate)' }}>Total Price: ₹{calculatedBaseAmount}</span>
+                      {dueAmount > 0 ? (
+                        <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>Due: ₹{dueAmount}</span>
+                      ) : (
+                        <span style={{ color: 'var(--status-emerald)', fontWeight: 700 }}>Fully Paid</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

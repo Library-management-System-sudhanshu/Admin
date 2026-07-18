@@ -126,7 +126,6 @@ export default function Seats() {
       window.history.replaceState({}, document.title);
     }
   }, [location]);
-
   
   // Branches API
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
@@ -1814,6 +1813,46 @@ export default function Seats() {
     }
   }, [calculatedModalBaseAmount]);
 
+  // Sync drawer inputs with student's active subscription if they already have one
+  useEffect(() => {
+    if (isDrawerOpen && studentProfileId && studentsData?.students) {
+      const student = studentsData.students.find((s: any) => s.id === studentProfileId);
+      const activeSub = student?.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
+      
+      if (activeSub) {
+        // Match shift
+        const matchingShift = shifts?.find((s: any) => 
+          activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
+        );
+        if (matchingShift) {
+          setShiftId(matchingShift.id);
+        }
+        
+        // Match dates
+        if (activeSub.startDate) {
+          setStartDate(activeSub.startDate.split('T')[0]);
+        }
+        if (activeSub.endDate) {
+          setEndDate(activeSub.endDate.split('T')[0]);
+          setDurationMode('flex');
+        }
+        
+        // Already paid / subscribed -> do not generate another invoice
+        setShouldGenerateInvoice(false);
+      } else {
+        // No active subscription -> allow invoice generation and reset to defaults
+        setShouldGenerateInvoice(true);
+        setDurationMode(1);
+        const today = new Date().toISOString().split('T')[0];
+        setStartDate(today);
+        const end = new Date(today);
+        end.setMonth(end.getMonth() + 1);
+        setEndDate(end.toISOString().split('T')[0]);
+        setShiftId('');
+      }
+    }
+  }, [isDrawerOpen, studentProfileId, studentsData, shifts]);
+
   // Submit Allocate Seat Modal (Popup)
   const handleModalAllocate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1834,6 +1873,7 @@ export default function Seats() {
           method: allocModalPaymentMethod,
           shiftId: allocModalShiftId || undefined,
           durationMonths: typeof allocModalDuration === 'number' ? allocModalDuration : 1,
+          totalAmount: calculatedModalBaseAmount,
         }).unwrap();
 
         const invoiceInfo = {
@@ -1881,9 +1921,7 @@ export default function Seats() {
         setStudentProfileId('');
         setStudentSearchQuery('');
       }
-      if (shifts && shifts.length > 0) {
-        setShiftId(shifts[0].id);
-      }
+      setShiftId('');
       setDurationMode(1);
       setShouldGenerateInvoice(true);
       setInvoiceAmount('');
@@ -1936,11 +1974,7 @@ export default function Seats() {
     // Filter available shifts
     const availableShifts = shifts?.filter((s: any) => !bookedShiftIds.includes(s.id)) || [];
     
-    if (availableShifts.length > 0) {
-      setShiftId(availableShifts[0].id);
-    } else {
-      setShiftId('');
-    }
+    setShiftId('');
     setDurationMode(1);
     setShouldGenerateInvoice(true);
     setInvoiceAmount('');
@@ -2005,6 +2039,11 @@ export default function Seats() {
     return basePrice;
   }, [shiftId, shifts, durationMode, startDate, endDate]);
 
+  const drawerDueAmount = useMemo(() => {
+    const paid = parseFloat(invoiceAmount) || 0;
+    return Math.max(0, calculatedBaseAmount - paid);
+  }, [calculatedBaseAmount, invoiceAmount]);
+
   useEffect(() => {
     if (calculatedBaseAmount > 0) {
       setInvoiceAmount(calculatedBaseAmount.toString());
@@ -2055,6 +2094,7 @@ export default function Seats() {
           method: paymentMethod,
           shiftId: shiftId || undefined,
           durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
+          totalAmount: calculatedBaseAmount,
         }).unwrap();
 
         const invoiceInfo = {
@@ -2890,8 +2930,17 @@ export default function Seats() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: '#F8FAFC', padding: '12px', borderRadius: '12px', border: '1px dashed rgba(15, 23, 42, 0.05)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div>
-                <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Amount (₹)</label>
-                <input type="number" required={shouldGenerateInvoice} placeholder="e.g. 1500" value={invoiceAmount} onChange={(e) => setInvoiceAmount(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', width: '100%', outline: 'none' }} />
+                <input type="number" required={shouldGenerateInvoice} placeholder="e.g. 1500" value={invoiceAmount} onChange={(e) => setInvoiceAmount(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', width: '100%', outline: 'none', backgroundColor: '#ffffff' }} />
+                {calculatedBaseAmount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.7rem' }}>
+                    <span style={{ color: 'var(--text-slate)' }}>Total: ₹{calculatedBaseAmount}</span>
+                    {drawerDueAmount > 0 ? (
+                      <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>Due: ₹{drawerDueAmount}</span>
+                    ) : (
+                      <span style={{ color: 'var(--status-emerald)', fontWeight: 700 }}>Paid</span>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Method</label>
