@@ -15,7 +15,9 @@ import SuperAdminLayout from './pages/super-admin/SuperAdminLayout';
 import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
 import WorkspacesList from './pages/super-admin/WorkspacesList';
 import SaaSPlans from './pages/super-admin/SaaSPlans';
+import SaaSPlanForm from './pages/super-admin/SaaSPlanForm';
 import PlatformSettings from './pages/super-admin/PlatformSettings';
+import WorkspaceDetail from './pages/super-admin/WorkspaceDetail';
 import SuperAdminLogin from './pages/super-admin/SuperAdminLogin';
 import Profile from './pages/Profile';
 import TransferSeat from './pages/TransferSeat';
@@ -58,7 +60,10 @@ export default function App() {
               <Route element={<SuperAdminLayout />}>
                 <Route path="/super-admin" element={<SuperAdminDashboard />} />
                 <Route path="/super-admin/workspaces" element={<WorkspacesList />} />
+                <Route path="/super-admin/workspaces/:id" element={<WorkspaceDetail />} />
                 <Route path="/super-admin/plans" element={<SaaSPlans />} />
+                <Route path="/super-admin/plans/new" element={<SaaSPlanForm />} />
+                <Route path="/super-admin/plans/edit/:id" element={<SaaSPlanForm />} />
                 <Route path="/super-admin/settings" element={<PlatformSettings />} />
               </Route>
             </Route>

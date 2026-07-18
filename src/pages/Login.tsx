@@ -60,7 +60,11 @@ export default function Login() {
     try {
       const res = await loginMutation({ email, password }).unwrap();
       dispatch(setCredentials(res));
-      navigate('/');
+      if (res.user?.role === 'SUPER_ADMIN') {
+        navigate('/super-admin');
+      } else {
+        navigate('/');
+      }
     } catch (err: any) {
       if (err?.data?.message?.includes('disabled') || err?.data?.message?.includes('Access denied')) {
         setShowDisabledModal(true);
@@ -89,6 +93,8 @@ export default function Login() {
 
       if (res.requiresWorkspaceInfo) {
         navigate('/setup-workspace');
+      } else if (res.user?.role === 'SUPER_ADMIN') {
+        navigate('/super-admin');
       } else {
         navigate('/');
       }

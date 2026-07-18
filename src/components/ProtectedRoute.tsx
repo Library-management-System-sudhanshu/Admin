@@ -22,11 +22,11 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     if (location.pathname !== '/setup-workspace') {
       return <Navigate to="/setup-workspace" replace />;
     }
-  } else {
-    // If they already have a workspace and try to go to onboarding, send them home
-    if (location.pathname === '/setup-workspace') {
-      return <Navigate to="/" replace />;
-    }
+  }
+
+  // Redirect SUPER_ADMIN from tenant routes to the super admin dashboard
+  if (user && user.role === 'SUPER_ADMIN' && !location.pathname.startsWith('/super-admin')) {
+    return <Navigate to="/super-admin" replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {

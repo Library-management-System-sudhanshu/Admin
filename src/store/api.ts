@@ -23,7 +23,7 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
   }
   if (result.error && result.error.status === 403) {
     const errorData = result.error.data as any;
-    if (errorData?.message?.includes('disabled') || errorData?.message?.includes('Access denied')) {
+    if (errorData?.message?.includes('disabled')) {
       api.dispatch(logout());
       window.location.href = '/login?disabled=true';
     }
@@ -395,6 +395,10 @@ export const api = createApi({
       query: () => 'workspaces',
       providesTags: ['Workspaces'],
     }),
+    getWorkspaceById: builder.query({
+      query: (id) => `workspaces/${id}`,
+      providesTags: ['Workspaces'],
+    }),
     getSuperAdminMetrics: builder.query({
       query: () => 'dashboard/super-admin/metrics',
       providesTags: ['SuperAdminMetrics'],
@@ -591,6 +595,7 @@ export const {
   useSendWhatsAppBroadcastMutation,
   useGetWhatsAppLogsQuery,
   useGetWorkspacesQuery,
+  useGetWorkspaceByIdQuery,
   useGetSuperAdminMetricsQuery,
   useUpdateWorkspaceMutation,
   useCreateWorkspaceMutation,

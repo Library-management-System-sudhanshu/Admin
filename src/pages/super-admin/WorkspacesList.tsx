@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
@@ -7,6 +8,7 @@ import { useToast } from '../../components/ui/ToastContext';
 import { Building2, Plus, Info, Check, Eye } from 'lucide-react';
 
 export default function WorkspacesList() {
+  const navigate = useNavigate();
   const { data: workspaces = [], isLoading, error } = useGetWorkspacesQuery({});
   const [updateWorkspace, { isLoading: isUpdating }] = useUpdateWorkspaceMutation();
   const [createWorkspace, { isLoading: isCreating }] = useCreateWorkspaceMutation();
@@ -14,7 +16,6 @@ export default function WorkspacesList() {
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
 
   // Form state for creating workspace
@@ -44,8 +45,7 @@ export default function WorkspacesList() {
   };
 
   const handleOpenViewModal = (workspace: any) => {
-    setSelectedWorkspace(workspace);
-    setIsViewModalOpen(true);
+    navigate(`/super-admin/workspaces/${workspace.id}`);
   };
 
   const handleAddWorkspaceSubmit = async (e: React.FormEvent) => {
@@ -144,7 +144,12 @@ export default function WorkspacesList() {
 
               return (
                 <tr key={row.id} style={{ borderBottom: '1px solid #f1f5f9', opacity: isActive ? 1 : 0.6 }}>
-                  <td style={{ padding: '1rem', fontWeight: 600, color: '#0f172a' }}>{row.name}</td>
+                  <td 
+                    onClick={() => navigate(`/super-admin/workspaces/${row.id}`)}
+                    style={{ padding: '1rem', fontWeight: 600, color: 'var(--accent-blue)', cursor: 'pointer' }}
+                  >
+                    {row.name}
+                  </td>
                   <td style={{ padding: '1rem', color: '#475569' }}>{row.subdomain}.studyflow.in</td>
                   <td style={{ padding: '1rem', color: '#475569' }}>
                     {owner ? (
@@ -173,10 +178,10 @@ export default function WorkspacesList() {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => handleOpenViewModal(row)}
+                      onClick={() => navigate(`/super-admin/workspaces/${row.id}`)}
                       style={{ marginRight: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                     >
-                      <Info size={14} /> View Details
+                      <Eye size={14} /> View Details
                     </Button>
                     <Button 
                       variant="outline" 
@@ -288,154 +293,6 @@ export default function WorkspacesList() {
             </div>
           </div>
         </form>
-      </Modal>
-
-      {/* 2. VIEW DETAILS MODAL */}
-      <Modal
-        isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
-        title="Workspace Details"
-        maxWidth="md"
-      >
-        {selectedWorkspace && (
-          <div style={{ padding: '0.5rem 0' }}>
-            {/* Summary Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
-              <div>
-                <h3 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: 700 }}>
-                  {selectedWorkspace.name}
-                </h3>
-                <span style={{ 
-                  background: selectedWorkspace.isActive ? '#dcfce7' : '#fee2e2', 
-                  color: selectedWorkspace.isActive ? '#166534' : '#991b1b', 
-                  padding: '4px 10px', 
-                  borderRadius: '4px', 
-                  fontSize: '0.8rem', 
-                  fontWeight: 700 
-                }}>
-                  {selectedWorkspace.isActive ? 'Access: Active' : 'Access: Disabled'}
-                </span>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleToggleAccess(selectedWorkspace)}
-                style={{ 
-                  borderColor: selectedWorkspace.isActive ? '#ef4444' : '#10b981', 
-                  color: selectedWorkspace.isActive ? '#ef4444' : '#10b981' 
-                }}
-              >
-                {selectedWorkspace.isActive ? 'Disable Access' : 'Enable Access'}
-              </Button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-              {/* Left Column: General Metadata */}
-              <div>
-                <h4 style={{ margin: '0 0 1rem 0', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                  General Info
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', fontSize: '0.9rem' }}>
-                  <div>
-                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Workspace ID</div>
-                    <div style={{ color: '#334155', fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all' }}>{selectedWorkspace.id}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Subdomain URL</div>
-                    <div style={{ color: '#334155' }}>
-                      <a href={`http://${selectedWorkspace.subdomain}.studyflow.in:5173`} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
-                        {selectedWorkspace.subdomain}.studyflow.in
-                      </a>
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Address</div>
-                    <div style={{ color: '#334155', lineHeight: 1.4 }}>
-                      {selectedWorkspace.address}
-                      {selectedWorkspace.pincode && `, PIN - ${selectedWorkspace.pincode}`}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Created At</div>
-                    <div style={{ color: '#334155' }}>{new Date(selectedWorkspace.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Owner & SaaS Billing */}
-              <div>
-                {/* Owner info */}
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h4 style={{ margin: '0 0 1rem 0', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                    Owner details
-                  </h4>
-                  {selectedWorkspace.users && selectedWorkspace.users[0] ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
-                      <div style={{ fontWeight: 600, color: '#1e293b' }}>{selectedWorkspace.users[0].name}</div>
-                      <div style={{ color: '#64748b' }}>Email: <span style={{ color: '#334155' }}>{selectedWorkspace.users[0].email}</span></div>
-                      <div style={{ color: '#64748b' }}>Mobile: <span style={{ color: '#334155' }}>{selectedWorkspace.users[0].mobile || 'N/A'}</span></div>
-                    </div>
-                  ) : (
-                    <p style={{ color: '#64748b', margin: 0, fontSize: '0.9rem' }}>No owner registered.</p>
-                  )}
-                </div>
-
-                {/* SaaS Subscription Info */}
-                <div style={{ 
-                  background: '#f8fafc', 
-                  border: '1px solid #e2e8f0', 
-                  borderRadius: '8px', 
-                  padding: '1rem' 
-                }}>
-                  <h4 style={{ margin: '0 0 0.75rem 0', color: '#475569', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                    SaaS Subscription
-                  </h4>
-                  {selectedWorkspace.subscription ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Plan:</span>
-                        <span style={{ fontWeight: 700, color: '#0f172a' }}>
-                          {selectedWorkspace.subscription.saasPlan?.name || 'Trial Plan'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748b' }}>Status:</span>
-                        <span style={{ 
-                          fontWeight: 700, 
-                          color: selectedWorkspace.subscription.status === 'ACTIVE' ? '#166534' : '#b45309' 
-                        }}>
-                          {selectedWorkspace.subscription.status}
-                        </span>
-                      </div>
-                      {selectedWorkspace.subscription.trialEndDate && selectedWorkspace.subscription.status === 'TRIAL' && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748b' }}>Trial Ends:</span>
-                          <span style={{ color: '#334155', fontWeight: 500 }}>
-                            {new Date(selectedWorkspace.subscription.trialEndDate).toLocaleDateString()}
-                          </span>
-                        </div>
-                      )}
-                      {selectedWorkspace.subscription.currentPeriodEnd && selectedWorkspace.subscription.status === 'ACTIVE' && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#64748b' }}>Next Renewal:</span>
-                          <span style={{ color: '#334155', fontWeight: 500 }}>
-                            {new Date(selectedWorkspace.subscription.currentPeriodEnd).toLocaleDateString()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p style={{ color: '#64748b', margin: 0, fontSize: '0.85rem' }}>No active SaaS trial or plan.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
-              <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>Close Details</Button>
-            </div>
-          </div>
-        )}
       </Modal>
     </div>
   );

@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Users, IndianRupee, TrendingUp } from 'lucide-react';
 import { useGetSuperAdminMetricsQuery } from '../../store/api';
 
 export default function SuperAdminDashboard() {
+  const navigate = useNavigate();
   const { data, isLoading, error } = useGetSuperAdminMetricsQuery({});
 
   if (isLoading) {
@@ -80,8 +82,14 @@ export default function SuperAdminDashboard() {
             </thead>
             <tbody>
               {data.recentOnboardings.map((row: any) => (
-                <tr key={row.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '1rem 0', fontWeight: 600, color: '#0f172a' }}>
+                <tr 
+                  key={row.id} 
+                  style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                  onClick={() => navigate(`/super-admin/workspaces/${row.id}`)}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <td style={{ padding: '1rem 0', fontWeight: 600, color: 'var(--accent-blue)' }}>
                     {row.name}
                     <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400, marginTop: '2px' }}>
                       {row.subdomain}.studyflow.in
