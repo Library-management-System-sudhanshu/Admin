@@ -6,14 +6,45 @@ import {
   useCreateStudentMutation,
   useGetBranchesQuery,
   useGetShiftsQuery,
+  useUploadImageMutation,
 } from '../store/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
-import { ArrowLeft, UserPlus, MapPin, Layers } from 'lucide-react';
+import { ArrowLeft, UserPlus, MapPin, Layers, Camera } from 'lucide-react';
 import '../components/ui/Globals.css';
+
+const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+  });
+};
 
 export default function NewAdmission() {
   const navigate = useNavigate();
@@ -36,6 +67,7 @@ export default function NewAdmission() {
     setAadharNumber('');
     setShiftId('');
     setAmountPaid('');
+    setAvatar('');
     setErrors({});
     setIsSuccessModalOpen(false);
     setCreatedStudent(null);
@@ -51,6 +83,7 @@ export default function NewAdmission() {
     { skip: !user?.workspaceId }
   );
   const [createStudent, { isLoading: isSubmitting }] = useCreateStudentMutation();
+  const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
 
   // Form States
   const [name, setName] = useState('');
@@ -66,6 +99,26 @@ export default function NewAdmission() {
   const [branchId, setBranchId] = useState('');
   const [shiftId, setShiftId] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
+  const [avatar, setAvatar] = useState('');
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const rawBase64 = reader.result as string;
+      try {
+        const compressedBase64 = await compressImage(rawBase64);
+        const uploadResult = await uploadImage({ base64: compressedBase64 }).unwrap();
+        setAvatar(uploadResult.url);
+        showToast('Photo uploaded successfully!', 'success');
+      } catch (err: any) {
+        showToast(err?.data?.message || 'Failed to upload photo.', 'error');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const selectedShiftPrice = useMemo(() => {
     if (!shiftId || !shifts) return 0;
@@ -214,6 +267,7 @@ export default function NewAdmission() {
         shiftId: shiftId || undefined,
         amountPaid: amountPaid === '' ? 0 : Number(amountPaid),
         workspaceId: user?.workspaceId,
+        avatar: avatar || undefined,
       }).unwrap();
 
       showToast('Student admitted successfully!', 'success');
@@ -298,6 +352,62 @@ export default function NewAdmission() {
             <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-navy)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
               Personal Details
             </h3>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+            <div style={{ position: 'relative' }}>
+              <div 
+                style={{ 
+                  width: '96px', 
+                  height: '96px', 
+                  borderRadius: '50%', 
+                  background: avatar ? `url(${avatar}) no-repeat center center / cover` : 'linear-gradient(135deg, var(--accent-blue) 0%, #3b82f6 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontWeight: 700,
+                  fontSize: '2.5rem',
+                  boxShadow: 'var(--shadow-soft)',
+                  border: '3px solid #ffffff'
+                }}
+              >
+                {!avatar && (name?.charAt(0).toUpperCase() || 'A')}
+              </div>
+              <label 
+                htmlFor="avatar-upload" 
+                style={{ 
+                  position: 'absolute', 
+                  bottom: 0, 
+                  right: 0, 
+                  backgroundColor: 'var(--accent-blue)', 
+                  color: 'white', 
+                  width: '30px', 
+                  height: '30px', 
+                  borderRadius: '50%', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer',
+                  border: '2px solid #ffffff',
+                  boxShadow: 'var(--shadow-soft)'
+                }}
+              >
+                <Camera size={14} />
+              </label>
+              <input 
+                id="avatar-upload" 
+                type="file" 
+                accept="image/*" 
+                style={{ display: 'none' }} 
+                onChange={handleAvatarUpload} 
+              />
+            </div>
+            {isUploadingImage ? (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Compressing & Uploading...</span>
+            ) : (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Upload Student Photo</span>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>

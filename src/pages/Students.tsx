@@ -15,6 +15,7 @@ import {
   useAllocateSeatMutation,
   useCreatePaymentMutation,
   useClearStudentDuesMutation,
+  useUploadImageMutation,
 } from '../store/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -38,8 +39,39 @@ import {
   History,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Camera
 } from 'lucide-react';
+
+const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+  });
+};
 
 export default function Students() {
   const { showToast } = useToast();
@@ -142,6 +174,31 @@ export default function Students() {
   const [_createStudent] = useCreateStudentMutation();
   const [updateStudent, { isLoading: isUpdating }] = useUpdateStudentMutation();
   const [updateStatus] = useUpdateStudentStatusMutation();
+  const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
+
+  const handleStudentAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const rawBase64 = reader.result as string;
+      try {
+        const compressedBase64 = await compressImage(rawBase64);
+        const uploadResult = await uploadImage({ base64: compressedBase64 }).unwrap();
+        
+        await updateStudent({
+          id: fullStudent.id,
+          avatar: uploadResult.url
+        }).unwrap();
+        
+        showToast('Profile photo updated successfully!', 'success');
+      } catch (err: any) {
+        showToast(err?.data?.message || 'Failed to update student photo.', 'error');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
   const [deleteStudent] = useDeleteStudentMutation();
 
   const [vacateSeat, { isLoading: isVacating }] = useVacateSeatMutation();
@@ -498,8 +555,18 @@ export default function Students() {
                   >
                     <td>
                       <div className="student-hover-card-trigger" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div className="avatar" style={{ border: `2.5px solid ${avatarBorderColor}`, boxSizing: 'border-box' }}>
-                          {student.user?.name?.charAt(0).toUpperCase()}
+                        <div 
+                          className="avatar" 
+                          style={{ 
+                            border: `2.5px solid ${avatarBorderColor}`, 
+                            boxSizing: 'border-box',
+                            background: student.user?.avatar ? `url(${student.user.avatar}) no-repeat center center / cover` : undefined,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          {!student.user?.avatar && student.user?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <div style={{ fontWeight: 600 }}>{student.user?.name}</div>
@@ -565,6 +632,22 @@ export default function Students() {
                       {(() => {
                         const activeAllocation = student.allocations?.find((a: any) => a.isActive);
                         if (!activeAllocation) {
+                          const activeSub = student.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
+                          const matchingShift = activeSub && shifts?.find((s: any) => 
+                            activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
+                          );
+                          if (matchingShift) {
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.875rem' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--accent-blue)' }}>
+                                  No Seat Allocated
+                                </span>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                                  Paid: {matchingShift.name} ({matchingShift.startTime} - {matchingShift.endTime})
+                                </span>
+                              </div>
+                            );
+                          }
                           return <span className="text-muted" style={{ fontStyle: 'italic', fontSize: '0.875rem' }}>No Seat Allocated</span>;
                         }
                         
@@ -967,8 +1050,52 @@ export default function Students() {
             <>
               {/* Profile Card */}
               <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: '#eff6ff', borderColor: 'rgba(37, 99, 235, 0.15)', borderRadius: '14px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', color: 'white', fontWeight: 700, fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {fullStudent.user?.name?.charAt(0).toUpperCase()}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div 
+                    style={{ 
+                      width: '48px', 
+                      height: '48px', 
+                      borderRadius: '50%', 
+                      background: fullStudent.user?.avatar ? `url(${fullStudent.user.avatar}) no-repeat center center / cover` : 'var(--accent-blue)', 
+                      color: 'white', 
+                      fontWeight: 700, 
+                      fontSize: '1.1rem', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      boxShadow: 'var(--shadow-soft)'
+                    }}
+                  >
+                    {!fullStudent.user?.avatar && fullStudent.user?.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <label 
+                    htmlFor={`student-avatar-${fullStudent.id}`}
+                    style={{ 
+                      position: 'absolute', 
+                      bottom: -2, 
+                      right: -2, 
+                      backgroundColor: 'var(--accent-blue)', 
+                      color: 'white', 
+                      width: '18px', 
+                      height: '18px', 
+                      borderRadius: '50%', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      cursor: 'pointer',
+                      border: '1px solid #ffffff',
+                      boxShadow: 'var(--shadow-soft)'
+                    }}
+                  >
+                    <Camera size={9} />
+                  </label>
+                  <input 
+                    id={`student-avatar-${fullStudent.id}`}
+                    type="file" 
+                    accept="image/*" 
+                    style={{ display: 'none' }} 
+                    onChange={handleStudentAvatarUpload} 
+                  />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                   <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fullStudent.user?.name}</span>
@@ -1082,9 +1209,20 @@ export default function Students() {
                     {(() => {
                       const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
                       if (!activeAllocation) {
+                        const activeSub = fullStudent.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
+                        const matchingShift = activeSub && shifts?.find((s: any) => 
+                          activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
+                        );
+
                         return (
                           <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px dashed var(--border-card)', textAlign: 'center', color: 'var(--text-slate)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
                             <span>No active seat allocated currently</span>
+                            {matchingShift && (
+                              <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '8px 12px', fontSize: '0.75rem', color: '#1e3a8a', fontWeight: 600, width: '100%', boxSizing: 'border-box', textAlign: 'left' }}>
+                                <div><strong>Paid Shift:</strong> {matchingShift.name}</div>
+                                <div style={{ marginTop: '2px', color: '#2563eb' }}><strong>Time:</strong> {matchingShift.startTime} - {matchingShift.endTime}</div>
+                              </div>
+                            )}
                             <button
                               type="button"
                               onClick={() => {

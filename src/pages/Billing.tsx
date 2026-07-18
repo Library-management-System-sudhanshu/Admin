@@ -100,6 +100,95 @@ export default function Billing() {
   const { data: report } = useGetCollectionReportQuery('monthly');
   const { data: studentsData } = useGetStudentsQuery({});
 
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [methodFilter, setMethodFilter] = useState('ALL');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
+
+  // Filtered payments list
+  const filteredPayments = React.useMemo(() => {
+    if (!payments) return [];
+    return payments.filter((payment: any) => {
+      // 1. Search Query (Student name or Invoice ID)
+      if (searchQuery.trim()) {
+        const query = searchQuery.trim().toLowerCase();
+        const studentName = payment.studentProfile?.user?.name?.toLowerCase() || '';
+        const invoiceId = `inv-${payment.id.substring(0, 8).toLowerCase()}`;
+        if (!studentName.includes(query) && !invoiceId.includes(query)) {
+          return false;
+        }
+      }
+
+      // 2. Status Filter
+      if (statusFilter !== 'ALL' && payment.status !== statusFilter) {
+        return false;
+      }
+
+      // 3. Method Filter
+      if (methodFilter !== 'ALL' && payment.method !== methodFilter) {
+        return false;
+      }
+
+      // 4. Start Date Filter
+      if (startDateFilter) {
+        const pDate = new Date(payment.createdAt);
+        pDate.setHours(0, 0, 0, 0);
+        const sFilter = new Date(startDateFilter);
+        sFilter.setHours(0, 0, 0, 0);
+        if (pDate < sFilter) return false;
+      }
+
+      // 5. End Date Filter
+      if (endDateFilter) {
+        const pDate = new Date(payment.createdAt);
+        pDate.setHours(0, 0, 0, 0);
+        const eFilter = new Date(endDateFilter);
+        eFilter.setHours(0, 0, 0, 0);
+        if (pDate > eFilter) return false;
+      }
+
+      return true;
+    });
+  }, [payments, searchQuery, statusFilter, methodFilter, startDateFilter, endDateFilter]);
+
+  const handleExportCSV = () => {
+    if (!filteredPayments || filteredPayments.length === 0) {
+      showToast('No payment records found to export', 'info');
+      return;
+    }
+    
+    // Define headers
+    const headers = ['Invoice ID', 'Student Name', 'Amount (₹)', 'Payment Method', 'Date', 'Status'];
+    
+    // Map rows
+    const rows = filteredPayments.map((payment: any) => [
+      `INV-${payment.id.substring(0, 8).toUpperCase()}`,
+      payment.studentProfile?.user?.name || 'N/A',
+      payment.amount,
+      payment.method,
+      new Date(payment.createdAt).toLocaleDateString(),
+      payment.status
+    ]);
+    
+    // Combine to CSV format
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${val}"`).join(','))
+    ].join('\n');
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `studyflow_billing_report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const [openCollect, setOpenCollect] = useState(false);
   const [studentProfileId, setStudentProfileId] = useState('');
   const [amount, setAmount] = useState('');
@@ -260,6 +349,100 @@ export default function Billing() {
             </Typography>
           </Card>
 
+          {/* Filters & Export Section */}
+          <Card sx={{ p: 3, border: '1px solid #E2E8F0', boxShadow: 'none', borderRadius: 2.5 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#0F172A' }}>
+                Filter Ledger Records
+              </Typography>
+              <Button
+                variant="secondary"
+                onClick={handleExportCSV}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '10px' }}
+              >
+                Export CSV
+              </Button>
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '2fr 1fr 1fr 1.5fr 1.5fr' }, gap: 2 }}>
+              <TextField
+                label="Search Student / Invoice ID"
+                size="small"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="e.g. John Doe, INV-..."
+                fullWidth
+              />
+              <FormControl size="small" fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Status"
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <MenuItem value="ALL">All Statuses</MenuItem>
+                  <MenuItem value="PAID">Paid</MenuItem>
+                  <MenuItem value="PARTIAL">Partial</MenuItem>
+                  <MenuItem value="UNPAID">Unpaid</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Method</InputLabel>
+                <Select
+                  value={methodFilter}
+                  label="Method"
+                  onChange={(e) => setMethodFilter(e.target.value)}
+                >
+                  <MenuItem value="ALL">All Channels</MenuItem>
+                  <MenuItem value="CASH">Cash</MenuItem>
+                  <MenuItem value="UPI">UPI</MenuItem>
+                  <MenuItem value="RAZORPAY">Razorpay</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                label="From Date"
+                type="date"
+                size="small"
+                value={startDateFilter}
+                onChange={(e) => setStartDateFilter(e.target.value)}
+                {...({ 
+                  InputLabelProps: { shrink: true }, 
+                  slotProps: { 
+                    inputLabel: { shrink: true },
+                    htmlInput: {
+                      onClick: (e: any) => {
+                        if (typeof e.target.showPicker === 'function') {
+                          e.target.showPicker();
+                        }
+                      }
+                    }
+                  } 
+                } as any)}
+                fullWidth
+              />
+              <TextField
+                label="To Date"
+                type="date"
+                size="small"
+                value={endDateFilter}
+                onChange={(e) => setEndDateFilter(e.target.value)}
+                {...({ 
+                  InputLabelProps: { shrink: true }, 
+                  slotProps: { 
+                    inputLabel: { shrink: true },
+                    htmlInput: {
+                      onClick: (e: any) => {
+                        if (typeof e.target.showPicker === 'function') {
+                          e.target.showPicker();
+                        }
+                      }
+                    }
+                  } 
+                } as any)}
+                fullWidth
+              />
+            </Box>
+          </Card>
+
           {/* Payments Table */}
           <Box>
             {paymentsLoading ? (
@@ -281,7 +464,7 @@ export default function Billing() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {payments?.map((payment: any) => (
+                    {filteredPayments?.map((payment: any) => (
                       <TableRow key={payment.id} hover>
                         <TableCell sx={{ fontWeight: 600, fontSize: '0.85rem' }}>
                           INV-{payment.id.substring(0, 8).toUpperCase()}
@@ -326,6 +509,13 @@ export default function Billing() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {(!filteredPayments || filteredPayments.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                          No ledger records match the selected filters.
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>

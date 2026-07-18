@@ -1949,6 +1949,23 @@ export default function Seats() {
       setRenewAmount('');
       setRenewDuration(1);
       setRenewPaymentMethod('UPI');
+
+      if (preselectedStudent) {
+        const today = new Date().toISOString().split('T')[0];
+        setStartDate(today);
+        const end = new Date(today);
+        end.setMonth(end.getMonth() + 1);
+        setEndDate(end.toISOString().split('T')[0]);
+        setStudentProfileId(preselectedStudent.id);
+        setStudentSearchQuery(preselectedStudent.name);
+        setShiftId('');
+        setDurationMode(1);
+        setShouldGenerateInvoice(true);
+        setInvoiceAmount('');
+        setPaymentMethod('CASH');
+
+        setOpenAllocateModal(true);
+      }
     }
   };
 
