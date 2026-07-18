@@ -1874,8 +1874,13 @@ export default function Seats() {
       const end = new Date(today);
       end.setMonth(end.getMonth() + 1);
       setEndDate(end.toISOString().split('T')[0]);
-      setStudentProfileId('');
-      setStudentSearchQuery('');
+      if (preselectedStudent) {
+        setStudentProfileId(preselectedStudent.id);
+        setStudentSearchQuery(preselectedStudent.name);
+      } else {
+        setStudentProfileId('');
+        setStudentSearchQuery('');
+      }
       if (shifts && shifts.length > 0) {
         setShiftId(shifts[0].id);
       }
@@ -1916,8 +1921,13 @@ export default function Seats() {
     const end = new Date(today);
     end.setMonth(end.getMonth() + 1);
     setEndDate(end.toISOString().split('T')[0]);
-    setStudentProfileId('');
-    setStudentSearchQuery('');
+    if (preselectedStudent) {
+      setStudentProfileId(preselectedStudent.id);
+      setStudentSearchQuery(preselectedStudent.name);
+    } else {
+      setStudentProfileId('');
+      setStudentSearchQuery('');
+    }
     
     // Find active allocations to get booked shifts
     const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
@@ -2062,10 +2072,12 @@ export default function Seats() {
         setIsDrawerOpen(false);
         setOpenAllocateModal(false);
         setOpenInvoiceReceipt(true);
+        setPreselectedStudent(null);
       } else {
         showToast('Seat allocated successfully!', 'success');
         setIsDrawerOpen(false);
         setOpenAllocateModal(false);
+        setPreselectedStudent(null);
       }
     } catch (err: any) {
       showToast(err.data?.message || 'Seat allocation failed', 'error');
@@ -4318,7 +4330,7 @@ export default function Seats() {
 
         {/* Drawer Body content depends on Status */}
         <div className="drawer-body">
-          {selectedSeat?.status === 'AVAILABLE' && (
+          {(selectedSeat?.status === 'AVAILABLE' || (selectedSeat?.status === 'OCCUPIED' && !getSeatStatusInfo(selectedSeat).isOccupied)) && (
             <>
               {renderAssignForm()}
               {/* Delete Seat / Mark Maintenance actions */}
@@ -4349,7 +4361,7 @@ export default function Seats() {
             </>
           )}
 
-          {selectedSeat?.status === 'OCCUPIED' && (
+          {(selectedSeat?.status === 'OCCUPIED' && getSeatStatusInfo(selectedSeat).isOccupied) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {(() => {
                 const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];

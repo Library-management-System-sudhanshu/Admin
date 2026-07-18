@@ -1089,7 +1089,12 @@ export default function Students() {
                               type="button"
                               onClick={() => {
                                 setIsDrawerOpen(false);
-                                navigate('/seats');
+                                navigate('/seats', {
+                                  state: {
+                                    preselectedStudentId: fullStudent.id,
+                                    preselectedStudentName: fullStudent.user?.name,
+                                  }
+                                });
                                 showToast('Select an available seat to assign to ' + fullStudent.user?.name, 'info');
                               }}
                               style={{
