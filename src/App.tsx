@@ -50,6 +50,7 @@ export default function App() {
               <Route path="/whatsapp" element={<WhatsApp />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/transfer-seat" element={<TransferSeat />} />
             </Route>
 
             {/* Super Admin Layout */}

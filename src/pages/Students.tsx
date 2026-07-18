@@ -125,6 +125,15 @@ export default function Students() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  React.useEffect(() => {
+    if (location.state && (location.state as any).selectedStudentId) {
+      setSelectedStudentId((location.state as any).selectedStudentId);
+      setIsDrawerOpen(true);
+      // Clean up router state so the drawer doesn't reopen unexpectedly
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   // Drawer tab and form states
   const [drawerActiveSection, setDrawerActiveSection] = useState<'DETAILS' | 'TRANSFER' | 'RENEW'>('DETAILS');
 

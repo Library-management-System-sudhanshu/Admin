@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import {
@@ -11,6 +12,7 @@ import {
   useCreateShiftMutation,
   useUpdateShiftMutation,
   useDeleteShiftMutation,
+  useClearStudentDuesMutation,
 } from '../store/api';
 import { useToast } from '../components/ui/ToastContext';
 import {
@@ -48,7 +50,7 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { Button } from '../components/ui/Button';
-import { Plus } from 'lucide-react';
+import { Plus, X, CreditCard, Calendar, User, History } from 'lucide-react';
 
 const HOURS = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
 const PERIODS = ['AM', 'PM'];
@@ -93,12 +95,38 @@ const formatTo24h = (hour: string, minute: string, period: string) => {
 };
 
 export default function Billing() {
+  const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
   const [tab, setTab] = useState(0);
 
   const { data: payments, isLoading: paymentsLoading } = useGetPaymentsQuery({});
   const { data: report } = useGetCollectionReportQuery('monthly');
   const { data: studentsData } = useGetStudentsQuery({});
+
+  const [clearDues, { isLoading: isClearingDues }] = useClearStudentDuesMutation();
+
+  // Drawer States
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [clearDuesAmount, setClearDuesAmount] = useState('');
+  const [clearDuesMethod, setClearDuesMethod] = useState<'CASH' | 'UPI'>('CASH');
+
+  const handleClearDues = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPayment?.studentProfile?.id) return;
+    try {
+      await clearDues({
+        id: selectedPayment.studentProfile.id,
+        amount: Number(clearDuesAmount),
+        method: clearDuesMethod
+      }).unwrap();
+      showToast('Dues cleared successfully!', 'success');
+      setIsDrawerOpen(false);
+      setClearDuesAmount('');
+    } catch (err: any) {
+      showToast(err?.data?.message || 'Failed to clear dues', 'error');
+    }
+  };
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -465,7 +493,16 @@ export default function Billing() {
                   </TableHead>
                   <TableBody>
                     {filteredPayments?.map((payment: any) => (
-                      <TableRow key={payment.id} hover>
+                      <TableRow 
+                        key={payment.id} 
+                        hover
+                        onClick={() => {
+                          setSelectedPayment(payment);
+                          setClearDuesAmount(payment.studentProfile?.dueAmount?.toString() || '');
+                          setIsDrawerOpen(true);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <TableCell sx={{ fontWeight: 600, fontSize: '0.85rem' }}>
                           INV-{payment.id.substring(0, 8).toUpperCase()}
                         </TableCell>
@@ -487,12 +524,12 @@ export default function Billing() {
                             {payment.status === 'UNPAID' && (
                               <>
                                 <Tooltip title="Record Cash Payment">
-                                  <IconButton color="success" onClick={() => handleRecordManual(payment.id, 'CASH')}>
+                                  <IconButton color="success" onClick={(e) => { e.stopPropagation(); handleRecordManual(payment.id, 'CASH'); }}>
                                     <PaidIcon />
                                   </IconButton>
                                 </Tooltip>
                                 <Tooltip title="Record UPI Payment">
-                                  <IconButton color="primary" onClick={() => handleRecordManual(payment.id, 'UPI')}>
+                                  <IconButton color="primary" onClick={(e) => { e.stopPropagation(); handleRecordManual(payment.id, 'UPI'); }}>
                                     <PaidIcon />
                                   </IconButton>
                                 </Tooltip>
@@ -500,7 +537,7 @@ export default function Billing() {
                             )}
                             {payment.invoiceUrl && (
                               <Tooltip title="Download Invoice">
-                                <IconButton color="inherit" onClick={() => window.open(payment.invoiceUrl, '_blank')}>
+                                <IconButton color="inherit" onClick={(e) => { e.stopPropagation(); window.open(payment.invoiceUrl, '_blank'); }}>
                                   <InvoiceIcon />
                                 </IconButton>
                               </Tooltip>
@@ -855,6 +892,247 @@ export default function Billing() {
           </DialogActions>
         </form>
       </Dialog>
+
+      {/* LEDGER RECORD DETAIL DRAWER */}
+      <div 
+        className={`drawer-backdrop ${isDrawerOpen ? 'open' : ''}`}
+        onClick={() => setIsDrawerOpen(false)}
+      />
+      <div className={`right-drawer-panel ${isDrawerOpen ? 'open' : ''}`}>
+        {/* Drawer Header */}
+        <div className="drawer-header" style={{ borderBottom: '1px solid rgba(15,23,42,0.06)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-navy)' }}>
+              Transaction Ledger Detail
+            </h3>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>
+              Detailed invoice metrics & lifetime student records
+            </span>
+          </div>
+          <button 
+            onClick={() => setIsDrawerOpen(false)}
+            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-slate)', padding: '4px' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Drawer Body */}
+        {selectedPayment && (
+          <div className="drawer-body" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Status & Amount Card */}
+            <div style={{
+              background: selectedPayment.status === 'PAID' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
+                          selectedPayment.status === 'PARTIAL' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' :
+                          'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: '#ffffff',
+              padding: '20px',
+              borderRadius: '16px',
+              boxShadow: 'var(--shadow-soft)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.8 }}>
+                INV-{selectedPayment.id.substring(0, 8).toUpperCase()}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px', marginTop: '4px' }}>
+                <span style={{ fontSize: '1.8rem', fontWeight: 800 }}>₹{selectedPayment.amount}</span>
+                <span style={{ fontSize: '0.8rem', opacity: 0.9, marginLeft: '4px' }}>Collected</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Channel: {selectedPayment.method}</span>
+                <span style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase'
+                }}>{selectedPayment.status}</span>
+              </div>
+            </div>
+
+            {/* Student Profile Overview */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Student Information
+              </h5>
+              <div 
+                onClick={() => {
+                  if (selectedPayment?.studentProfile?.id) {
+                    navigate('/students', { state: { selectedStudentId: selectedPayment.studentProfile.id } });
+                  }
+                }}
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid rgba(15,23,42,0.05)',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                className="hover-card-blue"
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#eff6ff'; e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.2)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = 'rgba(15,23,42,0.05)'; }}
+              >
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: selectedPayment.studentProfile?.user?.avatar ? `url(${selectedPayment.studentProfile.user.avatar}) no-repeat center center / cover` : 'var(--accent-blue)',
+                  color: 'white',
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  {!selectedPayment.studentProfile?.user?.avatar && selectedPayment.studentProfile?.user?.name?.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selectedPayment.studentProfile?.user?.name}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', marginTop: '2px' }}>
+                    {selectedPayment.studentProfile?.user?.mobile}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Remaining Dues Payment Block */}
+            {selectedPayment.studentProfile?.dueAmount > 0 && (
+              <div style={{
+                background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
+                border: '1px solid #fecdd3',
+                borderRadius: '16px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#be123c' }}>Remaining Dues:</span>
+                  <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#be123c' }}>₹{selectedPayment.studentProfile.dueAmount}</span>
+                </div>
+                <form onSubmit={handleClearDues} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <input
+                    type="number"
+                    required
+                    max={selectedPayment.studentProfile.dueAmount}
+                    value={clearDuesAmount}
+                    onChange={(e) => setClearDuesAmount(e.target.value)}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #fca5a5',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-navy)',
+                      flex: 1,
+                      outline: 'none',
+                      backgroundColor: '#ffffff'
+                    }}
+                  />
+                  <select
+                    value={clearDuesMethod}
+                    onChange={(e: any) => setClearDuesMethod(e.target.value)}
+                    style={{
+                      padding: '8px',
+                      borderRadius: '10px',
+                      border: '1px solid #fca5a5',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-navy)',
+                      backgroundColor: '#ffffff',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI</option>
+                  </select>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    isLoading={isClearingDues}
+                    style={{
+                      borderRadius: '10px',
+                      padding: '8px 16px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      backgroundColor: '#e11d48',
+                      borderColor: '#e11d48'
+                    }}
+                  >
+                    Pay Dues
+                  </Button>
+                </form>
+              </div>
+            )}
+
+            {/* Student's Payment History */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+              <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <History size={13} />
+                Lifetime Payment Ledger
+              </h5>
+              <div style={{
+                border: '1px solid rgba(15,23,42,0.06)',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                background: '#ffffff'
+              }}>
+                <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                  {payments
+                    ?.filter((p: any) => p.studentProfile?.id === selectedPayment.studentProfile?.id)
+                    ?.map((p: any, idx: number) => {
+                      const totalList = payments.filter((x: any) => x.studentProfile?.id === selectedPayment.studentProfile?.id);
+                      return (
+                        <div 
+                          key={p.id} 
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 16px',
+                            borderBottom: idx !== totalList.length - 1 ? '1px solid rgba(15,23,42,0.04)' : 'none',
+                            background: p.id === selectedPayment.id ? '#f8fafc' : 'transparent',
+                            fontSize: '0.8rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>
+                              ₹{p.amount} ({p.method})
+                            </span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)', marginTop: '2px' }}>
+                              {new Date(p.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <span style={{
+                            color: p.status === 'PAID' ? 'var(--status-emerald)' :
+                                   p.status === 'PARTIAL' ? 'var(--status-gold)' :
+                                   'var(--status-red)',
+                            fontWeight: 700,
+                            fontSize: '0.725rem',
+                            textTransform: 'uppercase'
+                          }}>{p.status}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
     </Box>
   );
 }
