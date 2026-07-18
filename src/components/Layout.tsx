@@ -231,7 +231,7 @@ export default function Layout() {
               <SlidersHorizontal size={14} />
               <span>Workspace Settings</span>
             </button>
-            <button className="profile-dropdown-item" onClick={() => { setIsProfileDropdownOpen(false); navigate('/settings'); }}>
+            <button className="profile-dropdown-item" onClick={() => { setIsProfileDropdownOpen(false); navigate('/profile?tab=subscription'); }}>
               <CreditCard size={14} />
               <span>Subscription</span>
             </button>

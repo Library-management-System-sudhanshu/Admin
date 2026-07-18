@@ -7,13 +7,17 @@ import {
   useGetSettingsQuery,
   useUpdateSettingsMutation,
   useGetBranchesQuery,
-  useTriggerSafetyAlarmMutation
+  useTriggerSafetyAlarmMutation,
+  useGetSaaSSubscriptionQuery,
+  useGetSaaSPlansQuery,
+  useCreateSaaSPaymentMutation,
+  useVerifySaaSPaymentMutation
 } from '../store/api';
 import { useToast } from '../components/ui/ToastContext';
 import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
-import { AlertTriangle, ShieldAlert, Radio, Volume2 } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, Radio, Volume2, Check, CreditCard, Sparkles } from 'lucide-react';
 
 export default function Settings() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -23,11 +27,97 @@ export default function Settings() {
   const [triggerSafetyAlarm, { isLoading: isTriggeringAlarm }] = useTriggerSafetyAlarmMutation();
   const { showToast } = useToast();
 
+  const { data: saasSubscription, refetch: refetchSub } = useGetSaaSSubscriptionQuery(user?.workspaceId, { skip: !user?.workspaceId });
+  const { data: saasPlans = [] } = useGetSaaSPlansQuery({});
+  const [createSaaSPayment, { isLoading: isCreatingSaaSPayment }] = useCreateSaaSPaymentMutation();
+  const [verifySaaSPayment, { isLoading: isVerifyingSaaSPayment }] = useVerifySaaSPaymentMutation();
+
   const [upiId, setUpiId] = useState('');
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   // Tabs state
   const [activeTab, setActiveTab] = useState(0);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'subscription') {
+      setActiveTab(2);
+    }
+  }, []);
+
+  const loadRazorpay = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePayNow = async (plan: any) => {
+    if (!user?.workspaceId || !plan) {
+      showToast("Please select a valid plan.", 'error');
+      return;
+    }
+
+    const sdkLoaded = await loadRazorpay();
+    if (!sdkLoaded) {
+      showToast('Razorpay SDK failed to load. Are you online?', 'error');
+      return;
+    }
+
+    try {
+      const orderData = await createSaaSPayment({
+        workspaceId: user.workspaceId,
+        saasPlanId: plan.id,
+      }).unwrap();
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_T9hh97PsK4bGuG',
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'StudyFlow',
+        description: `SaaS Subscription: ${orderData.planName}`,
+        order_id: orderData.orderId,
+        handler: async function (response: any) {
+          try {
+            await verifySaaSPayment({
+              workspaceId: user?.workspaceId || '',
+              paymentData: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                saasPlanId: plan.id
+              }
+            }).unwrap();
+            showToast('Subscription activated successfully!', 'success');
+            refetchSub();
+          } catch (err) {
+            console.error('Verification failed', err);
+            showToast('Payment verification failed. Please contact support.', 'error');
+          }
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+        },
+        theme: {
+          color: '#0ea5e9'
+        }
+      };
+
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.open();
+    } catch (err) {
+      console.error('Error creating payment:', err);
+      showToast('Failed to initiate payment. Please try again.', 'error');
+    }
+  };
 
   // SOS parameters state
   const [alarmType, setAlarmType] = useState('FIRE');
@@ -164,6 +254,7 @@ export default function Settings() {
         >
           <Tab label="Payment Settings" />
           <Tab label="Emergency SOS Broadcast" />
+          <Tab label="SaaS Subscription" />
         </Tabs>
       </Box>
 
@@ -396,6 +487,121 @@ export default function Settings() {
               </Button>
             </Box>
           </Card>
+        </Box>
+      )}
+
+      {/* SaaS Subscription Settings Tab */}
+      {activeTab === 2 && (
+        <Box>
+          {/* Current Subscription Status */}
+          <Card sx={{ p: 3, border: '1px solid #E2E8F0', boxShadow: 'none', mb: 4 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CreditCard size={20} style={{ color: '#2563EB' }} />
+              Current Subscription Status
+            </Typography>
+
+            {saasSubscription ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2rem', fontSize: '0.9rem' }}>
+                <div>
+                  <div style={{ color: '#64748B', fontSize: '0.8rem', fontWeight: 600 }}>PLAN LEVEL</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', marginTop: '4px', textTransform: 'uppercase' }}>
+                    {saasSubscription.saasPlan?.name || 'Trial Plan'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#64748B', fontSize: '0.8rem', fontWeight: 600 }}>STATUS</div>
+                  <div style={{ marginTop: '4px' }}>
+                    <span style={{
+                      background: saasSubscription.status === 'ACTIVE' ? '#DCFCE7' : '#FEF3C7',
+                      color: saasSubscription.status === 'ACTIVE' ? '#166534' : '#b45309',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase'
+                    }}>
+                      {saasSubscription.status}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#64748B', fontSize: '0.8rem', fontWeight: 600 }}>
+                    {saasSubscription.status === 'TRIAL' ? 'TRIAL END DATE' : 'NEXT RENEWAL DATE'}
+                  </div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>
+                    {new Date(saasSubscription.status === 'TRIAL' ? saasSubscription.trialEndDate : saasSubscription.currentPeriodEnd).toLocaleDateString(undefined, { dateStyle: 'long' })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p style={{ color: '#64748B', margin: 0 }}>No active subscription or trial found. Please start a trial or contact support.</p>
+            )}
+          </Card>
+
+          {/* Pricing Plans & Upgrades */}
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+            Upgrade / Purchase Subscription
+          </Typography>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            {saasPlans.map((plan: any) => {
+              const isCurrent = saasSubscription && saasSubscription.saasPlanId === plan.id && saasSubscription.status === 'ACTIVE';
+              return (
+                <div key={plan.id} style={{ 
+                  border: isCurrent ? '2px solid #2563EB' : '1px solid #E2E8F0', 
+                  borderRadius: '16px', 
+                  padding: '2rem', 
+                  background: 'white',
+                  boxShadow: isCurrent ? '0 10px 15px -3px rgba(37, 99, 235, 0.1)' : '0 1px 3px rgba(0,0,0,0.05)',
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}>
+                  {isCurrent && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '-12px',
+                      right: '24px',
+                      background: '#2563EB',
+                      color: 'white',
+                      padding: '4px 12px',
+                      borderRadius: '12px',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase'
+                    }}>
+                      Current Plan
+                    </span>
+                  )}
+                  <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: '#0F172A', fontWeight: 700 }}>{plan.name}</h3>
+                  <p style={{ margin: '0 0 1.5rem 0', color: '#64748B', fontSize: '0.85rem', lineHeight: 1.4 }}>{plan.description}</p>
+                  
+                  <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: '1.5rem' }}>
+                    <span style={{ fontSize: '2rem', fontWeight: 800, color: '#0F172A' }}>₹{plan.price}</span>
+                    <span style={{ color: '#64748B', marginLeft: '4px', fontSize: '0.9rem' }}>/ month</span>
+                  </div>
+
+                  <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 2rem 0', flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {plan.features?.map((f: string, idx: number) => (
+                      <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#475569' }}>
+                        <Check size={16} style={{ color: '#10B981', flexShrink: 0 }} />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button 
+                    variant={isCurrent ? 'outline' : 'primary'}
+                    fullWidth
+                    disabled={isCurrent || isCreatingSaaSPayment || isVerifyingSaaSPayment}
+                    onClick={() => handlePayNow(plan)}
+                  >
+                    {isCreatingSaaSPayment ? 'Initiating...' : isCurrent ? 'Active Plan' : 'Purchase Plan'}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
         </Box>
       )}
 

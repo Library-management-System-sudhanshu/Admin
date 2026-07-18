@@ -14,6 +14,7 @@ import {
   useVacateSeatMutation,
   useAllocateSeatMutation,
   useCreatePaymentMutation,
+  useClearStudentDuesMutation,
 } from '../store/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -146,6 +147,30 @@ export default function Students() {
   const [vacateSeat, { isLoading: isVacating }] = useVacateSeatMutation();
   const [allocateSeat] = useAllocateSeatMutation();
   const [createPayment] = useCreatePaymentMutation();
+  const [clearStudentDues] = useClearStudentDuesMutation();
+
+  const [clearDuesAmount, setClearDuesAmount] = useState('');
+  const [clearDuesMethod, setClearDuesMethod] = useState<'UPI' | 'CASH' | 'RAZORPAY'>('UPI');
+  const [isClearingDues, setIsClearingDues] = useState(false);
+
+  const handleClearDues = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullStudent) return;
+    setIsClearingDues(true);
+    try {
+      await clearStudentDues({
+        id: fullStudent.id,
+        amount: Number(clearDuesAmount),
+        method: clearDuesMethod,
+      }).unwrap();
+      showToast('Dues cleared successfully!', 'success');
+      setClearDuesAmount('');
+    } catch (err: any) {
+      showToast(err?.data?.message || 'Failed to clear dues', 'error');
+    } finally {
+      setIsClearingDues(false);
+    }
+  };
 
 
 
@@ -466,6 +491,7 @@ export default function Students() {
                     key={student.id}
                     onClick={() => {
                       setSelectedStudentId(student.id);
+                      setDrawerActiveSection('DETAILS');
                       setIsDrawerOpen(true);
                     }}
                     style={{ cursor: 'pointer' }}
@@ -952,42 +978,44 @@ export default function Students() {
               </div>
 
               {/* Main Tab Selector at the Top */}
-              <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
-                {['DETAILS', 'TRANSFER', 'RENEW'].map((tab: any) => {
-                  const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
-                  return (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => {
-                        if (tab === 'TRANSFER') {
-                          if (activeAllocation) {
-                            navigate(`/transfer-seat?allocationId=${activeAllocation.id}&studentId=${fullStudent.id}`);
+              {fullStudent.allocations?.some((a: any) => a.isActive) && (
+                <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+                  {['DETAILS', 'TRANSFER', 'RENEW'].map((tab: any) => {
+                    const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => {
+                          if (tab === 'TRANSFER') {
+                            if (activeAllocation) {
+                              navigate(`/transfer-seat?allocationId=${activeAllocation.id}&studentId=${fullStudent.id}`);
+                            } else {
+                              showAlert('No active seat allocation to transfer', { title: 'Error' });
+                            }
                           } else {
-                            showAlert('No active seat allocation to transfer', { title: 'Error' });
+                            setDrawerActiveSection(tab);
                           }
-                        } else {
-                          setDrawerActiveSection(tab);
-                        }
-                      }}
-                      style={{
-                        flex: 1,
-                        border: 'none',
-                        padding: '8px',
-                        borderRadius: '8px',
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        background: drawerActiveSection === tab ? '#ffffff' : 'transparent',
-                        color: drawerActiveSection === tab ? 'var(--text-navy)' : 'var(--text-slate)',
-                        cursor: 'pointer',
-                        transition: 'all 150ms ease'
-                      }}
-                    >
-                      {tab === 'DETAILS' ? 'Details' : tab === 'TRANSFER' ? 'Transfer' : 'Renew'}
-                    </button>
-                  );
-                })}
-              </div>
+                        }}
+                        style={{
+                          flex: 1,
+                          border: 'none',
+                          padding: '8px',
+                          borderRadius: '8px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: drawerActiveSection === tab ? '#ffffff' : 'transparent',
+                          color: drawerActiveSection === tab ? 'var(--text-navy)' : 'var(--text-slate)',
+                          cursor: 'pointer',
+                          transition: 'all 150ms ease'
+                        }}
+                      >
+                        {tab === 'DETAILS' ? 'Details' : tab === 'TRANSFER' ? 'Transfer' : 'Renew'}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Tab Content */}
               {drawerActiveSection === 'DETAILS' && (
@@ -996,6 +1024,31 @@ export default function Students() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>General Information</h5>
                     <div style={{ background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {fullStudent.dueAmount > 0 && (
+                        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ color: 'var(--status-red)', fontWeight: 700, fontSize: '0.85rem' }}>Outstanding Dues</span>
+                            <span style={{ color: 'var(--status-red)', fontWeight: 800, fontSize: '1rem' }}>₹{fullStudent.dueAmount}</span>
+                          </div>
+                          <form onSubmit={handleClearDues} style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                            <div style={{ flex: 1 }}>
+                              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: '4px' }}>Amount to Pay</label>
+                              <input type="number" required value={clearDuesAmount} onChange={(e) => setClearDuesAmount(e.target.value)} max={fullStudent.dueAmount} style={{ padding: '6px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid #fca5a5', width: '100%', boxSizing: 'border-box' }} />
+                            </div>
+                            <div style={{ width: '100px' }}>
+                              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: '4px' }}>Method</label>
+                              <Select
+                                value={clearDuesMethod}
+                                onChange={(val: any) => setClearDuesMethod(val)}
+                                options={[{ value: 'UPI', label: 'UPI' }, { value: 'CASH', label: 'Cash' }, { value: 'RAZORPAY', label: 'Online' }]}
+                              />
+                            </div>
+                            <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--status-red)', borderColor: 'var(--status-red)', height: '34px', padding: '0 12px', fontSize: '0.75rem' }} disabled={!clearDuesAmount || isClearingDues} isLoading={isClearingDues}>
+                              Pay
+                            </Button>
+                          </form>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                         <span style={{ color: 'var(--text-slate)' }}>Guardian Name:</span>
                         <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{fullStudent.guardianName || 'N/A'}</span>
@@ -1030,8 +1083,34 @@ export default function Students() {
                       const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
                       if (!activeAllocation) {
                         return (
-                          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px dashed var(--border-card)', textAlign: 'center', color: 'var(--text-slate)', fontSize: '0.8rem' }}>
-                            No active seat allocated currently
+                          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px dashed var(--border-card)', textAlign: 'center', color: 'var(--text-slate)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                            <span>No active seat allocated currently</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsDrawerOpen(false);
+                                navigate('/seats');
+                                showToast('Select an available seat to assign to ' + fullStudent.user?.name, 'info');
+                              }}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '8px 16px',
+                                borderRadius: '10px',
+                                border: 'none',
+                                backgroundColor: 'var(--accent-blue)',
+                                color: '#ffffff',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'background-color 150ms ease'
+                              }}
+                              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+                              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
+                            >
+                              <Plus size={14} /> Allot Seat
+                            </button>
                           </div>
                         );
                       }

@@ -152,6 +152,14 @@ export const api = createApi({
       }),
       invalidatesTags: ['Students', 'Metrics'],
     }),
+    clearStudentDues: builder.mutation({
+      query: ({ id, amount, method }) => ({
+        url: `students/${id}/clear-dues`,
+        method: 'POST',
+        body: { amount, method },
+      }),
+      invalidatesTags: ['Students', 'Payments', 'Metrics'],
+    }),
 
     // Seats & Map
     getSeatMap: builder.query({
@@ -550,6 +558,7 @@ export const {
   useUpdateStudentMutation,
   useUpdateStudentStatusMutation,
   useDeleteStudentMutation,
+  useClearStudentDuesMutation,
   useGetSeatMapQuery,
   useAllocateSeatMutation,
   useTransferSeatMutation,

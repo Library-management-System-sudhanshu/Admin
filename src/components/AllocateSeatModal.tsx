@@ -18,6 +18,7 @@ interface AllocateSeatModalProps {
   selectedBranch: string;
   seatMap: any[] | undefined;
   onSuccess: (invoiceInfo: any) => void;
+  preselectedStudentId?: string;
 }
 
 export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
@@ -29,6 +30,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   selectedBranch,
   seatMap,
   onSuccess,
+  preselectedStudentId,
 }) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showToast } = useToast();
@@ -71,8 +73,17 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       const end = new Date(today);
       end.setMonth(end.getMonth() + 1);
       setEndDate(end.toISOString().split('T')[0]);
-      setStudentProfileId('');
-      setStudentSearchQuery('');
+
+      if (preselectedStudentId) {
+        setStudentProfileId(preselectedStudentId);
+        const student = studentsData?.students?.find((s: any) => s.id === preselectedStudentId);
+        if (student) {
+          setStudentSearchQuery(student.user?.name || '');
+        }
+      } else {
+        setStudentProfileId('');
+        setStudentSearchQuery('');
+      }
 
       const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
       const bookedShiftIds = activeAllocations.map((a: any) => a.shiftId || a.shift?.id);
@@ -89,7 +100,46 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       setInvoiceAmount('');
       setPaymentMethod('CASH');
     }
-  }, [isOpen, selectedSeat, shifts]);
+  }, [isOpen, selectedSeat, shifts, preselectedStudentId, studentsData]);
+
+  // Sync form inputs with student's active subscription if they already have one
+  useEffect(() => {
+    if (isOpen && studentProfileId && studentsData?.students) {
+      const student = studentsData.students.find((s: any) => s.id === studentProfileId);
+      const activeSub = student?.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
+      
+      if (activeSub) {
+        // Match shift
+        const matchingShift = shifts?.find((s: any) => 
+          activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
+        );
+        if (matchingShift) {
+          setShiftId(matchingShift.id);
+        }
+        
+        // Match dates
+        if (activeSub.startDate) {
+          setStartDate(activeSub.startDate.split('T')[0]);
+        }
+        if (activeSub.endDate) {
+          setEndDate(activeSub.endDate.split('T')[0]);
+          setDurationMode('flex');
+        }
+        
+        // Already paid / subscribed -> do not generate another invoice
+        setShouldGenerateInvoice(false);
+      } else {
+        // No active subscription -> allow invoice generation and reset to defaults
+        setShouldGenerateInvoice(true);
+        setDurationMode(1);
+        const today = new Date().toISOString().split('T')[0];
+        setStartDate(today);
+        const end = new Date(today);
+        end.setMonth(end.getMonth() + 1);
+        setEndDate(end.toISOString().split('T')[0]);
+      }
+    }
+  }, [isOpen, studentProfileId, studentsData, shifts]);
 
   // Duration modes calculations
   useEffect(() => {
@@ -284,11 +334,6 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       maxWidth="lg"
     >
       <form onSubmit={handleAllocate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
-          <Sparkles size={16} />
-          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Assign Student to Seat</h4>
-        </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
           {/* Left Column: Student & Shift */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -331,6 +376,21 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                 />
               </div>
 
+              {studentProfileId && (() => {
+                const selectedStudent = studentsData?.students?.find((s: any) => s.id === studentProfileId);
+                if (selectedStudent && Number(selectedStudent.dueAmount) > 0) {
+                  return (
+                    <div style={{ padding: '8px 12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#991b1b' }}>
+                        ⚠️ Outstanding Dues:
+                      </span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#991b1b' }}>₹{selectedStudent.dueAmount}</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {showStudentDropdown && displayedStudents.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '12px', boxShadow: 'var(--shadow-hover)', zIndex: 1000, marginTop: '4px', maxHeight: '180px', overflowY: 'auto' }}>
                   {displayedStudents.map((st: any) => (
@@ -342,10 +402,17 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                         setStudentSearchQuery(st.user?.name || '');
                         setShowStudentDropdown(false);
                       }}
-                      style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', borderBottom: '1px solid #f1f5f9' }}
+                      style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}
                     >
-                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{st.user?.name}</span>
-                      <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{st.user?.email || 'No email'} • {st.user?.mobile || 'No mobile'}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{st.user?.name}</span>
+                        <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{st.user?.email || 'No email'} • {st.user?.mobile || 'No mobile'}</span>
+                      </div>
+                      {Number(st.dueAmount) > 0 && (
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--status-red)', backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '2px 6px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                          Due: ₹{st.dueAmount}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>

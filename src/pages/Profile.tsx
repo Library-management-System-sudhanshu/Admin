@@ -4,13 +4,23 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useToast } from '../components/ui/ToastContext';
 import type { RootState } from '../store';
-import { useGetProfileQuery, useUpdateProfileMutation, useUploadImageMutation } from '../store/api';
+import { 
+  useGetProfileQuery, 
+  useUpdateProfileMutation, 
+  useUploadImageMutation,
+  useGetSaaSSubscriptionQuery,
+  useGetSaaSPlansQuery,
+  useCreateSaaSPaymentMutation,
+  useVerifySaaSPaymentMutation
+} from '../store/api';
 import { setCredentials } from '../store/authSlice';
 import { 
   Save as SaveIcon, 
   Lock as LockIcon, 
   Shield as ShieldIcon,
-  Camera as CameraIcon
+  Camera as CameraIcon,
+  Check,
+  CreditCard
 } from 'lucide-react';
 
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -72,6 +82,99 @@ export default function Profile() {
   // Password fields
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // SaaS Subscription hooks & checkout logic
+  const { data: saasSubscription, refetch: refetchSub } = useGetSaaSSubscriptionQuery(user?.workspaceId, { 
+    skip: !user?.workspaceId || user?.role === 'SUPER_ADMIN' 
+  });
+  const { data: saasPlans = [] } = useGetSaaSPlansQuery({}, {
+    skip: !user?.workspaceId || user?.role === 'SUPER_ADMIN'
+  });
+  const [createSaaSPayment, { isLoading: isCreatingSaaSPayment }] = useCreateSaaSPaymentMutation();
+  const [verifySaaSPayment, { isLoading: isVerifyingSaaSPayment }] = useVerifySaaSPaymentMutation();
+
+  const [activeTab, setActiveTab] = useState<'profile' | 'subscription'>('profile');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'subscription') {
+      setActiveTab('subscription');
+    }
+  }, []);
+
+  const loadRazorpay = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePayNow = async (plan: any) => {
+    if (!user?.workspaceId || !plan) {
+      showToast("Please select a valid plan.", 'error');
+      return;
+    }
+
+    const sdkLoaded = await loadRazorpay();
+    if (!sdkLoaded) {
+      showToast('Razorpay SDK failed to load. Are you online?', 'error');
+      return;
+    }
+
+    try {
+      const orderData = await createSaaSPayment({
+        workspaceId: user.workspaceId,
+        saasPlanId: plan.id,
+      }).unwrap();
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_T9hh97PsK4bGuG',
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'StudyFlow',
+        description: `SaaS Subscription: ${orderData.planName}`,
+        order_id: orderData.orderId,
+        handler: async function (response: any) {
+          try {
+            await verifySaaSPayment({
+              workspaceId: user?.workspaceId || '',
+              paymentData: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                saasPlanId: plan.id
+              }
+            }).unwrap();
+            showToast('Subscription activated successfully!', 'success');
+            refetchSub();
+          } catch (err) {
+            console.error('Verification failed', err);
+            showToast('Payment verification failed. Please contact support.', 'error');
+          }
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+        },
+        theme: {
+          color: '#0ea5e9'
+        }
+      };
+
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.open();
+    } catch (err) {
+      console.error('Error creating payment:', err);
+      showToast('Failed to initiate payment. Please try again.', 'error');
+    }
+  };
 
   useEffect(() => {
     const target = profile || user;
@@ -175,6 +278,21 @@ export default function Profile() {
       showToast(err?.data?.message || 'Failed to update password.', 'error');
     }
   };
+
+  const tabStyle = (tabId: typeof activeTab) => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '0.75rem 1.25rem',
+    border: 'none',
+    background: 'none',
+    borderBottom: activeTab === tabId ? '3px solid var(--primary)' : '3px solid transparent',
+    color: activeTab === tabId ? 'var(--primary)' : 'var(--text-slate)',
+    fontWeight: activeTab === tabId ? 700 : 600,
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  });
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -335,8 +453,28 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* Profile/Subscription Tabs */}
+      {user?.role !== 'SUPER_ADMIN' && (
+        <div style={{ 
+          display: 'flex', 
+          borderBottom: '1px solid #e2e8f0', 
+          marginBottom: '1rem',
+          overflowX: 'auto',
+          whiteSpace: 'nowrap',
+          gap: '8px'
+        }}>
+          <button style={tabStyle('profile')} onClick={() => setActiveTab('profile')}>
+            Profile Details
+          </button>
+          <button style={tabStyle('subscription')} onClick={() => setActiveTab('subscription')}>
+            SaaS Subscription
+          </button>
+        </div>
+      )}
+
       {/* Two-Column Responsive Layout */}
-      <div className="profile-grid">
+      {activeTab === 'profile' && (
+        <div className="profile-grid">
         
         {/* LEFT COLUMN (65%) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -637,6 +775,125 @@ export default function Profile() {
         </div>
 
       </div>
+      )}
+
+      {/* SaaS Subscription Settings Tab */}
+      {activeTab === 'subscription' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Current Subscription Status */}
+          <div className="profile-card">
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <CreditCard size={20} style={{ color: 'var(--primary)' }} />
+              Current Subscription Status
+            </h3>
+
+            {saasSubscription ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2rem', fontSize: '0.9rem' }}>
+                <div>
+                  <div style={{ color: '#64748B', fontSize: '0.8rem', fontWeight: 600 }}>PLAN LEVEL</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', marginTop: '4px', textTransform: 'uppercase' }}>
+                    {saasSubscription.saasPlan?.name || 'Trial Plan'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#64748B', fontSize: '0.8rem', fontWeight: 600 }}>STATUS</div>
+                  <div style={{ marginTop: '4px' }}>
+                    <span style={{
+                      background: saasSubscription.status === 'ACTIVE' ? '#DCFCE7' : '#FEF3C7',
+                      color: saasSubscription.status === 'ACTIVE' ? '#166534' : '#b45309',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase'
+                    }}>
+                      {saasSubscription.status}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#64748B', fontSize: '0.8rem', fontWeight: 600 }}>
+                    {saasSubscription.status === 'TRIAL' ? 'TRIAL END DATE' : 'NEXT RENEWAL DATE'}
+                  </div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>
+                    {new Date(saasSubscription.status === 'TRIAL' ? saasSubscription.trialEndDate : saasSubscription.currentPeriodEnd).toLocaleDateString(undefined, { dateStyle: 'long' })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p style={{ color: '#64748B', margin: 0 }}>No active subscription or trial found. Please start a trial or contact support.</p>
+            )}
+          </div>
+
+          {/* Pricing Plans & Upgrades */}
+          <div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1.5rem 0' }}>
+              Upgrade / Purchase Subscription
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+              {saasPlans.map((plan: any) => {
+                const isCurrent = saasSubscription && saasSubscription.saasPlanId === plan.id && saasSubscription.status === 'ACTIVE';
+                return (
+                  <div key={plan.id} style={{ 
+                    border: isCurrent ? '2px solid var(--primary)' : '1px solid rgba(226, 232, 240, 0.8)', 
+                    borderRadius: '16px', 
+                    padding: '2rem', 
+                    background: 'white',
+                    boxShadow: isCurrent ? '0 10px 15px -3px rgba(37, 99, 235, 0.1)' : '0 1px 3px rgba(0,0,0,0.05)',
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    {isCurrent && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '-12px',
+                        right: '24px',
+                        background: 'var(--primary)',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: '12px',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase'
+                      }}>
+                        Current Plan
+                      </span>
+                    )}
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: '#0F172A', fontWeight: 700 }}>{plan.name}</h3>
+                    <p style={{ margin: '0 0 1.5rem 0', color: '#64748B', fontSize: '0.85rem', lineHeight: 1.4 }}>{plan.description}</p>
+                    
+                    <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: '1.5rem' }}>
+                      <span style={{ fontSize: '2rem', fontWeight: 800, color: '#0F172A' }}>₹{plan.price}</span>
+                      <span style={{ color: '#64748B', marginLeft: '4px', fontSize: '0.9rem' }}>/ month</span>
+                    </div>
+
+                    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 2rem 0', flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {plan.features?.map((f: string, idx: number) => (
+                        <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#475569' }}>
+                          <Check size={16} style={{ color: '#10B981', flexShrink: 0 }} />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <Button 
+                      variant={isCurrent ? 'outline' : 'primary'}
+                      fullWidth
+                      disabled={isCurrent || isCreatingSaaSPayment || isVerifyingSaaSPayment}
+                      onClick={() => handlePayNow(plan)}
+                    >
+                      {isCreatingSaaSPayment ? 'Initiating...' : isCurrent ? 'Active Plan' : 'Purchase Plan'}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

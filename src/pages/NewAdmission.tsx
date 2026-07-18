@@ -20,6 +20,27 @@ export default function NewAdmission() {
   const { showToast } = useToast();
   const { user } = useSelector((state: RootState) => state.auth);
 
+  // Success Modal & Newly Created Student Profile Info
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [createdStudent, setCreatedStudent] = useState<{ id: string; name: string } | null>(null);
+
+  const handleResetForm = () => {
+    setName('');
+    setEmail('');
+    setMobile('');
+    setPassword('Student@123');
+    setGender('MALE');
+    setAddress('');
+    setGuardianName('');
+    setGuardianMobile('');
+    setAadharNumber('');
+    setShiftId('');
+    setAmountPaid('');
+    setErrors({});
+    setIsSuccessModalOpen(false);
+    setCreatedStudent(null);
+  };
+
   // Queries & Mutations
   const { data: branches } = useGetBranchesQuery(
     user?.workspaceId,
@@ -44,6 +65,18 @@ export default function NewAdmission() {
   const [aadharNumber, setAadharNumber] = useState('');
   const [branchId, setBranchId] = useState('');
   const [shiftId, setShiftId] = useState('');
+  const [amountPaid, setAmountPaid] = useState('');
+
+  const selectedShiftPrice = useMemo(() => {
+    if (!shiftId || !shifts) return 0;
+    const shift = shifts.find((s: any) => s.id === shiftId);
+    return shift ? shift.price : 0;
+  }, [shiftId, shifts]);
+
+  const dueAmount = useMemo(() => {
+    const paid = parseFloat(amountPaid) || 0;
+    return Math.max(0, selectedShiftPrice - paid);
+  }, [selectedShiftPrice, amountPaid]);
 
   // Validation Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -123,7 +156,6 @@ export default function NewAdmission() {
     const newErrors: Record<string, string> = {};
     
     if (!name.trim()) newErrors.name = 'Student name is required';
-    if (!email.trim()) newErrors.email = 'Email address is required';
     if (!mobile.trim()) newErrors.mobile = 'Mobile number is required';
     if (!branchId) newErrors.branchId = 'Target branch is required';
 
@@ -168,7 +200,7 @@ export default function NewAdmission() {
     }
 
     try {
-      await createStudent({
+      const result = await createStudent({
         name,
         email,
         mobile,
@@ -180,11 +212,21 @@ export default function NewAdmission() {
         aadharNumber: aadharNumber || undefined,
         branchId,
         shiftId: shiftId || undefined,
+        amountPaid: amountPaid === '' ? 0 : Number(amountPaid),
         workspaceId: user?.workspaceId,
       }).unwrap();
 
       showToast('Student admitted successfully!', 'success');
-      navigate('/students');
+      
+      if (result?.profile) {
+        setCreatedStudent({
+          id: result.profile.id,
+          name: name,
+        });
+        setIsSuccessModalOpen(true);
+      } else {
+        navigate('/students');
+      }
     } catch (err: any) {
       showToast(err?.data?.message || 'Failed to complete admission', 'error');
     }
@@ -268,10 +310,9 @@ export default function NewAdmission() {
               onChange={(e) => handleChange('name', e.target.value, setName)}
             />
             <Input
-              label="Email Address *"
+              label="Email Address"
               type="email"
               placeholder="e.g. rohan@gmail.com"
-              required
               value={email}
               error={errors.email}
               onChange={(e) => handleChange('email', e.target.value, setEmail)}
@@ -280,9 +321,13 @@ export default function NewAdmission() {
               label="Mobile Number *"
               placeholder="e.g. 9876543210"
               required
+              maxLength={10}
               value={mobile}
               error={errors.mobile}
-              onChange={(e) => handleChange('mobile', e.target.value, setMobile)}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                handleChange('mobile', val, setMobile);
+              }}
             />
             <Input
               label="Password *"
@@ -311,42 +356,7 @@ export default function NewAdmission() {
           </div>
         </Card>
 
-        {/* CARD 2: CONTACT & ADDRESS */}
-        <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '12px' }}>
-            <MapPin size={18} style={{ color: 'var(--accent-blue)' }} />
-            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-navy)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              Contact & Address
-            </h3>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-            <Input
-              label="Guardian Name"
-              placeholder="e.g. Satish Sharma"
-              value={guardianName}
-              error={errors.guardianName}
-              onChange={(e) => handleChange('guardianName', e.target.value, setGuardianName)}
-            />
-            <Input
-              label="Guardian Mobile"
-              placeholder="e.g. 9876543211"
-              value={guardianMobile}
-              error={errors.guardianMobile}
-              onChange={(e) => handleChange('guardianMobile', e.target.value, setGuardianMobile)}
-            />
-            <div style={{ gridColumn: '1 / -1' }}>
-              <Input
-                label="Full Address"
-                placeholder="e.g. Flat 102, Block B, Preet Vihar, Delhi"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* CARD 3: ACADEMIC & SUBSCRIPTION PLAN */}
+        {/* CARD 2: ACADEMIC & SUBSCRIPTION PLAN */}
         <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)', overflow: 'visible' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '12px' }}>
             <Layers size={18} style={{ color: 'var(--accent-blue)' }} />
@@ -373,10 +383,71 @@ export default function NewAdmission() {
               <label className="custom-input-label">Select Seating Shift</label>
               <Select
                 value={shiftId}
-                onChange={(val) => setShiftId(val)}
+                onChange={(val) => {
+                  setShiftId(val);
+                  const selectedShift = shifts?.find((s: any) => s.id === val);
+                  setAmountPaid(selectedShift ? selectedShift.price.toString() : '');
+                }}
                 placeholder="Select a seating shift"
                 options={shiftOptions}
                 disabled={isLoadingShifts || !!shiftsError}
+              />
+            </div>
+            
+            {shiftId && (
+              <>
+                <Input
+                  label={`Amount Paid (Price: ₹${selectedShiftPrice})`}
+                  type="number"
+                  placeholder="e.g. 500"
+                  value={amountPaid}
+                  onChange={(e) => setAmountPaid(e.target.value)}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
+                  <label className="custom-input-label">Due Amount</label>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: dueAmount > 0 ? 'var(--status-red)' : 'var(--status-emerald)' }}>
+                    ₹{dueAmount}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+
+        {/* CARD 3: CONTACT & ADDRESS */}
+        <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '12px' }}>
+            <MapPin size={18} style={{ color: 'var(--accent-blue)' }} />
+            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-navy)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+              Contact & Address
+            </h3>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
+            <Input
+              label="Guardian Name"
+              placeholder="e.g. Satish Sharma"
+              value={guardianName}
+              error={errors.guardianName}
+              onChange={(e) => handleChange('guardianName', e.target.value, setGuardianName)}
+            />
+            <Input
+              label="Guardian Mobile"
+              placeholder="e.g. 9876543211"
+              maxLength={10}
+              value={guardianMobile}
+              error={errors.guardianMobile}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                handleChange('guardianMobile', val, setGuardianMobile);
+              }}
+            />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Input
+                label="Full Address"
+                placeholder="e.g. Flat 102, Block B, Preet Vihar, Delhi"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
               />
             </div>
           </div>
@@ -404,6 +475,95 @@ export default function NewAdmission() {
         </div>
 
       </form>
+
+      {/* Success Modal (Custom lightweight overlay box with simple UI and no black background) */}
+      {isSuccessModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            padding: '32px',
+            width: '100%',
+            maxWidth: '420px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03)',
+            border: '1px solid rgba(15, 23, 42, 0.06)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '20px',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: '#ecfdf5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.5rem',
+              color: '#059669',
+            }}>
+              ✓
+            </div>
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-navy)', letterSpacing: '-0.01em' }}>
+                Admission Complete
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-slate)', lineHeight: '1.5' }}>
+                <strong>{createdStudent?.name}</strong> has been admitted successfully.
+              </p>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+              <Button
+                variant="primary"
+                style={{ borderRadius: '12px', width: '100%', padding: '10px 0', fontWeight: 700 }}
+                onClick={() => {
+                  if (createdStudent) {
+                    navigate('/seats', {
+                      state: {
+                        preselectedStudentId: createdStudent.id,
+                        preselectedStudentName: createdStudent.name,
+                      }
+                    });
+                  }
+                }}
+              >
+                Allocate a Seat Now
+              </Button>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%' }}>
+                <Button
+                  variant="outline"
+                  style={{ borderRadius: '12px', fontSize: '0.8rem', padding: '8px 0' }}
+                  onClick={() => navigate('/students')}
+                >
+                  Go to Students
+                </Button>
+                <Button
+                  variant="outline"
+                  style={{ borderRadius: '12px', fontSize: '0.8rem', padding: '8px 0', borderColor: 'transparent', backgroundColor: '#f1f5f9', color: '#475569' }}
+                  onClick={handleResetForm}
+                >
+                  Add Another
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

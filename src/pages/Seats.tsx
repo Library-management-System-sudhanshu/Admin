@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import {
@@ -111,7 +111,21 @@ export default function Seats() {
   const { showAlert } = useAlert();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
+
+  const [preselectedStudent, setPreselectedStudent] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    if (location.state?.preselectedStudentId && location.state?.preselectedStudentName) {
+      setPreselectedStudent({
+        id: location.state.preselectedStudentId,
+        name: location.state.preselectedStudentName,
+      });
+      // Clear navigation state so a reload doesn't keep it
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   
   // Branches API
@@ -1869,6 +1883,10 @@ export default function Seats() {
       setShouldGenerateInvoice(true);
       setInvoiceAmount('');
       setPaymentMethod('CASH');
+
+      if (preselectedStudent) {
+        setOpenAllocateModal(true);
+      }
     } else if (seat.status === 'OCCUPIED') {
       const activeAllocations = seat.allocations?.filter((a: any) => a.isActive) || [];
       if (activeAllocations.length > 0) {
@@ -2061,6 +2079,7 @@ export default function Seats() {
     }
     setOpenAllocateModal(false);
     setIsDrawerOpen(false);
+    setPreselectedStudent(null);
   };
 
   // Submit vacate seat
@@ -2964,6 +2983,42 @@ export default function Seats() {
 
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#F7F8FA', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {preselectedStudent && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: '16px',
+          padding: '16px 20px',
+          boxShadow: 'var(--shadow-soft)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.2rem' }}>📌</span>
+            <span style={{ fontSize: '0.875rem', color: '#1e3a8a', fontWeight: 600 }}>
+              Allocating seat for <strong style={{ textDecoration: 'underline' }}>{preselectedStudent.name}</strong>. Please click on any available (green) seat below to proceed.
+            </span>
+          </div>
+          <button
+            onClick={() => setPreselectedStudent(null)}
+            style={{
+              background: '#ffffff',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: '#374151',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+            }}
+          >
+            Cancel Allocation
+          </button>
+        </div>
+      )}
       
       {/* 1. TOP HEADER SECTION */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '16px' }}>
@@ -5131,6 +5186,7 @@ export default function Seats() {
         selectedBranch={selectedBranch}
         seatMap={seatMap}
         onSuccess={handleAllocateModalSuccess}
+        preselectedStudentId={preselectedStudent?.id}
       />
 
       {/* Invoice Receipt Modal */}
