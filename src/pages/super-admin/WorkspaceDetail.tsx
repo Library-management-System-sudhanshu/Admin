@@ -15,8 +15,6 @@ import {
   IndianRupee, 
   Mail, 
   Phone, 
-  Calendar, 
-  MapPin, 
   ShieldAlert, 
   ShieldCheck, 
   ExternalLink 
@@ -64,14 +62,41 @@ export default function WorkspaceDetail() {
   }
 
   const owner = workspace.users && workspace.users[0];
-  const planName = workspace.subscription?.saasPlan?.name || (workspace.subscription ? `Trial (${workspace.subscription.status})` : 'No Subscription');
   const isActive = workspace.isActive;
 
   const stats = [
-    { label: 'Registered Students', value: workspace.metrics?.studentCount || 0, icon: <Users size={20} />, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.08)' },
-    { label: 'Classrooms / Rooms', value: workspace.metrics?.roomCount || 0, icon: <Building2 size={20} />, color: '#10b981', bg: 'rgba(16, 185, 129, 0.08)' },
-    { label: 'Desk Capacity (Seats)', value: workspace.metrics?.seatCount || 0, icon: <Grid size={20} />, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)' },
-    { label: 'Total Revenue (INR)', value: `₹${workspace.metrics?.totalRevenue || 0}`, icon: <IndianRupee size={20} />, color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.08)' }
+    { 
+      label: 'Registered Students', 
+      value: workspace.metrics?.studentCount || 0, 
+      icon: <Users size={20} />, 
+      color: '#3b82f6', 
+      bg: 'rgba(59, 130, 246, 0.08)', 
+      path: `/super-admin/workspaces/${id}/students` 
+    },
+    { 
+      label: 'Classrooms / Rooms', 
+      value: workspace.metrics?.roomCount || 0, 
+      icon: <Building2 size={20} />, 
+      color: '#10b981', 
+      bg: 'rgba(16, 185, 129, 0.08)', 
+      path: `/super-admin/workspaces/${id}/rooms` 
+    },
+    { 
+      label: 'Desk Capacity (Seats)', 
+      value: workspace.metrics?.seatCount || 0, 
+      icon: <Grid size={20} />, 
+      color: '#f59e0b', 
+      bg: 'rgba(245, 158, 11, 0.08)', 
+      path: `/super-admin/workspaces/${id}/rooms` 
+    },
+    { 
+      label: 'Total Revenue (INR)', 
+      value: `₹${workspace.metrics?.totalRevenue || 0}`, 
+      icon: <IndianRupee size={20} />, 
+      color: '#8b5cf6', 
+      bg: 'rgba(139, 92, 246, 0.08)', 
+      path: `/super-admin/workspaces/${id}/billing` 
+    }
   ];
 
   return (
@@ -147,16 +172,30 @@ export default function WorkspaceDetail() {
       {/* Metrics Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
         {stats.map((stat, index) => (
-          <div key={index} style={{
-            background: '#ffffff',
-            border: '1px solid rgba(15, 23, 42, 0.05)',
-            borderRadius: '16px',
-            padding: '20px',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px'
-          }}>
+          <div 
+            key={index} 
+            onClick={() => navigate(stat.path)}
+            style={{
+              background: '#ffffff',
+              border: '1px solid rgba(15, 23, 42, 0.05)',
+              borderRadius: '16px',
+              padding: '20px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-3px)';
+              e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.02)';
+            }}
+          >
             <div style={{
               width: '44px',
               height: '44px',
@@ -313,17 +352,31 @@ export default function WorkspaceDetail() {
         </div>
       </div>
 
-      {/* Branches details list */}
+      {/* Workspace Preview Lists (Branches Summary) */}
       <div style={{
         background: '#ffffff',
         border: '1px solid rgba(15, 23, 42, 0.05)',
         borderRadius: '16px',
         padding: '24px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02)'
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px'
       }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          Registered Library Branches ({workspace.branches?.length || 0})
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+            Library Branches ({workspace.branches?.length || 0})
+          </h3>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate(`/super-admin/workspaces/${id}/branches`)}
+            style={{ borderRadius: '8px' }}
+          >
+            View All Branches
+          </Button>
+        </div>
+        
         {workspace.branches && workspace.branches.length > 0 ? (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
@@ -334,7 +387,7 @@ export default function WorkspaceDetail() {
               </tr>
             </thead>
             <tbody>
-              {workspace.branches.map((b: any) => (
+              {workspace.branches.slice(0, 3).map((b: any) => (
                 <tr key={b.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '12px', fontWeight: 600, color: '#1e293b' }}>{b.name}</td>
                   <td style={{ padding: '12px', color: '#475569' }}>{b.address || 'Main Location'}</td>
@@ -350,39 +403,49 @@ export default function WorkspaceDetail() {
         )}
       </div>
 
-      {/* Registered students list */}
+      {/* Workspace Preview Lists (Students Summary) */}
       <div style={{
         background: '#ffffff',
         border: '1px solid rgba(15, 23, 42, 0.05)',
         borderRadius: '16px',
         padding: '24px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02)'
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px'
       }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
-          Registered Students list ({students.length})
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+            Registered Students Preview ({students.length})
+          </h3>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => navigate(`/super-admin/workspaces/${id}/students`)}
+            style={{ borderRadius: '8px' }}
+          >
+            View All Students
+          </Button>
+        </div>
+
         {students.length > 0 ? (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
                 <th style={{ padding: '8px 12px' }}>Student</th>
                 <th style={{ padding: '8px 12px' }}>Mobile Number</th>
-                <th style={{ padding: '8px 12px' }}>Guardian Contact</th>
                 <th style={{ padding: '8px 12px' }}>Joined Date</th>
                 <th style={{ padding: '8px 12px' }}>Due balance</th>
               </tr>
             </thead>
             <tbody>
-              {students.map((stud: any) => (
+              {students.slice(0, 5).map((stud: any) => (
                 <tr key={stud.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '12px', fontWeight: 600, color: '#1e293b' }}>
                     {stud.user?.name}
                     <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{stud.user?.email || 'No email'}</div>
                   </td>
                   <td style={{ padding: '12px', color: '#475569' }}>{stud.user?.mobile}</td>
-                  <td style={{ padding: '12px', color: '#475569' }}>
-                    {stud.guardianName ? `${stud.guardianName} (${stud.guardianMobile})` : 'N/A'}
-                  </td>
                   <td style={{ padding: '12px', color: '#64748b' }}>
                     {new Date(stud.joiningDate).toLocaleDateString()}
                   </td>
