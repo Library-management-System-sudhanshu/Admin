@@ -94,6 +94,15 @@ const formatTo24h = (hour: string, minute: string, period: string) => {
   return `${hhStr}:${mmStr}`;
 };
 
+const PRESET_SHIFTS = [
+  { id: 'morning', label: 'Morning (8 AM - 2 PM)', name: 'Morning Shift', startTime: '08:00', endTime: '14:00' },
+  { id: 'afternoon', label: 'Afternoon (2 PM - 8 PM)', name: 'Afternoon Shift', startTime: '14:00', endTime: '20:00' },
+  { id: 'evening', label: 'Evening (6 PM - 11 PM)', name: 'Evening Shift', startTime: '18:00', endTime: '23:00' },
+  { id: 'night', label: 'Night (11 PM - 6 AM)', name: 'Night Shift', startTime: '23:00', endTime: '06:00' },
+  { id: 'fullday', label: 'Full Day (8 AM - 8 PM)', name: 'Full Day Shift', startTime: '08:00', endTime: '20:00' },
+  { id: 'custom', label: 'Custom Batch', name: '', startTime: '09:00', endTime: '17:00' }
+];
+
 export default function Billing() {
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -236,10 +245,25 @@ export default function Billing() {
   const [openShiftModal, setOpenShiftModal] = useState(false);
   const [editShiftMode, setEditShiftMode] = useState(false);
   const [shiftFormData, setShiftFormData] = useState({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: '' as any, price3Months: '' as any, price6Months: '' as any });
+  const [selectedPreset, setSelectedPreset] = useState<string>('custom');
+
+  const handleApplyPreset = (presetId: string, currentFormData: any) => {
+    setSelectedPreset(presetId);
+    const preset = PRESET_SHIFTS.find(p => p.id === presetId);
+    if (preset) {
+      setShiftFormData({
+        ...currentFormData,
+        name: preset.name,
+        startTime: preset.startTime,
+        endTime: preset.endTime
+      });
+    }
+  };
 
   const handleOpenCreateShift = () => {
     setEditShiftMode(false);
     setShiftFormData({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: '' as any, price3Months: '' as any, price6Months: '' as any });
+    setSelectedPreset('custom');
     setOpenShiftModal(true);
   };
 
@@ -248,23 +272,27 @@ export default function Billing() {
 
   const handleShiftStartChange = (field: 'hour' | 'minute' | 'period', value: string) => {
     const newTime = { ...shiftStartParsed, [field]: value };
-    setShiftFormData({
-      ...shiftFormData,
+    setShiftFormData(prev => ({
+      ...prev,
       startTime: formatTo24h(newTime.hour, newTime.minute, newTime.period),
-    });
+    }));
+    setSelectedPreset('custom');
   };
 
   const handleShiftEndChange = (field: 'hour' | 'minute' | 'period', value: string) => {
     const newTime = { ...shiftEndParsed, [field]: value };
-    setShiftFormData({
-      ...shiftFormData,
+    setShiftFormData(prev => ({
+      ...prev,
       endTime: formatTo24h(newTime.hour, newTime.minute, newTime.period),
-    });
+    }));
+    setSelectedPreset('custom');
   };
 
   const handleOpenEditShift = (shift: any) => {
     setEditShiftMode(true);
     setShiftFormData({ ...shift, capacity: shift.capacity ?? '', price3Months: shift.price3Months ?? '', price6Months: shift.price6Months ?? '' });
+    const matchedPreset = PRESET_SHIFTS.find(p => p.name === shift.name && p.startTime === shift.startTime && p.endTime === shift.endTime);
+    setSelectedPreset(matchedPreset ? matchedPreset.id : 'custom');
     setOpenShiftModal(true);
   };
 
@@ -757,8 +785,41 @@ export default function Billing() {
               fullWidth
               required
               value={shiftFormData.name}
-              onChange={(e) => setShiftFormData({ ...shiftFormData, name: e.target.value })}
+              onChange={(e) => {
+                setShiftFormData({ ...shiftFormData, name: e.target.value });
+                setSelectedPreset('custom');
+              }}
             />
+
+            <Box>
+              <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Predefined Shifts & Timings
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {PRESET_SHIFTS.map((preset) => {
+                  const isSelected = selectedPreset === preset.id;
+                  return (
+                    <Chip
+                      key={preset.id}
+                      label={preset.label}
+                      clickable
+                      onClick={() => handleApplyPreset(preset.id, shiftFormData)}
+                      color={isSelected ? 'primary' : 'default'}
+                      variant={isSelected ? 'filled' : 'outlined'}
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        py: 0.5,
+                        '&:hover': {
+                          transform: 'translateY(-1px)',
+                          transition: 'all 0.2s'
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </Box>
+            </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
               <Box>
                 <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary' }}>

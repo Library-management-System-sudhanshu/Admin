@@ -94,6 +94,7 @@ export default function Profile() {
   const [verifySaaSPayment, { isLoading: isVerifyingSaaSPayment }] = useVerifySaaSPaymentMutation();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'subscription'>('profile');
+  const [hoveredPlanId, setHoveredPlanId] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -887,45 +888,73 @@ export default function Profile() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
               {saasPlans.map((plan: any) => {
                 const isCurrent = saasSubscription && saasSubscription.saasPlanId === plan.id && saasSubscription.status === 'ACTIVE';
+                const isHovered = hoveredPlanId === plan.id;
+                
+                // Color Tokens:
+                // C6FE62 (active card btn)
+                // 232323 (active card background)
+                // F2F2F2 (unactive card colour)
+                // E3E3E3 (inactive card btn)
+                const cardBg = isCurrent ? '#232323' : '#F2F2F2';
+                const cardBorder = isCurrent ? '2px solid #C6FE62' : '1.5px solid #E3E3E3';
+                const cardShadow = isCurrent 
+                  ? '0 20px 25px -5px rgba(198, 254, 98, 0.15), 0 10px 10px -5px rgba(198, 254, 98, 0.1)' 
+                  : (isHovered ? '0 10px 15px -3px rgba(0,0,0,0.05)' : '0 1px 3px rgba(0,0,0,0.02)');
+                const titleColor = isCurrent ? '#FFFFFF' : '#232323';
+                const descColor = isCurrent ? '#A3A3A3' : '#525252';
+                const priceColor = isCurrent ? '#C6FE62' : '#232323';
+                const periodColor = isCurrent ? '#888888' : '#737373';
+                const featureColor = isCurrent ? '#E5E5E5' : '#404040';
+
                 return (
-                  <div key={plan.id} style={{ 
-                    border: isCurrent ? '2px solid var(--primary)' : '1px solid rgba(226, 232, 240, 0.8)', 
-                    borderRadius: '16px', 
-                    padding: '2rem', 
-                    background: 'white',
-                    boxShadow: isCurrent ? '0 10px 15px -3px rgba(37, 99, 235, 0.1)' : '0 1px 3px rgba(0,0,0,0.05)',
-                    position: 'relative',
-                    display: 'flex',
-                    flexDirection: 'column'
-                  }}>
+                  <div 
+                    key={plan.id}
+                    onMouseEnter={() => setHoveredPlanId(plan.id)}
+                    onMouseLeave={() => setHoveredPlanId(null)}
+                    style={{ 
+                      border: cardBorder, 
+                      borderRadius: '20px', 
+                      padding: '2rem', 
+                      background: cardBg,
+                      boxShadow: cardShadow,
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
+                      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                      minHeight: '420px'
+                    }}
+                  >
                     {isCurrent && (
                       <span style={{
                         position: 'absolute',
                         top: '-12px',
                         right: '24px',
-                        background: 'var(--primary)',
-                        color: 'white',
-                        padding: '4px 12px',
-                        borderRadius: '12px',
+                        background: '#C6FE62',
+                        color: '#000000',
+                        padding: '4px 14px',
+                        borderRadius: '9999px',
                         fontSize: '0.7rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase'
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        border: '1.5px solid #232323'
                       }}>
                         Current Plan
                       </span>
                     )}
-                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: '#0F172A', fontWeight: 700 }}>{plan.name}</h3>
-                    <p style={{ margin: '0 0 1.5rem 0', color: '#64748B', fontSize: '0.85rem', lineHeight: 1.4 }}>{plan.description}</p>
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: titleColor, fontWeight: 800 }}>{plan.name}</h3>
+                    <p style={{ margin: '0 0 1.5rem 0', color: descColor, fontSize: '0.85rem', lineHeight: 1.4, minHeight: '38px' }}>{plan.description}</p>
                     
-                    <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: '1.5rem' }}>
-                      <span style={{ fontSize: '2rem', fontWeight: 800, color: '#0F172A' }}>₹{plan.price}</span>
-                      <span style={{ color: '#64748B', marginLeft: '4px', fontSize: '0.9rem' }}>/ month</span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: '1.5rem', borderBottom: `1px solid ${isCurrent ? '#333333' : '#e5e7eb'}`, paddingBottom: '16px' }}>
+                      <span style={{ fontSize: '2.25rem', fontWeight: 900, color: priceColor }}>₹{plan.price}</span>
+                      <span style={{ color: periodColor, marginLeft: '4px', fontSize: '0.85rem', fontWeight: 600 }}>/ month</span>
                     </div>
 
                     <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 2rem 0', flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       {plan.features?.map((f: string, idx: number) => (
-                        <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#475569' }}>
-                          <Check size={16} style={{ color: '#10B981', flexShrink: 0 }} />
+                        <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: featureColor }}>
+                          <Check size={16} style={{ color: isCurrent ? '#C6FE62' : '#10B981', flexShrink: 0 }} />
                           <span>{f}</span>
                         </li>
                       ))}
@@ -936,6 +965,15 @@ export default function Profile() {
                       fullWidth
                       disabled={isCurrent || isCreatingSaaSPayment || isVerifyingSaaSPayment}
                       onClick={() => handlePayNow(plan)}
+                      style={{
+                        borderRadius: '12px',
+                        padding: '12px 20px',
+                        backgroundColor: isCurrent ? '#C6FE62' : '#E3E3E3',
+                        borderColor: isCurrent ? '#C6FE62' : '#E3E3E3',
+                        color: isCurrent ? '#000000' : '#232323',
+                        fontWeight: 800,
+                        cursor: isCurrent ? 'default' : 'pointer'
+                      }}
                     >
                       {isCreatingSaaSPayment ? 'Initiating...' : isCurrent ? 'Active Plan' : 'Purchase Plan'}
                     </Button>
