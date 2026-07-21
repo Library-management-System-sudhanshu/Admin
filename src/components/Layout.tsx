@@ -110,7 +110,7 @@ export default function Layout() {
 
   // Sidebar Menu Items
   const menuItems = [
-    { text: 'Dashboard', icon: <LayoutDashboard className="sidebar-link-icon" />, path: '/' },
+    { text: 'Dashboard', icon: <LayoutDashboard className="sidebar-link-icon" />, path: '/dashboard' },
     { text: 'New Admission', icon: <UserPlus className="sidebar-link-icon" />, path: '/new-admission' },
     { text: 'Students', icon: <Users className="sidebar-link-icon" />, path: '/students' },
     { text: 'Seat Map', icon: <Armchair className="sidebar-link-icon" />, path: '/seats' },
@@ -135,7 +135,7 @@ export default function Layout() {
         <div className="sidebar-header">
           <div 
             className="sidebar-logo-container" 
-            onClick={() => navigate('/')} 
+            onClick={() => navigate('/dashboard')} 
             style={{ cursor: 'pointer' }}
           >
             <div className="sidebar-logo-dot" />

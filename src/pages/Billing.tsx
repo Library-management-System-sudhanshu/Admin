@@ -212,7 +212,7 @@ export default function Billing() {
     // Combine to CSV format
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(val => `"${val}"`).join(','))
+      ...rows.map((row: any[]) => row.map((val: any) => `"${val}"`).join(','))
     ].join('\n');
     
     // Create download link

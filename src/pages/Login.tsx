@@ -70,7 +70,7 @@ export default function Login() {
       if (res.user?.role === 'SUPER_ADMIN') {
         navigate('/super-admin');
       } else {
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (err: any) {
       if (err?.data?.message?.includes('disabled') || err?.data?.message?.includes('Access denied')) {
@@ -103,7 +103,7 @@ export default function Login() {
       } else if (res.user?.role === 'SUPER_ADMIN') {
         navigate('/super-admin');
       } else {
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (err: any) {
       setError(err?.data?.message || 'Google authentication failed.');
@@ -240,7 +240,7 @@ export default function Login() {
         logo: logo.trim() || undefined,
       }).unwrap();
       dispatch(setCredentials(res));
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err?.data?.message || 'Registration failed.');
     }
