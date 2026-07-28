@@ -181,9 +181,8 @@ export default function Seats() {
 
   // Allocate Seat Modal (Popup)
   const [openAllocateModal, setOpenAllocateModal] = useState(false);
-  const [allocModalStudentId, setAllocModalStudentId] = useState('');
-  const [allocModalSearchQuery, setAllocModalSearchQuery] = useState('');
-  const [showModalStudentDropdown, setShowModalStudentDropdown] = useState(false);
+  const [allocModalStudentId] = useState('');
+  const [allocModalSearchQuery] = useState('');
   const [isModalSearchFocused, setIsModalSearchFocused] = useState(false);
   const [allocModalShiftId, setAllocModalShiftId] = useState('');
   const [allocModalStartDate, setAllocModalStartDate] = useState('');
@@ -1612,7 +1611,7 @@ export default function Seats() {
     seatMap.forEach((floor: any) => {
       floor.rooms?.forEach((room: any) => {
         room.seats?.forEach((seat: any) => {
-          const { isOccupied, isExpired } = getSeatStatusInfo(seat);
+          const { isOccupied } = getSeatStatusInfo(seat);
           if (seat.status === 'BLOCKED') maintenance++;
           else if (isOccupied) occupied++;
           else available++;
@@ -2482,7 +2481,6 @@ export default function Seats() {
 
     let isExpiringSoon = false;
     let daysLeft = 99;
-    let isCritical = false;
     
     currentAllocations.forEach((alloc: any) => {
       if (alloc.endDate) {
@@ -2496,9 +2494,6 @@ export default function Seats() {
           isExpiringSoon = true;
           if (diffDays < daysLeft) {
             daysLeft = diffDays;
-          }
-          if (diffDays <= 3) {
-            isCritical = true;
           }
         }
       }
@@ -4497,8 +4492,8 @@ export default function Seats() {
                             borderRadius: '8px',
                             fontSize: '0.75rem',
                             fontWeight: 700,
-                            background: drawerActiveSection === tab ? '#ffffff' : 'transparent',
-                            color: drawerActiveSection === tab ? 'var(--text-navy)' : 'var(--text-slate)',
+                            background: (drawerActiveSection as string) === tab ? '#ffffff' : 'transparent',
+                            color: (drawerActiveSection as string) === tab ? 'var(--text-navy)' : 'var(--text-slate)',
                             cursor: 'pointer',
                             transition: 'all 150ms ease'
                           }}
