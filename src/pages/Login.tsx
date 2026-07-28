@@ -392,7 +392,7 @@ export default function Login() {
       </div>
 
       {/* ============ RIGHT: AUTHENTICATION PANEL (40%) ============ */}
-      <div className="login-auth-side">
+      <div className="login-auth-side"> 
         <div className="auth-card-glow" />
         
         <div className="auth-card">

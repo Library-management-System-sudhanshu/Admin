@@ -445,7 +445,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 3rem 2rem;
+  padding: 3rem 0;
   position: relative;
   z-index: 10;
   background-color: var(--color-bg);
@@ -951,7 +951,7 @@
   .login-auth-side {
     flex: 0 0 45%;
     max-width: 45%;
-    padding: 2.5rem 1.5rem;
+    padding: 2.5rem 0;
   }
   .widget-seatmap {
     width: 250px;
@@ -981,7 +981,7 @@
   .login-auth-side {
     flex: 1 1 auto;
     max-width: 100%;
-    padding: 2.5rem 1.5rem;
+    padding: 2.5rem 0;
     order: 1; /* Auth card first on mobile */
   }
 
