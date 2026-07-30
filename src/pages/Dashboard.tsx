@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   FileText
 } from 'lucide-react';
+import './Dashboard.css';
 
 const COLORS = ['#2563EB', '#E2E8F0'];
 
@@ -178,40 +179,18 @@ export default function Dashboard() {
   ];
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.25fr', gap: '32px', width: '100%', alignItems: 'start' }} className="animate-fade-in">
+    <div className="dashboard-container animate-fade-in">
       
       {/* LEFT COLUMN: Main dashboard space */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      <div className="dashboard-main-col">
         
-
-
         {/* 2. KPI GRID */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+        <div className="dashboard-kpi-grid">
           {kpis.map((kpi, idx) => (
             <div
               key={idx}
+              className="dashboard-kpi-card"
               onClick={() => navigate(kpi.path, { state: kpi.state })}
-              style={{
-                background: '#ffffff',
-                border: '1px solid var(--border-card)',
-                borderRadius: '18px',
-                padding: '20px',
-                cursor: 'pointer',
-                boxShadow: 'var(--shadow-soft)',
-                transition: 'all 200ms ease',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                position: 'relative',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = 'translateY(-3px)';
-                e.currentTarget.style.boxShadow = 'var(--shadow-hover)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'var(--shadow-soft)';
-              }}
             >
               {/* Card Header: Icon & Trend */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -245,11 +224,11 @@ export default function Dashboard() {
         </div>
 
         {/* 3. QUICK ACTIONS */}
-        <div style={{ background: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '18px', padding: '24px', boxShadow: 'var(--shadow-soft)' }}>
+        <div className="dashboard-actions-card">
           <h2 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', margin: '0 0 16px 0', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             Quick Actions
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+          <div className="dashboard-actions-grid">
             {quickActions.map((act, idx) => (
               <div
                 key={idx}
@@ -286,10 +265,10 @@ export default function Dashboard() {
         </div>
 
         {/* 4. ANALYTICS CHARTS */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
+        <div className="dashboard-charts-grid">
           
           {/* Revenue Performance Trend */}
-          <div style={{ background: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '18px', padding: '24px', boxShadow: 'var(--shadow-soft)' }}>
+          <div className="dashboard-chart-box">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
               <div>
                 <h2 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-navy)', margin: '0 0 2px 0' }}>
@@ -330,7 +309,7 @@ export default function Dashboard() {
           </div>
 
           {/* Occupancy Rate */}
-          <div style={{ background: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '18px', padding: '24px', boxShadow: 'var(--shadow-soft)', display: 'flex', flexDirection: 'column' }}>
+          <div className="dashboard-chart-box">
             <div>
               <h2 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-navy)', margin: '0 0 2px 0' }}>
                 Occupancy Rates
@@ -380,7 +359,7 @@ export default function Dashboard() {
       </div>
 
       {/* RIGHT COLUMN: Summary & Activity TIMELINE Panel */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div className="dashboard-side-col">
         
 
 

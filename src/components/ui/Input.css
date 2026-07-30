@@ -107,3 +107,23 @@ select.custom-input {
   padding-right: 2.5rem;
 }
 
+/* ===== MOBILE ===== */
+@media (max-width: 640px) {
+  .custom-input {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    padding: 0.875rem 1rem;
+    min-height: 48px;
+  }
+
+  .custom-input-label {
+    font-size: 0.82rem;
+  }
+
+  .custom-input-container {
+    margin-bottom: 0.875rem;
+  }
+
+  select.custom-input {
+    min-height: 48px;
+  }
+}

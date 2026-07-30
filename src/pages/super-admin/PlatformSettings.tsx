@@ -132,7 +132,7 @@ export default function PlatformSettings() {
               General Platform Settings
             </h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
               <Input
                 label="Application Name"
                 value={appName}
@@ -219,7 +219,7 @@ export default function PlatformSettings() {
               Enter the Razorpay API credentials to handle SaaS billing subscriptions for Library Owners. Make sure webhook logs point to the backend verify endpoints.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
               <Input
                 label="Razorpay Key ID"
                 value={razorpayKeyId}
@@ -237,7 +237,7 @@ export default function PlatformSettings() {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
               <Input
                 label="Webhook Secret Signature"
                 type="password"
@@ -281,7 +281,7 @@ export default function PlatformSettings() {
               WhatsApp API Gateway
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <label style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600, marginBottom: '0.5rem' }}>API Provider</label>
                 <select 

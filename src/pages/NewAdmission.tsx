@@ -413,7 +413,7 @@ export default function NewAdmission() {
             </div>
 
             {/* Right Column: Personal Details Inputs */}
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', minWidth: '250px' }}>
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '20px', minWidth: 0 }}>
               <Input
                 label="Full Name *"
                 placeholder="e.g. Rohan Sharma"
@@ -479,7 +479,7 @@ export default function NewAdmission() {
             </h3>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '20px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label className="custom-input-label">Target Branch *</label>
               <Select
@@ -537,7 +537,7 @@ export default function NewAdmission() {
             </h3>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '20px' }}>
             <Input
               label="Guardian Name"
               placeholder="e.g. Satish Sharma"

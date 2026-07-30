@@ -247,132 +247,141 @@ export default function Layout() {
       <div className="layout-main">
         
         {/* Header Appbar (72px) */}
-        {location.pathname === '/' && (
-          <header className="layout-topbar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button className="mobile-menu-btn" onClick={toggleSidebar}>
-                <Menu size={20} />
-              </button>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', lineHeight: 1.25 }}>
-                    {greeting}, {user?.name || 'Rakesh'}
-                  </span>
-                  {saasSub && (
-                    <span style={{
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      background: saasSub.status === 'ACTIVE' ? '#dbeafe' : '#fef3c7',
-                      color: saasSub.status === 'ACTIVE' ? '#1e40af' : '#b45309',
-                      textTransform: 'uppercase',
-                      border: saasSub.status === 'ACTIVE' ? '1px solid #bfdbfe' : '1px solid #fde68a'
-                    }}>
-                      {saasSub.saasPlan?.name || saasSub.status} Plan
-                    </span>
-                  )}
-                </div>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-slate)', fontWeight: 500, marginTop: '4px' }}>
-                  {todayDate} • <span style={{ color: 'var(--status-emerald)', fontWeight: 600 }}>{branchName} is running smoothly today.</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Topbar Actions */}
-            <div className="topbar-actions">
-              
-              {/* Global Quick Search */}
-              <button className="topbar-search-trigger" onClick={() => navigate('/students')}>
-                <Search size={14} />
-                <span>Search students...</span>
-                <kbd className="topbar-kbd">/</kbd>
-              </button>
-
-              {/* Quick Add Button */}
-              <div className="quick-add-container" ref={quickAddRef} style={{ position: 'relative' }}>
-                <button className="topbar-btn" style={{ background: 'var(--accent-blue)', color: '#ffffff', borderRadius: '10px', display: 'flex', gap: '6px', fontSize: '0.78rem', fontWeight: 600, padding: '6px 12px' }} onClick={() => setIsQuickAddOpen(!isQuickAddOpen)}>
-                  <Plus size={14} />
-                  <span>Quick Add</span>
-                </button>
-
-                <div className={`profile-dropdown-menu ${isQuickAddOpen ? 'show' : ''}`} style={{ marginTop: '6px' }}>
-                  <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/new-admission'); }}>
-                    <UserPlus size={14} />
-                    <span>New Admission</span>
-                  </button>
-                  <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/seats'); }}>
-                    <Armchair size={14} />
-                    <span>Allocate Seat</span>
-                  </button>
-                  <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/billing'); }}>
-                    <ReceiptText size={14} />
-                    <span>Collect Payment</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Notifications Popover */}
-              <div className="notifications-container" ref={notificationsRef} style={{ position: 'relative' }}>
-                <button className="topbar-btn" onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} style={{ position: 'relative' }}>
-                  <Bell size={18} />
-                  {metrics && metrics.expiringSubscriptions > 0 && (
-                    <span style={{ position: 'absolute', top: '4px', right: '4px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--status-red)' }} />
-                  )}
-                </button>
-
-                {/* Notifications Dropdown */}
-                <div className={`profile-dropdown-menu ${isNotificationsOpen ? 'show' : ''}`} style={{ marginTop: '6px', width: '280px' }}>
-                  <div className="profile-dropdown-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="profile-dropdown-title">System Status</span>
-                    {metrics && metrics.expiringSubscriptions > 0 && (
-                      <span style={{ fontSize: '0.62rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-red)', padding: '2px 6px', borderRadius: '10px', fontWeight: 700 }}>
-                        {metrics.expiringSubscriptions} alerts
-                      </span>
-                    )}
-                  </div>
-                  {metrics && metrics.expiringSubscriptions > 0 ? (
-                    <button className="profile-dropdown-item" style={{ whiteSpace: 'normal', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', borderBottom: '1px solid rgba(15,23,42,0.03)' }} onClick={() => { setIsNotificationsOpen(false); navigate('/seats'); }}>
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '2px' }}>
-                        <Sparkles size={12} style={{ color: 'var(--status-amber)' }} />
-                        <span style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-navy)' }}>Expiring Subscriptions</span>
-                      </div>
-                      <span style={{ fontSize: '0.68rem', color: 'var(--text-slate)' }}>{metrics.expiringSubscriptions} students subscription will expire within the next 7 days.</span>
-                    </button>
-                  ) : (
-                    <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-slate)' }}>
-                      All student plans are running smoothly!
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Profile Avatar Button */}
-              <button className="topbar-btn" style={{ padding: '2px' }} onClick={() => navigate('/profile')}>
-                <div className="sidebar-avatar" style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}>
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </div>
-              </button>
-            </div>
-          </header>
-        )}
-
-        {/* Mobile top navigation header (Only on responsive viewports) */}
-        {location.pathname === '/' && (
-          <div className="mobile-only-header">
+        <header className="layout-topbar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button className="mobile-menu-btn" onClick={toggleSidebar}>
               <Menu size={20} />
             </button>
-            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-navy)', letterSpacing: '-0.01em' }}>
-              {greeting}, {user?.name || 'Rakesh'}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', lineHeight: 1.25 }}>
+                  {greeting}, {user?.name || 'User'}
+                </span>
+                {saasSub && (
+                  <span style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    background: saasSub.status === 'ACTIVE' ? '#dbeafe' : '#fef3c7',
+                    color: saasSub.status === 'ACTIVE' ? '#1e40af' : '#b45309',
+                    textTransform: 'uppercase',
+                    border: saasSub.status === 'ACTIVE' ? '1px solid #bfdbfe' : '1px solid #fde68a'
+                  }}>
+                    {saasSub.saasPlan?.name || saasSub.status} Plan
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-slate)', fontWeight: 500, marginTop: '4px' }}>
+                {todayDate} • <span style={{ color: 'var(--status-emerald)', fontWeight: 600 }}>{branchName} is running smoothly today.</span>
+              </span>
             </div>
-            <button className="topbar-btn" onClick={() => navigate('/profile')} style={{ padding: '2px' }}>
-              <div className="sidebar-avatar" style={{ width: '30px', height: '30px', fontSize: '0.75rem' }}>
+          </div>
+
+          {/* Topbar Actions */}
+          <div className="topbar-actions">
+            
+            {/* Global Quick Search */}
+            <button className="topbar-search-trigger" onClick={() => navigate('/students')}>
+              <Search size={14} />
+              <span className="topbar-search-text">Search students...</span>
+              <kbd className="topbar-kbd">/</kbd>
+            </button>
+
+            {/* Quick Add Button */}
+            <div className="quick-add-container" ref={quickAddRef} style={{ position: 'relative' }}>
+              <button className="topbar-btn" style={{ background: 'var(--accent-blue)', color: '#ffffff', borderRadius: '10px', display: 'flex', gap: '6px', fontSize: '0.78rem', fontWeight: 600, padding: '6px 12px' }} onClick={() => setIsQuickAddOpen(!isQuickAddOpen)}>
+                <Plus size={14} />
+                <span className="topbar-quick-add-text">Quick Add</span>
+              </button>
+
+              <div className={`profile-dropdown-menu ${isQuickAddOpen ? 'show' : ''}`} style={{ marginTop: '6px' }}>
+                <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/new-admission'); }}>
+                  <UserPlus size={14} />
+                  <span>New Admission</span>
+                </button>
+                <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/seats'); }}>
+                  <Armchair size={14} />
+                  <span>Allocate Seat</span>
+                </button>
+                <button className="profile-dropdown-item" onClick={() => { setIsQuickAddOpen(false); navigate('/billing'); }}>
+                  <ReceiptText size={14} />
+                  <span>Collect Payment</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Notifications Popover */}
+            <div className="notifications-container" ref={notificationsRef} style={{ position: 'relative' }}>
+              <button className="topbar-btn" onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} style={{ position: 'relative' }}>
+                <Bell size={18} />
+                {metrics && metrics.expiringSubscriptions > 0 && (
+                  <span style={{ position: 'absolute', top: '4px', right: '4px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--status-red)' }} />
+                )}
+              </button>
+
+              {/* Notifications Dropdown */}
+              <div className={`profile-dropdown-menu ${isNotificationsOpen ? 'show' : ''}`} style={{ marginTop: '6px', width: '280px' }}>
+                <div className="profile-dropdown-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="profile-dropdown-title">System Status</span>
+                  {metrics && metrics.expiringSubscriptions > 0 && (
+                    <span style={{ fontSize: '0.62rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--status-red)', padding: '2px 6px', borderRadius: '10px', fontWeight: 700 }}>
+                      {metrics.expiringSubscriptions} alerts
+                    </span>
+                  )}
+                </div>
+                {metrics && metrics.expiringSubscriptions > 0 ? (
+                  <button className="profile-dropdown-item" style={{ whiteSpace: 'normal', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', borderBottom: '1px solid rgba(15,23,42,0.03)' }} onClick={() => { setIsNotificationsOpen(false); navigate('/seats'); }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '2px' }}>
+                      <Sparkles size={12} style={{ color: 'var(--status-amber)' }} />
+                      <span style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-navy)' }}>Expiring Subscriptions</span>
+                    </div>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-slate)' }}>{metrics.expiringSubscriptions} students subscription will expire within the next 7 days.</span>
+                  </button>
+                ) : (
+                  <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-slate)' }}>
+                    All student plans are running smoothly!
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Profile Avatar Button */}
+            <button className="topbar-btn" style={{ padding: '2px' }} onClick={() => navigate('/profile')}>
+              <div className="sidebar-avatar" style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}>
                 {user?.name?.charAt(0).toUpperCase() || 'U'}
               </div>
             </button>
           </div>
-        )}
+        </header>
+
+        {/* Mobile top navigation header (Only on responsive viewports) */}
+        <div className="mobile-only-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button className="mobile-menu-btn" onClick={toggleSidebar} aria-label="Toggle navigation menu">
+              <Menu size={22} />
+            </button>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-navy)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                {user?.workspace?.name || 'StudyFlow'}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-slate)', fontWeight: 500 }}>
+                {user?.name || 'User'}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button className="topbar-btn" onClick={() => navigate('/students')} style={{ padding: '6px' }}>
+              <Search size={18} />
+            </button>
+            <button className="topbar-btn" onClick={() => navigate('/profile')} style={{ padding: '2px' }}>
+              <div className="sidebar-avatar" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
+                {user?.name?.charAt(0).toUpperCase() || 'U'}
+              </div>
+            </button>
+          </div>
+        </div>
 
         {/* Page Content Panel */}
         <main className="layout-content">
@@ -386,9 +395,10 @@ export default function Layout() {
           style={{
             position: 'fixed',
             top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.15)',
+            backgroundColor: 'rgba(15, 23, 42, 0.3)',
             backdropFilter: 'blur(4px)',
-            zIndex: 9
+            WebkitBackdropFilter: 'blur(4px)',
+            zIndex: 999
           }}
           onClick={toggleSidebar}
         />

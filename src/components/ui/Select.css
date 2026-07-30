@@ -92,3 +92,26 @@
   color: var(--text-muted);
   text-align: center;
 }
+
+/* ===== MOBILE ===== */
+@media (max-width: 640px) {
+  .custom-select-trigger {
+    font-size: 16px; /* Prevents iOS zoom */
+    height: 48px;
+    padding: 0.75rem;
+    border-radius: 10px;
+  }
+
+  .custom-select-option {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .custom-select-dropdown {
+    max-height: 250px;
+    border-radius: 12px;
+  }
+}
