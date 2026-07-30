@@ -139,7 +139,7 @@ export default function TransferSeat() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '24px', alignItems: 'start' }}>
         {/* Left Side: Student Info & Current Seat */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <Card style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>

@@ -660,5 +660,143 @@ body {
   background-color: #f8fafc;
 }
 
+/* ===== RESPONSIVE OVERHAUL ===== */
+
+/* Glassmorphism enhancement */
+.glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: var(--shadow-soft), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+}
+
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+  .stats-premium-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 640px) {
+  /* Stats grid single column */
+  .stats-premium-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .stats-premium-card {
+    padding: 12px 16px;
+  }
+
+  /* Drawer becomes full-screen bottom-sheet */
+  .right-drawer-panel {
+    width: 100vw;
+    border-left: none;
+    border-radius: 20px 20px 0 0;
+    top: auto;
+    bottom: 0;
+    max-height: 90vh;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.12);
+  }
+
+  .right-drawer-panel.open {
+    transform: translateY(0);
+  }
+
+  .right-drawer-panel {
+    transform: translateY(100%);
+  }
+
+  .drawer-header {
+    padding: 16px 20px;
+  }
+
+  .drawer-body {
+    padding: 16px 20px;
+    gap: 12px;
+  }
+
+  .drawer-footer {
+    padding: 12px 20px;
+  }
+
+  /* Seat tiles smaller on mobile */
+  .seat-tile {
+    border-radius: 10px;
+  }
+
+  .study-hall-row {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .study-hall-row-label {
+    width: 36px;
+    font-size: 0.68rem;
+  }
+
+  .study-hall-row-grid {
+    gap: 6px;
+  }
+
+  /* Room accordion tighter */
+  .room-accordion-header {
+    padding: 12px 16px;
+  }
+
+  .room-accordion.expanded .room-accordion-body {
+    padding: 16px;
+  }
+
+  /* Touch targets — enforce 44px minimum */
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .fab-main-btn {
+    width: 52px;
+    height: 52px;
+  }
+
+  .fab-container {
+    bottom: 16px;
+    right: 16px;
+  }
+
+  /* Table responsive */
+  .custom-table-container {
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+  }
+
+  .custom-table th,
+  .custom-table td {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  /* Action buttons wrap */
+  .action-buttons {
+    gap: 4px;
+  }
+
+  /* Empty state */
+  .empty-state-container {
+    padding: 24px 16px;
+    border-radius: 14px;
+  }
+
+  /* Breadcrumb */
+  .breadcrumb-container {
+    font-size: 0.75rem;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+}
 
 

@@ -97,3 +97,24 @@
   50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
   100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
 }
+
+/* ===== MOBILE ===== */
+@media (max-width: 640px) {
+  .custom-button {
+    min-height: 44px;
+    font-size: 0.9rem;
+  }
+
+  .btn-sm {
+    min-height: 40px;
+    padding: 0.5rem 0.875rem;
+  }
+
+  .btn-md {
+    min-height: 44px;
+  }
+
+  .btn-lg {
+    min-height: 48px;
+  }
+}

@@ -502,7 +502,7 @@ export default function Settings() {
             </Typography>
 
             {saasSubscription ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2rem', fontSize: '0.9rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '2rem', fontSize: '0.9rem' }}>
                 <div>
                   <div style={{ color: '#64748B', fontSize: '0.8rem', fontWeight: 600 }}>PLAN LEVEL</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', marginTop: '4px', textTransform: 'uppercase' }}>
@@ -544,7 +544,7 @@ export default function Settings() {
             Upgrade / Purchase Subscription
           </Typography>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
             {saasPlans.map((plan: any) => {
               const isCurrent = saasSubscription && saasSubscription.saasPlanId === plan.id && saasSubscription.status === 'ACTIVE';
               const isHovered = hoveredPlanId === plan.id;
