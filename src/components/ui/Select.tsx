@@ -5,6 +5,7 @@ import './Select.css';
 export interface SelectOption {
   value: string | number;
   label: string;
+  isAction?: boolean;
 }
 
 interface SelectProps {
@@ -70,7 +71,7 @@ export const Select: React.FC<SelectProps> = ({
           {options.map((option) => (
             <div
               key={option.value}
-              className={`custom-select-option ${option.value === value ? 'selected' : ''}`}
+              className={`custom-select-option ${option.value === value ? 'selected' : ''} ${option.isAction ? 'action-option' : ''}`}
               onClick={() => handleSelect(option.value)}
             >
               {option.label}

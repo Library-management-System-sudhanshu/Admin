@@ -13,7 +13,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
-import { ArrowLeft, UserPlus, MapPin, Layers, Camera } from 'lucide-react';
+import { ArrowLeft, UserPlus, MapPin, Layers, Camera, Plus } from 'lucide-react';
 import '../components/ui/Globals.css';
 
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -299,15 +299,19 @@ export default function NewAdmission() {
     if (shiftsError) {
       return [{ value: '', label: 'Error loading shifts' }];
     }
-    if (!shifts || shifts.length === 0) {
-      return [{ value: '', label: 'No Shift (Admission only)' }];
-    }
+    const baseOptions = !shifts || shifts.length === 0
+      ? [{ value: '', label: 'No Shift (Admission only)' }]
+      : [
+          { value: '', label: 'No Shift (Admission only)' },
+          ...shifts.map((s: any) => ({
+            value: s.id,
+            label: `${s.name} (₹${s.price})`,
+          })),
+        ];
+
     return [
-      { value: '', label: 'No Shift (Admission only)' },
-      ...shifts.map((s: any) => ({
-        value: s.id,
-        label: `${s.name} (₹${s.price})`,
-      })),
+      ...baseOptions,
+      { value: 'ADD_NEW_SHIFT', label: '+ Add New Shift', isAction: true },
     ];
   }, [shifts, isLoadingShifts, shiftsError]);
 
@@ -438,7 +442,7 @@ export default function NewAdmission() {
                 value={mobile}
                 error={errors.mobile}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '');
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                   handleChange('mobile', val, setMobile);
                 }}
               />
@@ -462,9 +466,13 @@ export default function NewAdmission() {
               <Input
                 label="Aadhar Card Number"
                 placeholder="e.g. 123456789012"
+                maxLength={12}
                 value={aadharNumber}
                 error={errors.aadharNumber}
-                onChange={(e) => handleChange('aadharNumber', e.target.value, setAadharNumber)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                  handleChange('aadharNumber', val, setAadharNumber);
+                }}
               />
             </div>
           </div>
@@ -498,6 +506,10 @@ export default function NewAdmission() {
               <Select
                 value={shiftId}
                 onChange={(val) => {
+                  if (val === 'ADD_NEW_SHIFT') {
+                    navigate('/billing?tab=shifts&action=add-shift', { state: { tab: 1, openCreateShift: true } });
+                    return;
+                  }
                   setShiftId(val);
                   const selectedShift = shifts?.find((s: any) => s.id === val);
                   setAmountPaid(selectedShift ? selectedShift.price.toString() : '');
@@ -552,7 +564,7 @@ export default function NewAdmission() {
               value={guardianMobile}
               error={errors.guardianMobile}
               onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, '');
+                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                 handleChange('guardianMobile', val, setGuardianMobile);
               }}
             />

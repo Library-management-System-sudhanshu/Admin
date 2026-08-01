@@ -960,9 +960,10 @@ export default function Students() {
             <Input
               label="Mobile Number"
               required
+              maxLength={10}
               value={editMobile}
               error={editErrors.mobile}
-              onChange={(e) => setEditMobile(e.target.value)}
+              onChange={(e) => setEditMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
             />
             <Input
               label="New Password"
@@ -992,9 +993,10 @@ export default function Students() {
             />
             <Input
               label="Guardian Mobile"
+              maxLength={10}
               value={editGuardianMobile}
               error={editErrors.guardianMobile}
-              onChange={(e) => setEditGuardianMobile(e.target.value)}
+              onChange={(e) => setEditGuardianMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
             />
             <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <Input
@@ -1007,9 +1009,10 @@ export default function Students() {
               />
               <Input
                 label="Aadhar Card Number"
+                maxLength={12}
                 value={editAadharNumber}
                 error={editErrors.aadharNumber}
-                onChange={(e) => setEditAadharNumber(e.target.value)}
+                onChange={(e) => setEditAadharNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
                 className="no-margin"
               />
             </div>

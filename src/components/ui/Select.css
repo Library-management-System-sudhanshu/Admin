@@ -86,6 +86,18 @@
   font-weight: 600;
 }
 
+.custom-select-option.action-option {
+  color: #2563eb;
+  font-weight: 600;
+  border-top: 1px dashed rgba(15, 23, 42, 0.1);
+  background-color: rgba(37, 99, 235, 0.03);
+}
+
+.custom-select-option.action-option:hover {
+  background-color: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+}
+
 .custom-select-no-options {
   padding: 0.75rem;
   font-size: 0.875rem;
