@@ -15,6 +15,7 @@ import {
   useClearStudentDuesMutation,
 } from '../store/api';
 import { useToast } from '../components/ui/ToastContext';
+import { useAlert } from '../components/ui/AlertContext';
 import {
   Box,
   Typography,
@@ -124,6 +125,7 @@ export default function Billing() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showAlert } = useAlert();
   const [tab, setTab] = useState(0);
 
   const { data: payments, isLoading: paymentsLoading } = useGetPaymentsQuery({});
@@ -353,7 +355,13 @@ export default function Billing() {
   };
 
   const handleDeleteShift = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this shift?')) return;
+    const confirmed = await showAlert('Are you sure you want to delete this shift?', {
+      title: 'Delete Shift',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await deleteShift(id).unwrap();
       showToast('Shift deleted successfully!', 'success');

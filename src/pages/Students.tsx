@@ -421,16 +421,6 @@ export default function Students() {
     }
   };
 
-  const handleStatusChange = async (id: string, status: string) => {
-    await updateStatus({ id, status });
-  };
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this student?')) {
-      await deleteStudent(id);
-    }
-  };
-
   return (
     <div style={{ width: '100%' }}>
       <style dangerouslySetInnerHTML={{ __html: `

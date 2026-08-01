@@ -24,11 +24,15 @@ import {
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import { Button } from '../components/ui/Button';
 import { Send } from 'lucide-react';
+import { useAlert } from '../components/ui/AlertContext';
+import { useToast } from '../components/ui/ToastContext';
 
 export default function Notices() {
   const { data: notices, isLoading } = useGetNoticesQuery({});
   const [createNotice, { isLoading: isCreating }] = useCreateNoticeMutation();
   const [deleteNotice] = useDeleteNoticeMutation();
+  const { showAlert } = useAlert();
+  const { showToast } = useToast();
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -44,19 +48,25 @@ export default function Notices() {
       }).unwrap();
       setTitle('');
       setContent('');
-      alert('Notice created & broadcast successfully!');
+      showToast('Notice created & broadcast successfully!', 'success');
     } catch (err) {
-      alert('Failed to broadcast notice');
+      showToast('Failed to broadcast notice', 'error');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this notice?')) return;
+    const confirmed = await showAlert('Are you sure you want to delete this notice?', {
+      title: 'Delete Notice',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await deleteNotice(id).unwrap();
-      alert('Notice deleted successfully');
+      showToast('Notice deleted successfully', 'success');
     } catch (err) {
-      alert('Failed to delete notice');
+      showToast('Failed to delete notice', 'error');
     }
   };
 

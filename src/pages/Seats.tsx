@@ -2159,8 +2159,13 @@ export default function Seats() {
     const activeAllocation = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
     if (!activeAllocation) return;
 
-    const confirmVacate = window.confirm(`Are you sure you want to vacate ${activeAllocation.studentProfile?.user?.name || 'this student'}?`);
-    if (!confirmVacate) return;
+    const confirmed = await showAlert(`Are you sure you want to vacate ${activeAllocation.studentProfile?.user?.name || 'this student'}?`, {
+      title: "Vacate Seat",
+      confirmText: "Vacate Seat",
+      cancelText: "Cancel",
+      type: "danger",
+    });
+    if (!confirmed) return;
     try {
       await vacateSeat({ id: selectedSeat.id, studentProfileId: activeAllocation.studentProfileId }).unwrap();
       setIsDrawerOpen(false);
@@ -2352,7 +2357,12 @@ export default function Seats() {
   };
 
   const handleDeleteSeat = async (id: string) => {
-    const confirmed = window.confirm("Are you sure you want to delete this seat?");
+    const confirmed = await showAlert("Are you sure you want to delete this seat?", {
+      title: "Delete Seat",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "danger",
+    });
     if (!confirmed) return;
     try {
       await deleteSeat(id).unwrap();
@@ -3157,9 +3167,14 @@ export default function Seats() {
 
           {selectedBranch && seatMap && seatMap.length > 0 && (
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (activeRoomEditingId) {
-                  const exit = window.confirm("Exit visualization mode? Unsaved layouts will be discarded.");
+                  const exit = await showAlert("Exit visualization mode? Unsaved layouts will be discarded.", {
+                    title: "Exit Visualization",
+                    confirmText: "Discard & Exit",
+                    cancelText: "Keep Editing",
+                    type: "danger",
+                  });
                   if (!exit) return;
                   setActiveRoomEditingId(null);
                   setTempLayout({});
