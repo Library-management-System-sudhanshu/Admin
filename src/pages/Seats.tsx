@@ -23,7 +23,7 @@ import {
   useCreatePaymentMutation,
   useVerifyRazorpayMutation,
 } from '../store/api';
-import { formatYYYYMMDD } from '../utils/dateUtils';
+import { formatYYYYMMDD, addMonthsToDate, addDaysToDate, getTodayYYYYMMDD, formatDateDisplay } from '../utils/dateUtils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
@@ -1778,11 +1778,7 @@ export default function Seats() {
   useEffect(() => {
     if (allocModalDuration === 'flex') return;
     if (allocModalStartDate && typeof allocModalDuration === 'number') {
-      const date = new Date(allocModalStartDate);
-      if (!isNaN(date.getTime())) {
-        date.setMonth(date.getMonth() + allocModalDuration);
-        setAllocModalEndDate(date.toISOString().split('T')[0]);
-      }
+      setAllocModalEndDate(addMonthsToDate(allocModalStartDate, allocModalDuration));
     }
   }, [allocModalStartDate, allocModalDuration]);
 
@@ -2011,12 +2007,10 @@ export default function Seats() {
     if (selectedSeat && selectedAllocationId) {
       const alloc = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
       if (alloc) {
-        const nextDay = new Date(alloc.endDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        setRenewStartDate(nextDay.toISOString().split('T')[0]);
+        setRenewStartDate(addDaysToDate(alloc.endDate, 1));
         setRenewShiftId(alloc.shiftId || '');
-        setEditStartDate(alloc.startDate ? alloc.startDate.split('T')[0] : '');
-        setEditEndDate(alloc.endDate ? alloc.endDate.split('T')[0] : '');
+        setEditStartDate(formatYYYYMMDD(alloc.startDate));
+        setEditEndDate(formatYYYYMMDD(alloc.endDate));
       }
     }
   }, [selectedAllocationId, selectedSeat]);
@@ -2025,11 +2019,7 @@ export default function Seats() {
   useEffect(() => {
     if (durationMode === 'flex') return;
     if (startDate && typeof durationMode === 'number') {
-      const date = new Date(startDate);
-      if (!isNaN(date.getTime())) {
-        date.setMonth(date.getMonth() + durationMode);
-        setEndDate(date.toISOString().split('T')[0]);
-      }
+      setEndDate(addMonthsToDate(startDate, durationMode));
     } else {
       setEndDate('');
     }
@@ -2080,12 +2070,8 @@ export default function Seats() {
     if (renewShiftId && shifts) {
       const shift = shifts.find((s: any) => s.id === renewShiftId);
       if (shift && renewStartDate) {
-        const start = new Date(renewStartDate);
-        if (!isNaN(start.getTime())) {
-          start.setMonth(start.getMonth() + renewDuration);
-          setRenewEndDate(start.toISOString().split('T')[0]);
-          
-          let price = shift.price || 0;
+        setRenewEndDate(addMonthsToDate(renewStartDate, renewDuration));
+        let price = shift.price || 0;
           if (renewDuration === 3 && shift.price3Months) {
             price = shift.price3Months;
           } else if (renewDuration === 6 && shift.price6Months) {
@@ -2094,7 +2080,6 @@ export default function Seats() {
             price = price * renewDuration;
           }
           setRenewAmount(price.toString());
-        }
       }
     }
   }, [renewShiftId, renewStartDate, renewDuration, shifts]);

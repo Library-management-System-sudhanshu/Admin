@@ -25,6 +25,7 @@ import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
 import { useAlert } from '../components/ui/AlertContext';
 import '../components/ui/Globals.css';
+import { formatYYYYMMDD, formatDateDisplay, getTodayYYYYMMDD, addDaysToDate } from '../utils/dateUtils';
 import {
   Plus,
   Check,
@@ -253,7 +254,7 @@ export default function Students() {
     setEditGuardianMobile(student.guardianMobile || '');
     setEditAadharNumber(student.aadharNumber || '');
     setEditBranchId(student.branchId || '');
-    setEditJoiningDate(student.joiningDate ? new Date(student.joiningDate).toISOString().split('T')[0] : '');
+    setEditJoiningDate(formatYYYYMMDD(student.joiningDate));
     setEditErrors({});
     setOpenEdit(true);
   };
@@ -328,16 +329,10 @@ export default function Students() {
       const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
       if (activeAllocation) {
         // Start date is day after current subscription end date
-        const nextDay = new Date(activeAllocation.endDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        try {
-          setRenewStartDate(nextDay.toISOString().split('T')[0]);
-        } catch (e) {
-          setRenewStartDate(new Date().toISOString().split('T')[0]);
-        }
+        setRenewStartDate(addDaysToDate(activeAllocation.endDate, 1) || getTodayYYYYMMDD());
         setRenewShiftId(activeAllocation.shiftId || '');
       } else {
-        setRenewStartDate(new Date().toISOString().split('T')[0]);
+        setRenewStartDate(getTodayYYYYMMDD());
       }
 
       setRenewEndDate('');

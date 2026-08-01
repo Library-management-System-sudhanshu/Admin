@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CustomCalendar } from '../components/ui/CustomCalendar';
 import { Card } from '../components/ui/Card';
 import { Calendar as CalendarIcon, Clock, CheckCircle2 } from 'lucide-react';
+import { formatYYYYMMDD } from '../utils/dateUtils';
 
 export default function CalendarDemo() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2024, 1, 14)); // Feb 14, 2024 default
@@ -45,7 +46,7 @@ export default function CalendarDemo() {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                 <span style={{ color: 'var(--text-slate)' }}>ISO String:</span>
                 <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace' }}>
-                  {selectedDate ? selectedDate.toISOString().split('T')[0] : 'N/A'}
+                  {formatYYYYMMDD(selectedDate) || 'N/A'}
                 </span>
               </div>
             </div>

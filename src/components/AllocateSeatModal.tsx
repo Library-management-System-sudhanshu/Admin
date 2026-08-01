@@ -8,7 +8,7 @@ import { Select } from './ui/Select';
 import { Switch } from './ui/Switch';
 import { useToast } from './ui/ToastContext';
 import { Sparkles, Search } from 'lucide-react';
-import { formatYYYYMMDD } from '../utils/dateUtils';
+import { formatYYYYMMDD, addMonthsToDate } from '../utils/dateUtils';
 interface AllocateSeatModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -169,11 +169,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   useEffect(() => {
     if (durationMode === 'flex') return;
     if (startDate && typeof durationMode === 'number') {
-      const date = new Date(startDate);
-      if (!isNaN(date.getTime())) {
-        date.setMonth(date.getMonth() + durationMode);
-        setEndDate(date.toISOString().split('T')[0]);
-      }
+      setEndDate(addMonthsToDate(startDate, durationMode));
     }
   }, [startDate, durationMode]);
 

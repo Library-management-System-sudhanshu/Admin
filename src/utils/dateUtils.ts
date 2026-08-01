@@ -28,15 +28,23 @@ export const formatYYYYMMDD = (val?: string | Date | null): string => {
 };
 
 /**
+ * Returns today's date in YYYY-MM-DD format based on local time.
+ */
+export const getTodayYYYYMMDD = (): string => {
+  return formatYYYYMMDD(new Date());
+};
+
+/**
  * Formats a date into human-readable display format (e.g. "15 Jul 2026").
  * 
  * @param val Date | string | null | undefined
+ * @param fallback string returned if val is empty/invalid (defaults to 'N/A')
  * @returns Formatted display string
  */
-export const formatDateDisplay = (val?: string | Date | null): string => {
-  if (!val) return '';
+export const formatDateDisplay = (val?: string | Date | null, fallback: string = 'N/A'): string => {
+  if (!val) return fallback;
   const d = new Date(val);
-  if (isNaN(d.getTime())) return '';
+  if (isNaN(d.getTime())) return fallback;
   return d.toLocaleDateString('en-US', {
     day: 'numeric',
     month: 'short',
@@ -56,5 +64,20 @@ export const addMonthsToDate = (baseDate: string | Date, months: number = 1): st
   if (!formatted) return '';
   const d = new Date(formatted);
   d.setMonth(d.getMonth() + months);
+  return formatYYYYMMDD(d);
+};
+
+/**
+ * Adds specified days to a date and returns YYYY-MM-DD format.
+ * 
+ * @param baseDate Date | string
+ * @param days number of days to add
+ * @returns YYYY-MM-DD string
+ */
+export const addDaysToDate = (baseDate: string | Date, days: number = 1): string => {
+  const formatted = formatYYYYMMDD(baseDate);
+  if (!formatted) return '';
+  const d = new Date(formatted);
+  d.setDate(d.getDate() + days);
   return formatYYYYMMDD(d);
 };

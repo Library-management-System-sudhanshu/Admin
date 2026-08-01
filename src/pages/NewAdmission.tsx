@@ -16,6 +16,7 @@ import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
 import { CustomCalendar } from '../components/ui/CustomCalendar';
 import { ArrowLeft, UserPlus, MapPin, Layers, Camera, Plus, Calendar as CalendarIcon } from 'lucide-react';
+import { getTodayYYYYMMDD, formatDateDisplay } from '../utils/dateUtils';
 import '../components/ui/Globals.css';
 
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -102,7 +103,7 @@ export default function NewAdmission() {
   const [shiftId, setShiftId] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [avatar, setAvatar] = useState('');
-  const [joiningDate, setJoiningDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [joiningDate, setJoiningDate] = useState(() => getTodayYYYYMMDD());
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [openDirection, setOpenDirection] = useState<'bottom' | 'top'>('bottom');
   const dateContainerRef = useRef<HTMLDivElement>(null);
