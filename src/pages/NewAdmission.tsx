@@ -13,7 +13,8 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
-import { ArrowLeft, UserPlus, MapPin, Layers, Camera, Plus } from 'lucide-react';
+import { CustomCalendar } from '../components/ui/CustomCalendar';
+import { ArrowLeft, UserPlus, MapPin, Layers, Camera, Plus, Calendar as CalendarIcon } from 'lucide-react';
 import '../components/ui/Globals.css';
 
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -100,6 +101,8 @@ export default function NewAdmission() {
   const [shiftId, setShiftId] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [avatar, setAvatar] = useState('');
+  const [joiningDate, setJoiningDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -260,6 +263,7 @@ export default function NewAdmission() {
         password,
         gender,
         address,
+        joiningDate,
         guardianName: guardianName || undefined,
         guardianMobile: guardianMobile || undefined,
         aadharNumber: aadharNumber || undefined,
@@ -474,6 +478,58 @@ export default function NewAdmission() {
                   handleChange('aadharNumber', val, setAadharNumber);
                 }}
               />
+              <div style={{ position: 'relative' }}>
+                <label className="custom-input-label">Admission / Joining Date *</label>
+                <div
+                  onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0 14px',
+                    height: '42px',
+                    borderRadius: '10px',
+                    border: showCalendarPicker ? '1.5px solid #D97706' : '1px solid var(--border-color)',
+                    backgroundColor: '#ffffff',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: showCalendarPicker ? '0 0 0 3px rgba(217, 119, 6, 0.15)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-navy)' }}>
+                    {joiningDate ? new Date(joiningDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Select date'}
+                  </span>
+                  <CalendarIcon size={18} style={{ color: '#D97706' }} />
+                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-slate)', marginTop: '4px', display: 'block' }}>
+                  Click to open custom calendar (past or future allowed)
+                </span>
+
+                {showCalendarPicker && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      zIndex: 100,
+                      boxShadow: '0 16px 36px rgba(0,0,0,0.14)',
+                      borderRadius: '18px'
+                    }}
+                  >
+                    <CustomCalendar
+                      compact
+                      value={joiningDate ? new Date(joiningDate) : new Date()}
+                      onChange={(d) => {
+                        const yyyy = d.getFullYear();
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        setJoiningDate(`${yyyy}-${mm}-${dd}`);
+                        setShowCalendarPicker(false);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </Card>

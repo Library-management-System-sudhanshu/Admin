@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   FileText
 } from 'lucide-react';
+import { CustomCalendar } from '../components/ui/CustomCalendar';
 import './Dashboard.css';
 
 const COLORS = ['#2563EB', '#E2E8F0'];
@@ -63,6 +64,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { data: metrics, isLoading, error } = useGetMetricsQuery({});
   const [hoveredAction, setHoveredAction] = useState<number | null>(null);
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
 
 
 
@@ -180,10 +182,10 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container animate-fade-in">
-      
+
       {/* LEFT COLUMN: Main dashboard space */}
       <div className="dashboard-main-col">
-        
+
         {/* 2. KPI GRID */}
         <div className="dashboard-kpi-grid">
           {kpis.map((kpi, idx) => (
@@ -197,7 +199,7 @@ export default function Dashboard() {
                 <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: kpi.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: kpi.iconColor }}>
                   {kpi.icon}
                 </div>
-                
+
                 {/* Trend indicators */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: kpi.trendUp ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: kpi.trendUp ? 'var(--status-emerald)' : 'var(--status-red)' }}>
                   {kpi.trendUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -266,7 +268,7 @@ export default function Dashboard() {
 
         {/* 4. ANALYTICS CHARTS */}
         <div className="dashboard-charts-grid">
-          
+
           {/* Revenue Performance Trend */}
           <div className="dashboard-chart-box">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
@@ -360,8 +362,15 @@ export default function Dashboard() {
 
       {/* RIGHT COLUMN: Summary & Activity TIMELINE Panel */}
       <div className="dashboard-side-col">
-        
-
+        {/* CALENDAR WIDGET */}
+        <div style={{ marginBottom: '16px' }}>
+          <CustomCalendar
+            compact
+            value={calendarDate}
+            onChange={(date) => setCalendarDate(date)}
+            style={{ width: '100%', maxWidth: '100%' }}
+          />
+        </div>
 
         {/* 1. TODAY'S SUMMARY */}
         <div style={{ background: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '18px', padding: '20px', boxShadow: 'var(--shadow-soft)' }}>
@@ -369,7 +378,7 @@ export default function Dashboard() {
             Today's Summary
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', borderBottom: '1px solid rgba(15,23,42,0.03)', paddingBottom: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                 <AlertTriangle size={14} style={{ color: 'var(--status-red)' }} />
@@ -402,11 +411,11 @@ export default function Dashboard() {
           <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-navy)', margin: '0 0 16px 0', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             Recent Activity
           </h2>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', paddingLeft: '12px', borderLeft: '1.5px solid rgba(15, 23, 42, 0.05)' }}>
             {activities.map((act, idx) => (
               <div key={idx} style={{ position: 'relative' }}>
-                
+
                 {/* Timeline node dot */}
                 <div style={{
                   position: 'absolute',

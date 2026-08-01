@@ -26,6 +26,7 @@ import SuperAdminLogin from './pages/super-admin/SuperAdminLogin';
 import Profile from './pages/Profile';
 import TransferSeat from './pages/TransferSeat';
 import NewAdmission from './pages/NewAdmission';
+import CalendarDemo from './pages/CalendarDemo';
 import SetupWorkspace from './pages/SetupWorkspace';
 import { AlertProvider } from './components/ui/AlertContext';
 import { ToastProvider } from './components/ui/ToastContext';
@@ -88,6 +89,7 @@ export default function App() {
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/transfer-seat" element={<TransferSeat />} />
+                <Route path="/calendar" element={<CalendarDemo />} />
               </Route>
 
               {/* Super Admin Layout */}

@@ -25,7 +25,8 @@ import {
   CreditCard,
   LogOut,
   Sparkles,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import './Layout.css';
 
@@ -118,6 +119,7 @@ export default function Layout() {
     { text: 'Library', icon: <LibraryIcon className="sidebar-link-icon" />, path: '/library' },
     { text: 'Complaints', icon: <MessageSquareWarning className="sidebar-link-icon" />, path: '/complaints' },
     { text: 'Notices', icon: <Bell className="sidebar-link-icon" />, path: '/notices' },
+    { text: 'Calendar', icon: <CalendarIcon className="sidebar-link-icon" />, path: '/calendar' },
     { text: 'WhatsApp', icon: <MessageCircle className="sidebar-link-icon" />, path: '/whatsapp' },
     { text: 'Settings', icon: <Settings className="sidebar-link-icon" />, path: '/settings' },
   ];
