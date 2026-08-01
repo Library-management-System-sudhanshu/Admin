@@ -31,6 +31,7 @@ import { AllocateSeatModal } from '../components/AllocateSeatModal';
 import { InvoiceReceiptModal } from '../components/InvoiceReceiptModal';
 import { LayoutCreatorModal } from '../components/LayoutCreatorModal';
 import { Switch } from '../components/ui/Switch';
+import { DatePicker } from '../components/ui/DatePicker';
 import { Select } from '../components/ui/Select';
 import { useAlert } from '../components/ui/AlertContext';
 import { useToast } from '../components/ui/ToastContext';
@@ -2920,14 +2921,19 @@ export default function Seats() {
 
         {/* Dates Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <div>
-            <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Start Date</label>
-            <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>End Date</label>
-            <input type="date" required disabled={durationMode !== 'flex'} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: durationMode !== 'flex' ? '#f1f5f9' : '#ffffff', cursor: durationMode !== 'flex' ? 'not-allowed' : 'text' }} />
-          </div>
+          <DatePicker
+            label="Start Date"
+            required
+            value={startDate}
+            onChange={(val) => setStartDate(val)}
+          />
+          <DatePicker
+            label="End Date"
+            required
+            disabled={durationMode !== 'flex'}
+            value={endDate}
+            onChange={(val) => setEndDate(val)}
+          />
         </div>
 
         {/* Generate Fee Invoice Switch */}
@@ -4616,14 +4622,18 @@ export default function Seats() {
                           {isEditingDates ? (
                             <form onSubmit={handleUpdateAllocationDates} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#F8FAFC', padding: '10px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                                <div>
-                                  <label style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '2px' }}>Start</label>
-                                  <input type="date" required value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} style={{ padding: '6px', fontSize: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%' }} />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '2px' }}>End</label>
-                                  <input type="date" required value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} style={{ padding: '6px', fontSize: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%' }} />
-                                </div>
+                                <DatePicker
+                                  label="Start"
+                                  required
+                                  value={editStartDate}
+                                  onChange={(val) => setEditStartDate(val)}
+                                />
+                                <DatePicker
+                                  label="End"
+                                  required
+                                  value={editEndDate}
+                                  onChange={(val) => setEditEndDate(val)}
+                                />
                               </div>
                               <Button type="submit" size="sm" variant="primary" style={{ backgroundColor: 'var(--accent-blue)', width: '100%', marginTop: '4px' }} isLoading={isUpdatingAllocation}>Save Dates</Button>
                             </form>
@@ -4739,14 +4749,18 @@ export default function Seats() {
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Start Date</label>
-                            <input type="date" required value={renewStartDate} onChange={(e) => setRenewStartDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>End Date</label>
-                            <input type="date" required value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%' }} />
-                          </div>
+                          <DatePicker
+                            label="Start Date"
+                            required
+                            value={renewStartDate}
+                            onChange={(val) => setRenewStartDate(val)}
+                          />
+                          <DatePicker
+                            label="End Date"
+                            required
+                            value={renewEndDate}
+                            onChange={(val) => setRenewEndDate(val)}
+                          />
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>

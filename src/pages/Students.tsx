@@ -24,7 +24,7 @@ import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
 import { useAlert } from '../components/ui/AlertContext';
-import '../components/ui/Globals.css';
+import { DatePicker } from '../components/ui/DatePicker';
 import { formatYYYYMMDD, formatDateDisplay, getTodayYYYYMMDD, addDaysToDate } from '../utils/dateUtils';
 import {
   Plus,
@@ -1010,13 +1010,11 @@ export default function Students() {
               onChange={(e) => setEditGuardianMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
             />
             <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <Input
+              <DatePicker
                 label="Admission Date"
-                type="date"
                 required
                 value={editJoiningDate}
-                onChange={(e) => setEditJoiningDate(e.target.value)}
-                className="no-margin"
+                onChange={(val) => setEditJoiningDate(val)}
               />
               <Input
                 label="Aadhar Card Number"
@@ -1435,14 +1433,18 @@ export default function Students() {
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Start Date</label>
-                            <input type="date" required value={renewStartDate} onChange={(e) => setRenewStartDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%', boxSizing: 'border-box' }} />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>End Date</label>
-                            <input type="date" required value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%', boxSizing: 'border-box' }} />
-                          </div>
+                          <DatePicker
+                            label="Start Date"
+                            required
+                            value={renewStartDate}
+                            onChange={(val) => setRenewStartDate(val)}
+                          />
+                          <DatePicker
+                            label="End Date"
+                            required
+                            value={renewEndDate}
+                            onChange={(val) => setRenewEndDate(val)}
+                          />
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>

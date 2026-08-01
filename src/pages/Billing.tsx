@@ -16,6 +16,7 @@ import {
 } from '../store/api';
 import { useToast } from '../components/ui/ToastContext';
 import { useAlert } from '../components/ui/AlertContext';
+import { DatePicker } from '../components/ui/DatePicker';
 import {
   Box,
   Typography,
@@ -495,47 +496,17 @@ export default function Billing() {
                   <MenuItem value="RAZORPAY">Razorpay</MenuItem>
                 </Select>
               </FormControl>
-              <TextField
+              <DatePicker
                 label="From Date"
-                type="date"
-                size="small"
                 value={startDateFilter}
-                onChange={(e) => setStartDateFilter(e.target.value)}
-                {...({ 
-                  InputLabelProps: { shrink: true }, 
-                  slotProps: { 
-                    inputLabel: { shrink: true },
-                    htmlInput: {
-                      onClick: (e: any) => {
-                        if (typeof e.target.showPicker === 'function') {
-                          e.target.showPicker();
-                        }
-                      }
-                    }
-                  } 
-                } as any)}
-                fullWidth
+                onChange={(val) => setStartDateFilter(val)}
+                placeholder="From date"
               />
-              <TextField
+              <DatePicker
                 label="To Date"
-                type="date"
-                size="small"
                 value={endDateFilter}
-                onChange={(e) => setEndDateFilter(e.target.value)}
-                {...({ 
-                  InputLabelProps: { shrink: true }, 
-                  slotProps: { 
-                    inputLabel: { shrink: true },
-                    htmlInput: {
-                      onClick: (e: any) => {
-                        if (typeof e.target.showPicker === 'function') {
-                          e.target.showPicker();
-                        }
-                      }
-                    }
-                  } 
-                } as any)}
-                fullWidth
+                onChange={(val) => setEndDateFilter(val)}
+                placeholder="To date"
               />
             </Box>
           </Card>

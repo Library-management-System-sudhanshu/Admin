@@ -6,6 +6,7 @@ import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import { Switch } from './ui/Switch';
+import { DatePicker } from './ui/DatePicker';
 import { useToast } from './ui/ToastContext';
 import { Sparkles, Search } from 'lucide-react';
 import { formatYYYYMMDD, addMonthsToDate } from '../utils/dateUtils';
@@ -462,16 +463,12 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
             </div>
 
             {/* Start Date */}
-            <div>
-              <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Start Date</label>
-              <input
-                type="date"
-                required
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none' }}
-              />
-            </div>
+            <DatePicker
+              label="Start Date"
+              required
+              value={startDate}
+              onChange={(val) => setStartDate(val)}
+            />
 
             {/* Duration mode */}
             <div>
@@ -511,16 +508,12 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
 
             {/* End Date (flex mode) */}
             {durationMode === 'flex' && (
-              <div>
-                <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>End Date</label>
-                <input
-                  type="date"
-                  required
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none' }}
-                />
-              </div>
+              <DatePicker
+                label="End Date"
+                required
+                value={endDate}
+                onChange={(val) => setEndDate(val)}
+              />
             )}
           </div>
 
