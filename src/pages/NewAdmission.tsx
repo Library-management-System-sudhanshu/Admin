@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
@@ -54,7 +55,7 @@ export default function NewAdmission() {
 
   // Success Modal & Newly Created Student Profile Info
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [createdStudent, setCreatedStudent] = useState<{ id: string; name: string } | null>(null);
+  const [createdStudent, setCreatedStudent] = useState<{ id: string; name: string; joiningDate?: string; shiftId?: string } | null>(null);
 
   const handleResetForm = () => {
     setName('');
@@ -306,15 +307,14 @@ export default function NewAdmission() {
 
       showToast('Student admitted successfully!', 'success');
       
-      if (result?.profile) {
-        setCreatedStudent({
-          id: result.profile.id,
-          name: name,
-        });
-        setIsSuccessModalOpen(true);
-      } else {
-        navigate('/students');
-      }
+      const studentId = result?.profile?.id || result?.student?.id || result?.id || result?.data?.id;
+      setCreatedStudent({
+        id: studentId || 'new-student',
+        name: name,
+        joiningDate: joiningDate,
+        shiftId: shiftId,
+      });
+      setIsSuccessModalOpen(true);
     } catch (err: any) {
       showToast(err?.data?.message || 'Failed to complete admission', 'error');
     }
@@ -691,29 +691,30 @@ export default function NewAdmission() {
 
       </form>
 
-      {/* Success Modal (Custom lightweight overlay box with simple UI and no black background) */}
-      {isSuccessModalOpen && (
+      {/* Success Modal (Rendered via Portal to guarantee exact screen center positioning) */}
+      {isSuccessModalOpen && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
           left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.35)',
           backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 9999,
+          zIndex: 999999,
         }}>
           <div style={{
             background: '#ffffff',
             borderRadius: '24px',
             padding: '32px',
-            width: '100%',
+            width: '90%',
             maxWidth: '420px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03)',
-            border: '1px solid rgba(15, 23, 42, 0.06)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid rgba(15, 23, 42, 0.08)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -747,14 +748,14 @@ export default function NewAdmission() {
                 variant="primary"
                 style={{ borderRadius: '12px', width: '100%', padding: '10px 0', fontWeight: 700 }}
                 onClick={() => {
-                  if (createdStudent) {
-                    navigate('/seats', {
-                      state: {
-                        preselectedStudentId: createdStudent.id,
-                        preselectedStudentName: createdStudent.name,
-                      }
-                    });
-                  }
+                  navigate('/seats', {
+                    state: {
+                      preselectedStudentId: createdStudent?.id,
+                      preselectedStudentName: createdStudent?.name || name,
+                      preselectedJoiningDate: createdStudent?.joiningDate || joiningDate,
+                      preselectedShiftId: createdStudent?.shiftId || shiftId,
+                    }
+                  });
                 }}
               >
                 Allocate a Seat Now
@@ -777,7 +778,8 @@ export default function NewAdmission() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

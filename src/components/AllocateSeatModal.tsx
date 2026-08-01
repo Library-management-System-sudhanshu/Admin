@@ -8,7 +8,7 @@ import { Select } from './ui/Select';
 import { Switch } from './ui/Switch';
 import { useToast } from './ui/ToastContext';
 import { Sparkles, Search } from 'lucide-react';
-
+import { formatYYYYMMDD } from '../utils/dateUtils';
 interface AllocateSeatModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -19,6 +19,8 @@ interface AllocateSeatModalProps {
   seatMap: any[] | undefined;
   onSuccess: (invoiceInfo: any) => void;
   preselectedStudentId?: string;
+  preselectedJoiningDate?: string;
+  preselectedShiftId?: string;
 }
 
 export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
@@ -31,6 +33,8 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   seatMap,
   onSuccess,
   preselectedStudentId,
+  preselectedJoiningDate,
+  preselectedShiftId,
 }) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showToast } = useToast();
@@ -58,21 +62,39 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [shiftId, setShiftId] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(() => formatYYYYMMDD(preselectedJoiningDate) || formatYYYYMMDD(new Date()));
+  const [endDate, setEndDate] = useState(() => {
+    const base = formatYYYYMMDD(preselectedJoiningDate) || formatYYYYMMDD(new Date());
+    const end = new Date(base);
+    end.setMonth(end.getMonth() + 1);
+    return formatYYYYMMDD(end);
+  });
   const [durationMode, setDurationMode] = useState<number | 'flex'>(1);
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
 
+  // Active allocations for selected seat
+  const activeAllocations = useMemo(() => {
+    if (!selectedSeat) return [];
+    return selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
+  }, [selectedSeat]);
+
+  // Compute available shifts for selected seat
+  const availableShifts = useMemo(() => {
+    if (!shifts || !selectedSeat) return [];
+    const bookedShiftIds = activeAllocations.map((a: any) => a.shiftId || a.shift?.id);
+    return shifts.filter((s: any) => !bookedShiftIds.includes(s.id));
+  }, [shifts, selectedSeat, activeAllocations]);
+
   // Initialize values when selected seat / modal open changes
   useEffect(() => {
     if (isOpen && selectedSeat) {
-      const today = new Date().toISOString().split('T')[0];
-      setStartDate(today);
-      const end = new Date(today);
+      const baseDate = formatYYYYMMDD(preselectedJoiningDate) || formatYYYYMMDD(new Date());
+      setStartDate(baseDate);
+      const end = new Date(baseDate);
       end.setMonth(end.getMonth() + 1);
-      setEndDate(end.toISOString().split('T')[0]);
+      setEndDate(formatYYYYMMDD(end));
 
       if (preselectedStudentId) {
         setStudentProfileId(preselectedStudentId);
@@ -85,18 +107,24 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         setStudentSearchQuery('');
       }
 
-      const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
-      const bookedShiftIds = activeAllocations.map((a: any) => a.shiftId || a.shift?.id);
-      const availableShifts = shifts?.filter((s: any) => !bookedShiftIds.includes(s.id)) || [];
-
-      setShiftId('');
-
       setDurationMode(1);
       setShouldGenerateInvoice(true);
       setInvoiceAmount('');
       setPaymentMethod('CASH');
     }
-  }, [isOpen, selectedSeat, shifts, preselectedStudentId, studentsData]);
+  }, [isOpen, selectedSeat, shifts, preselectedStudentId, preselectedJoiningDate, studentsData]);
+
+  // Ensure shift is selected whenever availableShifts loads
+  useEffect(() => {
+    if (isOpen && availableShifts.length > 0) {
+      if (!shiftId || !availableShifts.some((s: any) => s.id === shiftId)) {
+        const targetShift = (preselectedShiftId && availableShifts.some((s: any) => s.id === preselectedShiftId))
+          ? preselectedShiftId
+          : availableShifts[0].id;
+        setShiftId(targetShift);
+      }
+    }
+  }, [isOpen, availableShifts, shiftId, preselectedShiftId]);
 
   // Sync form inputs with student's active subscription if they already have one
   useEffect(() => {
@@ -115,28 +143,27 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         
         // Match dates
         if (activeSub.startDate) {
-          setStartDate(activeSub.startDate.split('T')[0]);
+          setStartDate(formatYYYYMMDD(activeSub.startDate));
         }
         if (activeSub.endDate) {
-          setEndDate(activeSub.endDate.split('T')[0]);
+          setEndDate(formatYYYYMMDD(activeSub.endDate));
           setDurationMode('flex');
         }
         
         // Already paid / subscribed -> do not generate another invoice
         setShouldGenerateInvoice(false);
       } else {
-        // No active subscription -> allow invoice generation and reset to defaults
+        // No active subscription -> allow invoice generation and reset to student's admission date or preselected date
         setShouldGenerateInvoice(true);
         setDurationMode(1);
-        const today = new Date().toISOString().split('T')[0];
-        setStartDate(today);
-        const end = new Date(today);
+        const baseDate = formatYYYYMMDD(preselectedJoiningDate) || formatYYYYMMDD(student?.joiningDate) || formatYYYYMMDD(new Date());
+        setStartDate(baseDate);
+        const end = new Date(baseDate);
         end.setMonth(end.getMonth() + 1);
-        setEndDate(end.toISOString().split('T')[0]);
-        setShiftId('');
+        setEndDate(formatYYYYMMDD(end));
       }
     }
-  }, [isOpen, studentProfileId, studentsData, shifts]);
+  }, [isOpen, studentProfileId, studentsData, shifts, preselectedJoiningDate]);
 
   // Duration modes calculations
   useEffect(() => {
@@ -324,10 +351,6 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   };
 
   if (!selectedSeat) return null;
-
-  const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
-  const bookedShiftIds = activeAllocations.map((a: any) => a.shiftId || a.shift?.id);
-  const availableShifts = shifts?.filter((s: any) => !bookedShiftIds.includes(s.id)) || [];
 
   return (
     <Modal

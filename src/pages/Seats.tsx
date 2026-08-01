@@ -23,6 +23,7 @@ import {
   useCreatePaymentMutation,
   useVerifyRazorpayMutation,
 } from '../store/api';
+import { formatYYYYMMDD } from '../utils/dateUtils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
@@ -116,13 +117,15 @@ export default function Seats() {
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const [preselectedStudent, setPreselectedStudent] = useState<{ id: string; name: string } | null>(null);
+  const [preselectedStudent, setPreselectedStudent] = useState<{ id: string; name: string; joiningDate?: string; shiftId?: string } | null>(null);
 
   useEffect(() => {
-    if (location.state?.preselectedStudentId && location.state?.preselectedStudentName) {
+    if (location.state?.preselectedStudentId || location.state?.preselectedJoiningDate) {
       setPreselectedStudent({
-        id: location.state.preselectedStudentId,
-        name: location.state.preselectedStudentName,
+        id: location.state.preselectedStudentId || '',
+        name: location.state.preselectedStudentName || 'Admitted Student',
+        joiningDate: location.state.preselectedJoiningDate,
+        shiftId: location.state.preselectedShiftId,
       });
       // Clear navigation state so a reload doesn't keep it
       window.history.replaceState({}, document.title);
@@ -200,8 +203,13 @@ export default function Seats() {
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [shiftId, setShiftId] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(() => formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date()));
+  const [endDate, setEndDate] = useState(() => {
+    const base = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+    const end = new Date(base);
+    end.setMonth(end.getMonth() + 1);
+    return formatYYYYMMDD(end);
+  });
   const [durationMode, setDurationMode] = useState<number | 'flex'>(1);
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
 
@@ -1842,18 +1850,15 @@ export default function Seats() {
         // Already paid / subscribed -> do not generate another invoice
         setShouldGenerateInvoice(false);
       } else {
-        // No active subscription -> allow invoice generation and reset to defaults
-        setShouldGenerateInvoice(true);
-        setDurationMode(1);
-        const today = new Date().toISOString().split('T')[0];
-        setStartDate(today);
-        const end = new Date(today);
+        const baseDate = formatYYYYMMDD(student?.joiningDate) || formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+        setStartDate(baseDate);
+        const end = new Date(baseDate);
         end.setMonth(end.getMonth() + 1);
-        setEndDate(end.toISOString().split('T')[0]);
+        setEndDate(formatYYYYMMDD(end));
         setShiftId('');
       }
     }
-  }, [isDrawerOpen, studentProfileId, studentsData, shifts]);
+  }, [isDrawerOpen, studentProfileId, studentsData, shifts, preselectedStudent]);
 
   // Submit Allocate Seat Modal (Popup)
   const handleModalAllocate = async (e: React.FormEvent) => {
@@ -1911,11 +1916,11 @@ export default function Seats() {
     setIsDetailsExpanded(false);
 
     if (seat.status === 'AVAILABLE') {
-      const today = new Date().toISOString().split('T')[0];
-      setStartDate(today);
-      const end = new Date(today);
+      const baseDate = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+      setStartDate(baseDate);
+      const end = new Date(baseDate);
       end.setMonth(end.getMonth() + 1);
-      setEndDate(end.toISOString().split('T')[0]);
+      setEndDate(formatYYYYMMDD(end));
       if (preselectedStudent) {
         setStudentProfileId(preselectedStudent.id);
         setStudentSearchQuery(preselectedStudent.name);
@@ -1939,10 +1944,10 @@ export default function Seats() {
         const activeAllocation = activeAllocations[0];
         const nextDay = new Date(activeAllocation.endDate);
         nextDay.setDate(nextDay.getDate() + 1);
-        setRenewStartDate(nextDay.toISOString().split('T')[0]);
+        setRenewStartDate(formatYYYYMMDD(nextDay));
         setRenewShiftId(activeAllocation.shiftId || '');
-        setEditStartDate(activeAllocation.startDate ? activeAllocation.startDate.split('T')[0] : '');
-        setEditEndDate(activeAllocation.endDate ? activeAllocation.endDate.split('T')[0] : '');
+        setEditStartDate(activeAllocation.startDate ? formatYYYYMMDD(activeAllocation.startDate) : '');
+        setEditEndDate(activeAllocation.endDate ? formatYYYYMMDD(activeAllocation.endDate) : '');
       } else {
         setSelectedAllocationId(null);
       }
@@ -1953,11 +1958,11 @@ export default function Seats() {
       setRenewPaymentMethod('UPI');
 
       if (preselectedStudent) {
-        const today = new Date().toISOString().split('T')[0];
-        setStartDate(today);
-        const end = new Date(today);
+        const baseDate = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+        setStartDate(baseDate);
+        const end = new Date(baseDate);
         end.setMonth(end.getMonth() + 1);
-        setEndDate(end.toISOString().split('T')[0]);
+        setEndDate(formatYYYYMMDD(end));
         setStudentProfileId(preselectedStudent.id);
         setStudentSearchQuery(preselectedStudent.name);
         setShiftId('');
@@ -1973,11 +1978,11 @@ export default function Seats() {
 
   const handleOpenAllocateModal = () => {
     if (!selectedSeat) return;
-    const today = new Date().toISOString().split('T')[0];
-    setStartDate(today);
-    const end = new Date(today);
+    const baseDate = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+    setStartDate(baseDate);
+    const end = new Date(baseDate);
     end.setMonth(end.getMonth() + 1);
-    setEndDate(end.toISOString().split('T')[0]);
+    setEndDate(formatYYYYMMDD(end));
     if (preselectedStudent) {
       setStudentProfileId(preselectedStudent.id);
       setStudentSearchQuery(preselectedStudent.name);
@@ -5299,6 +5304,8 @@ export default function Seats() {
         seatMap={seatMap}
         onSuccess={handleAllocateModalSuccess}
         preselectedStudentId={preselectedStudent?.id}
+        preselectedJoiningDate={preselectedStudent?.joiningDate}
+        preselectedShiftId={preselectedStudent?.shiftId}
       />
 
       {/* Invoice Receipt Modal */}
