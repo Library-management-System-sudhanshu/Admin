@@ -40,7 +40,9 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Camera
+  Camera,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -161,6 +163,7 @@ export default function Students() {
   const [editBranchId, setEditBranchId] = useState('');
   const [editJoiningDate, setEditJoiningDate] = useState('');
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [showPasswordInDrawer, setShowPasswordInDrawer] = useState(false);
 
   const { data, isLoading } = useGetStudentsQuery({
     search,
@@ -346,8 +349,13 @@ export default function Students() {
 
   // 3. Submit vacate seat
   const handleVacateSeat = async (seatId: string) => {
-    const confirmVacate = window.confirm("Are you sure you want to vacate this seat?");
-    if (!confirmVacate) return;
+    const confirmed = await showAlert("Are you sure you want to vacate this seat?", {
+      title: "Vacate Seat",
+      confirmText: "Vacate Seat",
+      cancelText: "Cancel",
+      type: "danger",
+    });
+    if (!confirmed) return;
     try {
       await vacateSeat({ id: seatId, studentProfileId: fullStudent?.profile?.id }).unwrap();
       showToast('Seat vacated successfully!', 'success');
@@ -356,7 +364,25 @@ export default function Students() {
     }
   };
 
+  const handleStatusChange = async (id: string, status: string) => {
+    await updateStatus({ id, status });
+  };
 
+  const handleDelete = async (id: string) => {
+    const confirmed = await showAlert("Are you sure you want to delete this student? This action cannot be undone.", {
+      title: "Delete Student",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "danger",
+    });
+    if (!confirmed) return;
+    try {
+      await deleteStudent(id).unwrap();
+      showToast('Student deleted successfully', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.message || 'Failed to delete student', 'error');
+    }
+  };
 
   // 5. Submit Renewal
   const handleRenewSeat = async (e: React.FormEvent, activeAllocation: any) => {
@@ -1172,9 +1198,26 @@ export default function Students() {
                           <form onSubmit={handleClearDues} style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                             <div style={{ flex: 1 }}>
                               <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: '4px' }}>Amount to Pay</label>
-                              <input type="number" required value={clearDuesAmount} onChange={(e) => setClearDuesAmount(e.target.value)} max={fullStudent.dueAmount} style={{ padding: '6px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid #fca5a5', width: '100%', boxSizing: 'border-box' }} />
+                              <input
+                                type="number"
+                                required
+                                value={clearDuesAmount}
+                                onChange={(e) => setClearDuesAmount(e.target.value)}
+                                max={fullStudent.dueAmount}
+                                style={{
+                                  height: '38px',
+                                  padding: '0 10px',
+                                  fontSize: '0.8rem',
+                                  borderRadius: '8px',
+                                  border: '1px solid #fca5a5',
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  outline: 'none',
+                                  backgroundColor: '#ffffff'
+                                }}
+                              />
                             </div>
-                            <div style={{ width: '100px' }}>
+                            <div style={{ width: '110px' }}>
                               <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: '4px' }}>Method</label>
                               <Select
                                 value={clearDuesMethod}
@@ -1182,7 +1225,21 @@ export default function Students() {
                                 options={[{ value: 'UPI', label: 'UPI' }, { value: 'CASH', label: 'Cash' }, { value: 'RAZORPAY', label: 'Online' }]}
                               />
                             </div>
-                            <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--status-red)', borderColor: 'var(--status-red)', height: '34px', padding: '0 12px', fontSize: '0.75rem' }} disabled={!clearDuesAmount || isClearingDues} isLoading={isClearingDues}>
+                            <Button
+                              type="submit"
+                              variant="primary"
+                              style={{
+                                backgroundColor: 'var(--status-red)',
+                                borderColor: 'var(--status-red)',
+                                height: '38px',
+                                padding: '0 16px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                borderRadius: '8px'
+                              }}
+                              disabled={!clearDuesAmount || isClearingDues}
+                              isLoading={isClearingDues}
+                            >
                               Pay
                             </Button>
                           </form>
@@ -1208,9 +1265,30 @@ export default function Students() {
                         <span style={{ color: 'var(--text-slate)' }}>Branch Location:</span>
                         <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{fullStudent.branch?.name || 'N/A'}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
                         <span style={{ color: 'var(--text-slate)' }}>Login Password:</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace' }}>{fullStudent.user?.rawPassword || 'Student@123'}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                            {showPasswordInDrawer ? (fullStudent.user?.rawPassword || 'Student@123') : '••••••••'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswordInDrawer(!showPasswordInDrawer)}
+                            title={showPasswordInDrawer ? 'Hide Password' : 'Show Password'}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 4px',
+                              color: 'var(--accent-blue)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            {showPasswordInDrawer ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

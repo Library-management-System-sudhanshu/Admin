@@ -63,6 +63,8 @@ import {
   Building,
   Lock,
   Unlock,
+  Eye,
+  EyeOff,
   Link2
 } from 'lucide-react';
 
@@ -221,6 +223,7 @@ export default function Seats() {
   const [renewPaymentMethod, setRenewPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('UPI');
   const [renewAmount, setRenewAmount] = useState('');
   const [isRenewing, setIsRenewing] = useState(false);
+  const [showPasswordInDrawer, setShowPasswordInDrawer] = useState(false);
 
   // Edit dates inline
   const [isEditingDates, setIsEditingDates] = useState(false);
@@ -4560,9 +4563,30 @@ export default function Seats() {
                                     : 'N/A'}
                                 </span>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
                                 <span style={{ color: 'var(--text-slate)' }}>Password:</span>
-                                <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace' }}>{activeAllocation.studentProfile?.user?.rawPassword || 'Student@123'}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                                    {showPasswordInDrawer ? (activeAllocation.studentProfile?.user?.rawPassword || 'Student@123') : '••••••••'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowPasswordInDrawer(!showPasswordInDrawer)}
+                                    title={showPasswordInDrawer ? 'Hide Password' : 'Show Password'}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '2px 4px',
+                                      color: 'var(--accent-blue)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      borderRadius: '4px',
+                                    }}
+                                  >
+                                    {showPasswordInDrawer ? <EyeOff size={14} /> : <Eye size={14} />}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           )}
