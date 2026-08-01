@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
@@ -103,6 +103,36 @@ export default function NewAdmission() {
   const [avatar, setAvatar] = useState('');
   const [joiningDate, setJoiningDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [openDirection, setOpenDirection] = useState<'bottom' | 'top'>('bottom');
+  const dateContainerRef = useRef<HTMLDivElement>(null);
+
+  const toggleCalendarPicker = () => {
+    if (!showCalendarPicker && dateContainerRef.current) {
+      const rect = dateContainerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow < 340 && spaceAbove > spaceBelow) {
+        setOpenDirection('top');
+      } else {
+        setOpenDirection('bottom');
+      }
+    }
+    setShowCalendarPicker(!showCalendarPicker);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dateContainerRef.current && !dateContainerRef.current.contains(event.target as Node)) {
+        setShowCalendarPicker(false);
+      }
+    };
+    if (showCalendarPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCalendarPicker]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -478,10 +508,10 @@ export default function NewAdmission() {
                   handleChange('aadharNumber', val, setAadharNumber);
                 }}
               />
-              <div style={{ position: 'relative' }}>
+              <div ref={dateContainerRef} style={{ position: 'relative' }}>
                 <label className="custom-input-label">Admission / Joining Date *</label>
                 <div
-                  onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                  onClick={toggleCalendarPicker}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -509,11 +539,14 @@ export default function NewAdmission() {
                   <div
                     style={{
                       position: 'absolute',
-                      top: 'calc(100% + 4px)',
+                      ...(openDirection === 'top'
+                        ? { bottom: 'calc(100% + 6px)' }
+                        : { top: 'calc(100% + 6px)' }),
                       left: 0,
-                      zIndex: 100,
-                      boxShadow: '0 16px 36px rgba(0,0,0,0.14)',
-                      borderRadius: '18px'
+                      zIndex: 9999,
+                      boxShadow: '0 20px 45px rgba(0, 0, 0, 0.18), 0 4px 14px rgba(0, 0, 0, 0.08)',
+                      borderRadius: '18px',
+                      backgroundColor: '#ffffff'
                     }}
                   >
                     <CustomCalendar
