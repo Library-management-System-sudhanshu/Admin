@@ -169,7 +169,7 @@
 }
 
 .custom-calendar-day-btn.selected {
-  background-color: #D97706 !important;
+  background-color: var(--status-gold, #D97706) !important;
   color: #FFFFFF !important;
   font-weight: 800;
   box-shadow: 0 4px 14px rgba(217, 119, 6, 0.4);
@@ -177,8 +177,8 @@
 }
 
 .custom-calendar-day-btn.today:not(.selected) {
-  border: 2px solid #D97706;
-  color: #D97706;
+  border: 2px solid var(--status-gold, #D97706);
+  color: var(--status-gold, #D97706);
   font-weight: 700;
 }
 

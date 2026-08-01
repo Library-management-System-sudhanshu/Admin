@@ -35,9 +35,10 @@ import {
   FileText
 } from 'lucide-react';
 import { CustomCalendar } from '../components/ui/CustomCalendar';
+import themeColors from '../theme/colors';
 import './Dashboard.css';
 
-const COLORS = ['#2563EB', '#E2E8F0'];
+const COLORS = [themeColors.chartPrimary, themeColors.chartSecondary];
 
 // Mini Sparkline Component
 const Sparkline = ({ data, stroke }: { data: number[]; stroke: string }) => {
