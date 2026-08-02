@@ -53,6 +53,21 @@ import {
 } from '@mui/icons-material';
 import { Button } from '../components/ui/Button';
 import { Plus, X, CreditCard, Calendar, User, History, Clock, Sparkles, Sun, SunMedium, Sunset, Moon, Users, IndianRupee, CheckCircle2 } from 'lucide-react';
+import { styled, keyframes } from '@mui/material/styles';
+import { Search, Download, TrendingUp, WalletCards, SlidersHorizontal, RotateCcw, ArrowUpRight } from 'lucide-react';
+import './Billing.css';
+
+// Fade‑in animation for table rows
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const AnimatedTableRow = styled(TableRow)(({ theme }) => ({
+  animation: `${fadeIn} 0.5s ease-out`,
+  '&:hover': { backgroundColor: theme.palette.action.hover },
+  cursor: 'pointer',
+}));
 
 const HOURS = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
 const PERIODS = ['AM', 'PM'];
@@ -210,6 +225,25 @@ export default function Billing() {
       return true;
     });
   }, [payments, searchQuery, statusFilter, methodFilter, startDateFilter, endDateFilter]);
+
+  const billingSummary = React.useMemo(() => {
+    const records = payments || [];
+    return {
+      paid: records.filter((payment: any) => payment.status === 'PAID').length,
+      pending: records.filter((payment: any) => payment.status === 'UNPAID' || payment.status === 'PARTIAL').length,
+      total: records.length,
+    };
+  }, [payments]);
+
+  const hasActiveFilters = Boolean(searchQuery || statusFilter !== 'ALL' || methodFilter !== 'ALL' || startDateFilter || endDateFilter);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setMethodFilter('ALL');
+    setStartDateFilter('');
+    setEndDateFilter('');
+  };
 
   const handleExportCSV = () => {
     if (!filteredPayments || filteredPayments.length === 0) {
@@ -412,97 +446,112 @@ export default function Billing() {
   };
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A' }}>
-          Billing & Subscriptions
-        </Typography>
+    <Box className="billing-page">
+      <Box className="billing-page-header">
+        <Box>
+          <Typography className="billing-eyebrow">FINANCE WORKSPACE</Typography>
+          <Typography variant="h4" className="billing-title">Billing & Subscriptions</Typography>
+          <Typography className="billing-subtitle">Track collections, manage invoices and configure your seating plans.</Typography>
+        </Box>
         <Button 
           variant="primary" 
           onClick={() => setOpenCollect(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
+          className="billing-primary-action"
         >
-          <Plus size={18} /> Collect Fee / Invoice
+          <Plus size={18} /> <span>Collect fee</span>
         </Button>
       </Box>
 
       {/* Tabs */}
-      <Tabs value={tab} onChange={(_, val) => setTab(val)} sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
-        <Tab label="Collection Ledger" />
-        <Tab label="Seating Shifts & Pricing" />
+      <Tabs value={tab} onChange={(_, val) => setTab(val)} className="billing-tabs" variant="scrollable" scrollButtons={false}>
+        <Tab label="Collection ledger" />
+        <Tab label="Shifts & pricing" />
       </Tabs>
 
       {tab === 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {/* Summary Metric */}
-          <Card sx={{ bgcolor: '#0F172A', color: '#FFFFFF', p: 3, borderRadius: 2.5 }}>
-            <Typography variant="subtitle2" sx={{ color: '#94A3B8', fontWeight: 600 }}>
-              This Month's Collections
-            </Typography>
-            <Typography variant="h3" sx={{ fontWeight: 700, mt: 1, color: '#38BDF8' }}>
-              ₹{report?.totalCollected || 0}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#94A3B8', mt: 1, display: 'block' }}>
-              Across {report?.count || 0} successful transactions
-            </Typography>
-          </Card>
+          <Box className="billing-stats-grid">
+            <Card className="billing-hero-card">
+              <Box className="billing-stat-icon"><TrendingUp size={20} /></Box>
+              <Typography className="billing-stat-label">Collected this month</Typography>
+              <Typography className="billing-stat-value">₹{Number(report?.totalCollected || 0).toLocaleString('en-IN')}</Typography>
+              <Typography className="billing-stat-meta"><ArrowUpRight size={14} /> {report?.count || 0} successful transactions</Typography>
+            </Card>
+            <Card className="billing-stat-card">
+              <Box className="billing-stat-icon blue"><WalletCards size={20} /></Box>
+              <Typography className="billing-stat-label">Paid invoices</Typography>
+              <Typography className="billing-stat-value dark">{billingSummary.paid}</Typography>
+              <Typography className="billing-stat-meta neutral">of {billingSummary.total} total invoices</Typography>
+            </Card>
+            <Card className="billing-stat-card">
+              <Box className="billing-stat-icon amber"><Clock size={20} /></Box>
+              <Typography className="billing-stat-label">Needs attention</Typography>
+              <Typography className="billing-stat-value dark">{billingSummary.pending}</Typography>
+              <Typography className="billing-stat-meta neutral">unpaid or partially paid</Typography>
+            </Card>
+          </Box>
 
           {/* Filters & Export Section */}
-          <Card sx={{ p: 3, border: '1px solid #E2E8F0', boxShadow: 'none', borderRadius: 2.5 }}>
+          <Card className="billing-filter-card">
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#0F172A' }}>
-                Filter Ledger Records
-              </Typography>
-              <Button
-                variant="secondary"
-                onClick={handleExportCSV}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: '10px' }}
-              >
-                Export CSV
-              </Button>
+              <Box><Typography className="billing-section-title"><SlidersHorizontal size={17} /> Filter records</Typography><Typography className="billing-section-caption">Narrow down transactions by student, status, channel or date.</Typography></Box>
+              <Box className="billing-filter-actions">
+                {hasActiveFilters && <Button variant="text" onClick={clearFilters} className="billing-reset-button"><RotateCcw size={15} /> Reset</Button>}
+                <Button variant="secondary" onClick={handleExportCSV} className="billing-export-button"><Download size={16} /> Export CSV</Button>
+              </Box>
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '2fr 1fr 1fr 1.5fr 1.5fr' }, gap: 2 }}>
-              <TextField
-                label="Search Student / Invoice ID"
-                size="small"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="e.g. John Doe, INV-..."
-                fullWidth
-              />
-              <FormControl size="small" fullWidth>
-                <InputLabel>Status</InputLabel>
+            <Box className="billing-filter-grid">
+              <Box className="billing-filter-field billing-search-field">
+                <Typography component="label" className="billing-filter-label">Search</Typography>
+                <TextField
+                  size="small"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Student or invoice ID"
+                  fullWidth
+                  slotProps={{ input: { startAdornment: <Search size={16} className="billing-search-icon" /> } }}
+                />
+              </Box>
+              <Box className="billing-filter-field">
+                <Typography component="label" className="billing-filter-label">Status</Typography>
+                <FormControl size="small" fullWidth>
                 <Select
                   value={statusFilter}
-                  label="Status"
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  displayEmpty
                 >
                   <MenuItem value="ALL">All Statuses</MenuItem>
                   <MenuItem value="PAID">Paid</MenuItem>
                   <MenuItem value="PARTIAL">Partial</MenuItem>
                   <MenuItem value="UNPAID">Unpaid</MenuItem>
                 </Select>
-              </FormControl>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Method</InputLabel>
+                </FormControl>
+              </Box>
+              <Box className="billing-filter-field">
+                <Typography component="label" className="billing-filter-label">Method</Typography>
+                <FormControl size="small" fullWidth>
                 <Select
                   value={methodFilter}
-                  label="Method"
                   onChange={(e) => setMethodFilter(e.target.value)}
+                  displayEmpty
                 >
                   <MenuItem value="ALL">All Channels</MenuItem>
                   <MenuItem value="CASH">Cash</MenuItem>
                   <MenuItem value="UPI">UPI</MenuItem>
                   <MenuItem value="RAZORPAY">Razorpay</MenuItem>
                 </Select>
-              </FormControl>
+                </FormControl>
+              </Box>
               <DatePicker
+                className="billing-date-field"
                 label="From Date"
                 value={startDateFilter}
                 onChange={(val) => setStartDateFilter(val)}
                 placeholder="From date"
               />
               <DatePicker
+                className="billing-date-field"
                 label="To Date"
                 value={endDateFilter}
                 onChange={(val) => setEndDateFilter(val)}
@@ -518,7 +567,7 @@ export default function Billing() {
                 <CircularProgress />
               </Box>
             ) : (
-              <TableContainer component={Paper} sx={{ borderRadius: 2.5, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+              <TableContainer component={Paper} className="billing-table-card">
                 <Table>
                   <TableHead>
                     <TableRow>
@@ -532,16 +581,19 @@ export default function Billing() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredPayments?.map((payment: any) => (
-                      <TableRow 
-                        key={payment.id} 
+                    {filteredPayments.map((payment: any, idx: number) => (
+                      <AnimatedTableRow
+                        key={payment.id}
                         hover
+                        data-index={idx}
                         onClick={() => {
                           setSelectedPayment(payment);
-                          setClearDuesAmount(payment.studentProfile?.dueAmount?.toString() || '');
+                          setClearDuesAmount(
+                            payment.studentProfile?.dueAmount?.toString() || ''
+                          );
                           setIsDrawerOpen(true);
                         }}
-                        style={{ cursor: 'pointer' }}
+                        sx={{ cursor: 'pointer' }}
                       >
                         <TableCell sx={{ fontWeight: 600, fontSize: '0.85rem' }}>
                           INV-{payment.id.substring(0, 8).toUpperCase()}
@@ -584,12 +636,12 @@ export default function Billing() {
                             )}
                           </Box>
                         </TableCell>
-                      </TableRow>
+                      </AnimatedTableRow>
                     ))}
                     {(!filteredPayments || filteredPayments.length === 0) && (
                       <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                          No ledger records match the selected filters.
+                        <TableCell colSpan={7} align="center" sx={{ py: 7, color: 'text.secondary' }}>
+                          <Box className="billing-empty-state"><Box className="billing-empty-icon"><InvoiceIcon /></Box><Typography className="billing-empty-title">No transactions found</Typography><Typography className="billing-empty-copy">Try adjusting your filters or collect a new fee.</Typography>{hasActiveFilters && <Button variant="text" onClick={clearFilters}>Clear all filters</Button>}</Box>
                         </TableCell>
                       </TableRow>
                     )}
