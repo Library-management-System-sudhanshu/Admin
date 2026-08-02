@@ -105,7 +105,10 @@ export const api = createApi({
 
     // Dashboard Metrics
     getMetrics: builder.query({
-      query: () => 'dashboard/metrics',
+      query: (params) => ({
+        url: 'dashboard/metrics',
+        params,
+      }),
       providesTags: ['Metrics'],
     }),
 
