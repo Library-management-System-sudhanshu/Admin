@@ -801,6 +801,9 @@ export default function Billing() {
               border: '1px solid rgba(15, 23, 42, 0.08)',
               overflow: 'hidden',
               backgroundColor: '#ffffff',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
             }
           }
         }}
@@ -814,6 +817,7 @@ export default function Billing() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexShrink: 0
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{
@@ -847,8 +851,8 @@ export default function Billing() {
           </IconButton>
         </Box>
 
-        <form onSubmit={handleSaveShift}>
-          <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <form onSubmit={handleSaveShift} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5, overflowY: 'auto' }}>
             
             {/* Quick Presets Selection */}
             <Box>
@@ -1078,7 +1082,7 @@ export default function Billing() {
             </Box>
           </DialogContent>
 
-          <DialogActions sx={{ p: 2.5, px: 3, background: '#f8fafc', borderTop: '1px solid #e2e8f0', justifyContent: 'space-between' }}>
+          <DialogActions sx={{ p: 2.5, px: 3, background: '#f8fafc', borderTop: '1px solid #e2e8f0', justifyContent: 'space-between', flexShrink: 0 }}>
             <Button
               type="button"
               variant="text"
