@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import {
@@ -15,6 +15,8 @@ import {
   useClearStudentDuesMutation,
 } from '../store/api';
 import { useToast } from '../components/ui/ToastContext';
+import { useAlert } from '../components/ui/AlertContext';
+import { DatePicker } from '../components/ui/DatePicker';
 import {
   Box,
   Typography,
@@ -50,7 +52,7 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { Button } from '../components/ui/Button';
-import { Plus, X, CreditCard, Calendar, User, History } from 'lucide-react';
+import { Plus, X, CreditCard, Calendar, User, History, Clock, Sparkles, Sun, SunMedium, Sunset, Moon, Users, IndianRupee, CheckCircle2 } from 'lucide-react';
 
 const HOURS = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
 const PERIODS = ['AM', 'PM'];
@@ -94,18 +96,37 @@ const formatTo24h = (hour: string, minute: string, period: string) => {
   return `${hhStr}:${mmStr}`;
 };
 
+const calculateShiftDuration = (start24: string, end24: string) => {
+  if (!start24 || !end24) return '';
+  const [sH, sM] = start24.split(':').map(Number);
+  const [eH, eM] = end24.split(':').map(Number);
+  if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return '';
+  let startMinutes = sH * 60 + sM;
+  let endMinutes = eH * 60 + eM;
+  if (endMinutes <= startMinutes) {
+    endMinutes += 24 * 60;
+  }
+  const diffMinutes = endMinutes - startMinutes;
+  const hours = Math.floor(diffMinutes / 60);
+  const mins = diffMinutes % 60;
+  if (mins === 0) return `${hours} Hours`;
+  return `${hours}h ${mins}m`;
+};
+
 const PRESET_SHIFTS = [
-  { id: 'morning', label: 'Morning (8 AM - 2 PM)', name: 'Morning Shift', startTime: '08:00', endTime: '14:00' },
-  { id: 'afternoon', label: 'Afternoon (2 PM - 8 PM)', name: 'Afternoon Shift', startTime: '14:00', endTime: '20:00' },
-  { id: 'evening', label: 'Evening (6 PM - 11 PM)', name: 'Evening Shift', startTime: '18:00', endTime: '23:00' },
-  { id: 'night', label: 'Night (11 PM - 6 AM)', name: 'Night Shift', startTime: '23:00', endTime: '06:00' },
-  { id: 'fullday', label: 'Full Day (8 AM - 8 PM)', name: 'Full Day Shift', startTime: '08:00', endTime: '20:00' },
-  { id: 'custom', label: 'Custom Batch', name: '', startTime: '09:00', endTime: '17:00' }
+  { id: 'morning', label: 'Morning', subText: '8 AM - 2 PM', name: 'Morning Shift', startTime: '08:00', endTime: '14:00', icon: Sun },
+  { id: 'afternoon', label: 'Afternoon', subText: '2 PM - 8 PM', name: 'Afternoon Shift', startTime: '14:00', endTime: '20:00', icon: SunMedium },
+  { id: 'evening', label: 'Evening', subText: '6 PM - 11 PM', name: 'Evening Shift', startTime: '18:00', endTime: '23:00', icon: Sunset },
+  { id: 'night', label: 'Night', subText: '11 PM - 6 AM', name: 'Night Shift', startTime: '23:00', endTime: '06:00', icon: Moon },
+  { id: 'fullday', label: 'Full Day', subText: '8 AM - 8 PM', name: 'Full Day Shift', startTime: '08:00', endTime: '20:00', icon: Clock },
+  { id: 'custom', label: 'Custom', subText: 'Manual hours', name: '', startTime: '09:00', endTime: '17:00', icon: Sparkles }
 ];
 
 export default function Billing() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showAlert } = useAlert();
   const [tab, setTab] = useState(0);
 
   const { data: payments, isLoading: paymentsLoading } = useGetPaymentsQuery({});
@@ -267,6 +288,21 @@ export default function Billing() {
     setOpenShiftModal(true);
   };
 
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    const actionParam = searchParams.get('action');
+
+    if (location.state?.tab !== undefined || tabParam === 'shifts') {
+      const targetTab = location.state?.tab ?? (tabParam === 'shifts' ? 1 : 0);
+      setTab(targetTab);
+    }
+
+    if (location.state?.openCreateShift || actionParam === 'add-shift') {
+      handleOpenCreateShift();
+    }
+  }, [location]);
+
   const shiftStartParsed = parseTime(shiftFormData.startTime);
   const shiftEndParsed = parseTime(shiftFormData.endTime);
 
@@ -320,7 +356,13 @@ export default function Billing() {
   };
 
   const handleDeleteShift = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this shift?')) return;
+    const confirmed = await showAlert('Are you sure you want to delete this shift?', {
+      title: 'Delete Shift',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      type: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await deleteShift(id).unwrap();
       showToast('Shift deleted successfully!', 'success');
@@ -454,47 +496,17 @@ export default function Billing() {
                   <MenuItem value="RAZORPAY">Razorpay</MenuItem>
                 </Select>
               </FormControl>
-              <TextField
+              <DatePicker
                 label="From Date"
-                type="date"
-                size="small"
                 value={startDateFilter}
-                onChange={(e) => setStartDateFilter(e.target.value)}
-                {...({ 
-                  InputLabelProps: { shrink: true }, 
-                  slotProps: { 
-                    inputLabel: { shrink: true },
-                    htmlInput: {
-                      onClick: (e: any) => {
-                        if (typeof e.target.showPicker === 'function') {
-                          e.target.showPicker();
-                        }
-                      }
-                    }
-                  } 
-                } as any)}
-                fullWidth
+                onChange={(val) => setStartDateFilter(val)}
+                placeholder="From date"
               />
-              <TextField
+              <DatePicker
                 label="To Date"
-                type="date"
-                size="small"
                 value={endDateFilter}
-                onChange={(e) => setEndDateFilter(e.target.value)}
-                {...({ 
-                  InputLabelProps: { shrink: true }, 
-                  slotProps: { 
-                    inputLabel: { shrink: true },
-                    htmlInput: {
-                      onClick: (e: any) => {
-                        if (typeof e.target.showPicker === 'function') {
-                          e.target.showPicker();
-                        }
-                      }
-                    }
-                  } 
-                } as any)}
-                fullWidth
+                onChange={(val) => setEndDateFilter(val)}
+                placeholder="To date"
               />
             </Box>
           </Card>
@@ -775,180 +787,320 @@ export default function Billing() {
         </form>
       </Dialog>
 
-      {/* Add/Edit Shift Dialog */}
-      <Dialog open={openShiftModal} onClose={() => setOpenShiftModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>{editShiftMode ? 'Edit Shift' : 'Add New Shift'}</DialogTitle>
-        <form onSubmit={handleSaveShift}>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
-            <TextField
-              label="Shift Name (e.g. Morning Batch)"
-              fullWidth
-              required
-              value={shiftFormData.name}
-              onChange={(e) => {
-                setShiftFormData({ ...shiftFormData, name: e.target.value });
-                setSelectedPreset('custom');
-              }}
-            />
-
+      {/* Premium Add/Edit Shift Dialog */}
+      <Dialog
+        open={openShiftModal}
+        onClose={() => setOpenShiftModal(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: '24px',
+              boxShadow: '0 25px 60px -15px rgba(15, 23, 42, 0.25)',
+              border: '1px solid rgba(15, 23, 42, 0.08)',
+              overflow: 'hidden',
+              backgroundColor: '#ffffff',
+            }
+          }
+        }}
+      >
+        {/* Header */}
+        <Box sx={{
+          p: 3,
+          pb: 2.5,
+          background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+          color: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.4) 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#60a5fa',
+              boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)'
+            }}>
+              <Clock size={22} />
+            </Box>
             <Box>
-              <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Predefined Shifts & Timings
+              <Typography sx={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                {editShiftMode ? 'Edit Shift Settings' : 'Create New Shift'}
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <Typography sx={{ fontSize: '0.78rem', color: '#94a3b8', mt: 0.5 }}>
+                Configure shift timings, seating capacity, and fee tiers
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton 
+            onClick={() => setOpenShiftModal(false)} 
+            sx={{ color: '#94a3b8', '&:hover': { color: '#ffffff', background: 'rgba(255,255,255,0.1)' } }}
+          >
+            <X size={18} />
+          </IconButton>
+        </Box>
+
+        <form onSubmit={handleSaveShift}>
+          <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            
+            {/* Quick Presets Selection */}
+            <Box>
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.06em', mb: 1.25, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={14} style={{ color: 'var(--accent-blue)' }} /> Quick Presets
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.25 }}>
                 {PRESET_SHIFTS.map((preset) => {
                   const isSelected = selectedPreset === preset.id;
+                  const IconComp = preset.icon || Clock;
                   return (
-                    <Chip
+                    <Box
                       key={preset.id}
-                      label={preset.label}
-                      clickable
                       onClick={() => handleApplyPreset(preset.id, shiftFormData)}
-                      color={isSelected ? 'primary' : 'default'}
-                      variant={isSelected ? 'filled' : 'outlined'}
                       sx={{
-                        fontWeight: 700,
-                        fontSize: '0.75rem',
-                        py: 0.5,
+                        p: 1.25,
+                        borderRadius: '12px',
+                        border: isSelected ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                        background: isSelected ? 'rgba(37, 99, 235, 0.05)' : '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 0.4,
+                        boxShadow: isSelected ? '0 4px 12px rgba(37, 99, 235, 0.12)' : 'none',
                         '&:hover': {
-                          transform: 'translateY(-1px)',
-                          transition: 'all 0.2s'
+                          borderColor: isSelected ? '#2563eb' : '#cbd5e1',
+                          transform: 'translateY(-1px)'
                         }
                       }}
-                    />
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <IconComp size={15} style={{ color: isSelected ? '#2563eb' : '#64748b' }} />
+                        {isSelected && <CheckCircle2 size={13} style={{ color: '#2563eb' }} />}
+                      </Box>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: isSelected ? '#1e293b' : '#334155' }}>
+                        {preset.label}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>
+                        {preset.subText}
+                      </Typography>
+                    </Box>
                   );
                 })}
               </Box>
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
-              <Box>
-                <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary' }}>
-                  Start Time
+
+            {/* Shift Name */}
+            <Box>
+              <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-navy)', mb: 0.75 }}>
+                Shift Name *
+              </Typography>
+              <TextField
+                fullWidth
+                placeholder="e.g. Morning Shift"
+                required
+                value={shiftFormData.name}
+                onChange={(e) => {
+                  setShiftFormData({ ...shiftFormData, name: e.target.value });
+                  setSelectedPreset('custom');
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    backgroundColor: '#ffffff',
+                    fontSize: '0.88rem',
+                    '& fieldset': { borderColor: '#e2e8f0' },
+                    '&:hover fieldset': { borderColor: '#cbd5e1' },
+                    '&.Mui-focused fieldset': { borderColor: '#2563eb' }
+                  }
+                }}
+              />
+            </Box>
+
+            {/* Time Range Schedule Card */}
+            <Box sx={{
+              p: 2,
+              borderRadius: '16px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+            }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Clock size={15} style={{ color: '#2563eb' }} /> Shift Schedule
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <FormControl fullWidth required size="small">
-                    <InputLabel>Hour</InputLabel>
-                    <Select
-                      value={shiftStartParsed.hour}
-                      label="Hour"
-                      onChange={(e) => handleShiftStartChange('hour', e.target.value)}
-                    >
-                      {HOURS.map((h) => (
-                        <MenuItem key={h} value={h}>{h}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <FormControl fullWidth required size="small">
-                    <InputLabel>Minute</InputLabel>
-                    <Select
-                      value={shiftStartParsed.minute}
-                      label="Minute"
-                      onChange={(e) => handleShiftStartChange('minute', e.target.value)}
-                    >
-                      {getMinuteOptions(shiftStartParsed.minute).map((m) => (
-                        <MenuItem key={m} value={m}>{m}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <FormControl fullWidth required size="small">
-                    <InputLabel>AM/PM</InputLabel>
-                    <Select
-                      value={shiftStartParsed.period}
-                      label="AM/PM"
-                      onChange={(e) => handleShiftStartChange('period', e.target.value)}
-                    >
-                      {PERIODS.map((p) => (
-                        <MenuItem key={p} value={p}>{p}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
+                {shiftFormData.startTime && shiftFormData.endTime && (
+                  <Box sx={{
+                    px: 1.25,
+                    py: 0.3,
+                    borderRadius: '99px',
+                    background: 'rgba(37, 99, 235, 0.1)',
+                    color: '#2563eb',
+                    fontSize: '0.72rem',
+                    fontWeight: 700
+                  }}>
+                    Duration: {calculateShiftDuration(shiftFormData.startTime, shiftFormData.endTime)}
+                  </Box>
+                )}
               </Box>
 
-              <Box>
-                <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary' }}>
-                  End Time
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <FormControl fullWidth required size="small">
-                    <InputLabel>Hour</InputLabel>
-                    <Select
-                      value={shiftEndParsed.hour}
-                      label="Hour"
-                      onChange={(e) => handleShiftEndChange('hour', e.target.value)}
-                    >
-                      {HOURS.map((h) => (
-                        <MenuItem key={h} value={h}>{h}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <FormControl fullWidth required size="small">
-                    <InputLabel>Minute</InputLabel>
-                    <Select
-                      value={shiftEndParsed.minute}
-                      label="Minute"
-                      onChange={(e) => handleShiftEndChange('minute', e.target.value)}
-                    >
-                      {getMinuteOptions(shiftEndParsed.minute).map((m) => (
-                        <MenuItem key={m} value={m}>{m}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <FormControl fullWidth required size="small">
-                    <InputLabel>AM/PM</InputLabel>
-                    <Select
-                      value={shiftEndParsed.period}
-                      label="AM/PM"
-                      onChange={(e) => handleShiftEndChange('period', e.target.value)}
-                    >
-                      {PERIODS.map((p) => (
-                        <MenuItem key={p} value={p}>{p}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <Box>
+                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5 }}>
+                    Start Time *
+                  </Typography>
+                  <input
+                    type="time"
+                    required
+                    value={shiftFormData.startTime}
+                    onChange={(e) => {
+                      setShiftFormData(prev => ({ ...prev, startTime: e.target.value }));
+                      setSelectedPreset('custom');
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </Box>
+
+                <Box>
+                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5 }}>
+                    End Time *
+                  </Typography>
+                  <input
+                    type="time"
+                    required
+                    value={shiftFormData.endTime}
+                    onChange={(e) => {
+                      setShiftFormData(prev => ({ ...prev, endTime: e.target.value }));
+                      setSelectedPreset('custom');
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
                 </Box>
               </Box>
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-              <TextField
-                label="Capacity (Optional)"
-                type="number"
-                fullWidth
-                value={shiftFormData.capacity ?? ''}
-                onChange={(e) => setShiftFormData({ ...shiftFormData, capacity: e.target.value === '' ? '' : parseInt(e.target.value) })}
-              />
-              <TextField
-                label="Monthly Price (₹)"
-                type="number"
-                fullWidth
-                required
-                value={shiftFormData.price ?? ''}
-                onChange={(e) => setShiftFormData({ ...shiftFormData, price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-              />
-            </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-              <TextField
-                label="3-Month Price (₹) - Optional"
-                type="number"
-                fullWidth
-                placeholder="Discounted price"
-                value={shiftFormData.price3Months ?? ''}
-                onChange={(e) => setShiftFormData({ ...shiftFormData, price3Months: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-              />
-              <TextField
-                label="6-Month Price (₹) - Optional"
-                type="number"
-                fullWidth
-                placeholder="Discounted price"
-                value={shiftFormData.price6Months ?? ''}
-                onChange={(e) => setShiftFormData({ ...shiftFormData, price6Months: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-              />
+
+            {/* Pricing Tiers & Capacity Card */}
+            <Box sx={{
+              p: 2,
+              borderRadius: '16px',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+            }}>
+              <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px', mb: 1.5 }}>
+                <IndianRupee size={15} style={{ color: '#2563eb' }} /> Pricing Tiers & Capacity
+              </Typography>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 1.5 }}>
+                <TextField
+                  label="Monthly Base Price (₹) *"
+                  type="number"
+                  required
+                  placeholder="e.g. 800"
+                  value={shiftFormData.price ?? ''}
+                  onChange={(e) => setShiftFormData({ ...shiftFormData, price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '10px',
+                      '& fieldset': { borderColor: '#cbd5e1' }
+                    }
+                  }}
+                />
+                <TextField
+                  label="Max Capacity (Optional)"
+                  type="number"
+                  placeholder="Leave blank for unlimited"
+                  value={shiftFormData.capacity ?? ''}
+                  onChange={(e) => setShiftFormData({ ...shiftFormData, capacity: e.target.value === '' ? '' : parseInt(e.target.value) })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '10px',
+                      '& fieldset': { borderColor: '#cbd5e1' }
+                    }
+                  }}
+                />
+              </Box>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                <TextField
+                  label="3-Month Price (₹) - Optional"
+                  type="number"
+                  placeholder="e.g. 2100"
+                  value={shiftFormData.price3Months ?? ''}
+                  onChange={(e) => setShiftFormData({ ...shiftFormData, price3Months: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '10px',
+                      '& fieldset': { borderColor: '#cbd5e1' }
+                    }
+                  }}
+                />
+                <TextField
+                  label="6-Month Price (₹) - Optional"
+                  type="number"
+                  placeholder="e.g. 4000"
+                  value={shiftFormData.price6Months ?? ''}
+                  onChange={(e) => setShiftFormData({ ...shiftFormData, price6Months: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '10px',
+                      '& fieldset': { borderColor: '#cbd5e1' }
+                    }
+                  }}
+                />
+              </Box>
             </Box>
           </DialogContent>
-          <DialogActions sx={{ p: 2.5, gap: '0.75rem' }}>
-            <Button type="button" variant="text" onClick={() => setOpenShiftModal(false)}>Cancel</Button>
-            <Button type="submit" variant="primary">
-              Save Shift
+
+          <DialogActions sx={{ p: 2.5, px: 3, background: '#f8fafc', borderTop: '1px solid #e2e8f0', justifyContent: 'space-between' }}>
+            <Button
+              type="button"
+              variant="text"
+              onClick={() => setOpenShiftModal(false)}
+              style={{ color: '#64748b', fontWeight: 600 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                color: '#ffffff',
+                borderRadius: '10px',
+                padding: '10px 24px',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
+                border: 'none'
+              }}
+            >
+              {editShiftMode ? 'Update Shift' : 'Save Shift'}
             </Button>
           </DialogActions>
         </form>

@@ -24,7 +24,8 @@ import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
 import { useAlert } from '../components/ui/AlertContext';
-import '../components/ui/Globals.css';
+import { DatePicker } from '../components/ui/DatePicker';
+import { formatYYYYMMDD, formatDateDisplay, getTodayYYYYMMDD, addDaysToDate } from '../utils/dateUtils';
 import {
   Plus,
   Check,
@@ -40,7 +41,9 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Camera
+  Camera,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -161,6 +164,7 @@ export default function Students() {
   const [editBranchId, setEditBranchId] = useState('');
   const [editJoiningDate, setEditJoiningDate] = useState('');
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [showPasswordInDrawer, setShowPasswordInDrawer] = useState(false);
 
   const { data, isLoading } = useGetStudentsQuery({
     search,
@@ -250,7 +254,7 @@ export default function Students() {
     setEditGuardianMobile(student.guardianMobile || '');
     setEditAadharNumber(student.aadharNumber || '');
     setEditBranchId(student.branchId || '');
-    setEditJoiningDate(student.joiningDate ? new Date(student.joiningDate).toISOString().split('T')[0] : '');
+    setEditJoiningDate(formatYYYYMMDD(student.joiningDate));
     setEditErrors({});
     setOpenEdit(true);
   };
@@ -325,16 +329,10 @@ export default function Students() {
       const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
       if (activeAllocation) {
         // Start date is day after current subscription end date
-        const nextDay = new Date(activeAllocation.endDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        try {
-          setRenewStartDate(nextDay.toISOString().split('T')[0]);
-        } catch (e) {
-          setRenewStartDate(new Date().toISOString().split('T')[0]);
-        }
+        setRenewStartDate(addDaysToDate(activeAllocation.endDate, 1) || getTodayYYYYMMDD());
         setRenewShiftId(activeAllocation.shiftId || '');
       } else {
-        setRenewStartDate(new Date().toISOString().split('T')[0]);
+        setRenewStartDate(getTodayYYYYMMDD());
       }
 
       setRenewEndDate('');
@@ -346,8 +344,13 @@ export default function Students() {
 
   // 3. Submit vacate seat
   const handleVacateSeat = async (seatId: string) => {
-    const confirmVacate = window.confirm("Are you sure you want to vacate this seat?");
-    if (!confirmVacate) return;
+    const confirmed = await showAlert("Are you sure you want to vacate this seat?", {
+      title: "Vacate Seat",
+      confirmText: "Vacate Seat",
+      cancelText: "Cancel",
+      type: "danger",
+    });
+    if (!confirmed) return;
     try {
       await vacateSeat({ id: seatId, studentProfileId: fullStudent?.profile?.id }).unwrap();
       showToast('Seat vacated successfully!', 'success');
@@ -356,7 +359,25 @@ export default function Students() {
     }
   };
 
+  const handleStatusChange = async (id: string, status: string) => {
+    await updateStatus({ id, status });
+  };
 
+  const handleDelete = async (id: string) => {
+    const confirmed = await showAlert("Are you sure you want to delete this student? This action cannot be undone.", {
+      title: "Delete Student",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "danger",
+    });
+    if (!confirmed) return;
+    try {
+      await deleteStudent(id).unwrap();
+      showToast('Student deleted successfully', 'success');
+    } catch (err: any) {
+      showToast(err?.data?.message || 'Failed to delete student', 'error');
+    }
+  };
 
   // 5. Submit Renewal
   const handleRenewSeat = async (e: React.FormEvent, activeAllocation: any) => {
@@ -392,16 +413,6 @@ export default function Students() {
       showToast(err?.data?.message || 'Seat renewal failed', 'error');
     } finally {
       setIsRenewing(false);
-    }
-  };
-
-  const handleStatusChange = async (id: string, status: string) => {
-    await updateStatus({ id, status });
-  };
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this student?')) {
-      await deleteStudent(id);
     }
   };
 
@@ -960,9 +971,10 @@ export default function Students() {
             <Input
               label="Mobile Number"
               required
+              maxLength={10}
               value={editMobile}
               error={editErrors.mobile}
-              onChange={(e) => setEditMobile(e.target.value)}
+              onChange={(e) => setEditMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
             />
             <Input
               label="New Password"
@@ -992,24 +1004,24 @@ export default function Students() {
             />
             <Input
               label="Guardian Mobile"
+              maxLength={10}
               value={editGuardianMobile}
               error={editErrors.guardianMobile}
-              onChange={(e) => setEditGuardianMobile(e.target.value)}
+              onChange={(e) => setEditGuardianMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
             />
             <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <Input
+              <DatePicker
                 label="Admission Date"
-                type="date"
                 required
                 value={editJoiningDate}
-                onChange={(e) => setEditJoiningDate(e.target.value)}
-                className="no-margin"
+                onChange={(val) => setEditJoiningDate(val)}
               />
               <Input
                 label="Aadhar Card Number"
+                maxLength={12}
                 value={editAadharNumber}
                 error={editErrors.aadharNumber}
-                onChange={(e) => setEditAadharNumber(e.target.value)}
+                onChange={(e) => setEditAadharNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
                 className="no-margin"
               />
             </div>
@@ -1169,9 +1181,26 @@ export default function Students() {
                           <form onSubmit={handleClearDues} style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                             <div style={{ flex: 1 }}>
                               <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: '4px' }}>Amount to Pay</label>
-                              <input type="number" required value={clearDuesAmount} onChange={(e) => setClearDuesAmount(e.target.value)} max={fullStudent.dueAmount} style={{ padding: '6px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid #fca5a5', width: '100%', boxSizing: 'border-box' }} />
+                              <input
+                                type="number"
+                                required
+                                value={clearDuesAmount}
+                                onChange={(e) => setClearDuesAmount(e.target.value)}
+                                max={fullStudent.dueAmount}
+                                style={{
+                                  height: '38px',
+                                  padding: '0 10px',
+                                  fontSize: '0.8rem',
+                                  borderRadius: '8px',
+                                  border: '1px solid #fca5a5',
+                                  width: '100%',
+                                  boxSizing: 'border-box',
+                                  outline: 'none',
+                                  backgroundColor: '#ffffff'
+                                }}
+                              />
                             </div>
-                            <div style={{ width: '100px' }}>
+                            <div style={{ width: '110px' }}>
                               <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: '4px' }}>Method</label>
                               <Select
                                 value={clearDuesMethod}
@@ -1179,7 +1208,21 @@ export default function Students() {
                                 options={[{ value: 'UPI', label: 'UPI' }, { value: 'CASH', label: 'Cash' }, { value: 'RAZORPAY', label: 'Online' }]}
                               />
                             </div>
-                            <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--status-red)', borderColor: 'var(--status-red)', height: '34px', padding: '0 12px', fontSize: '0.75rem' }} disabled={!clearDuesAmount || isClearingDues} isLoading={isClearingDues}>
+                            <Button
+                              type="submit"
+                              variant="primary"
+                              style={{
+                                backgroundColor: 'var(--status-red)',
+                                borderColor: 'var(--status-red)',
+                                height: '38px',
+                                padding: '0 16px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                borderRadius: '8px'
+                              }}
+                              disabled={!clearDuesAmount || isClearingDues}
+                              isLoading={isClearingDues}
+                            >
                               Pay
                             </Button>
                           </form>
@@ -1205,9 +1248,30 @@ export default function Students() {
                         <span style={{ color: 'var(--text-slate)' }}>Branch Location:</span>
                         <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{fullStudent.branch?.name || 'N/A'}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
                         <span style={{ color: 'var(--text-slate)' }}>Login Password:</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace' }}>{fullStudent.user?.rawPassword || 'Student@123'}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                            {showPasswordInDrawer ? (fullStudent.user?.rawPassword || 'Student@123') : '••••••••'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswordInDrawer(!showPasswordInDrawer)}
+                            title={showPasswordInDrawer ? 'Hide Password' : 'Show Password'}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 4px',
+                              color: 'var(--accent-blue)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            {showPasswordInDrawer ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1369,14 +1433,18 @@ export default function Students() {
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Start Date</label>
-                            <input type="date" required value={renewStartDate} onChange={(e) => setRenewStartDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%', boxSizing: 'border-box' }} />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>End Date</label>
-                            <input type="date" required value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%', boxSizing: 'border-box' }} />
-                          </div>
+                          <DatePicker
+                            label="Start Date"
+                            required
+                            value={renewStartDate}
+                            onChange={(val) => setRenewStartDate(val)}
+                          />
+                          <DatePicker
+                            label="End Date"
+                            required
+                            value={renewEndDate}
+                            onChange={(val) => setRenewEndDate(val)}
+                          />
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>

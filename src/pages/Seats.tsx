@@ -23,6 +23,7 @@ import {
   useCreatePaymentMutation,
   useVerifyRazorpayMutation,
 } from '../store/api';
+import { formatYYYYMMDD, addMonthsToDate, addDaysToDate, getTodayYYYYMMDD, formatDateDisplay } from '../utils/dateUtils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
@@ -30,6 +31,7 @@ import { AllocateSeatModal } from '../components/AllocateSeatModal';
 import { InvoiceReceiptModal } from '../components/InvoiceReceiptModal';
 import { LayoutCreatorModal } from '../components/LayoutCreatorModal';
 import { Switch } from '../components/ui/Switch';
+import { DatePicker } from '../components/ui/DatePicker';
 import { Select } from '../components/ui/Select';
 import { useAlert } from '../components/ui/AlertContext';
 import { useToast } from '../components/ui/ToastContext';
@@ -63,6 +65,8 @@ import {
   Building,
   Lock,
   Unlock,
+  Eye,
+  EyeOff,
   Link2
 } from 'lucide-react';
 
@@ -114,13 +118,15 @@ export default function Seats() {
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const [preselectedStudent, setPreselectedStudent] = useState<{ id: string; name: string } | null>(null);
+  const [preselectedStudent, setPreselectedStudent] = useState<{ id: string; name: string; joiningDate?: string; shiftId?: string } | null>(null);
 
   useEffect(() => {
-    if (location.state?.preselectedStudentId && location.state?.preselectedStudentName) {
+    if (location.state?.preselectedStudentId || location.state?.preselectedJoiningDate) {
       setPreselectedStudent({
-        id: location.state.preselectedStudentId,
-        name: location.state.preselectedStudentName,
+        id: location.state.preselectedStudentId || '',
+        name: location.state.preselectedStudentName || 'Admitted Student',
+        joiningDate: location.state.preselectedJoiningDate,
+        shiftId: location.state.preselectedShiftId,
       });
       // Clear navigation state so a reload doesn't keep it
       window.history.replaceState({}, document.title);
@@ -198,8 +204,13 @@ export default function Seats() {
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [shiftId, setShiftId] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(() => formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date()));
+  const [endDate, setEndDate] = useState(() => {
+    const base = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+    const end = new Date(base);
+    end.setMonth(end.getMonth() + 1);
+    return formatYYYYMMDD(end);
+  });
   const [durationMode, setDurationMode] = useState<number | 'flex'>(1);
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
 
@@ -221,6 +232,7 @@ export default function Seats() {
   const [renewPaymentMethod, setRenewPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('UPI');
   const [renewAmount, setRenewAmount] = useState('');
   const [isRenewing, setIsRenewing] = useState(false);
+  const [showPasswordInDrawer, setShowPasswordInDrawer] = useState(false);
 
   // Edit dates inline
   const [isEditingDates, setIsEditingDates] = useState(false);
@@ -1767,11 +1779,7 @@ export default function Seats() {
   useEffect(() => {
     if (allocModalDuration === 'flex') return;
     if (allocModalStartDate && typeof allocModalDuration === 'number') {
-      const date = new Date(allocModalStartDate);
-      if (!isNaN(date.getTime())) {
-        date.setMonth(date.getMonth() + allocModalDuration);
-        setAllocModalEndDate(date.toISOString().split('T')[0]);
-      }
+      setAllocModalEndDate(addMonthsToDate(allocModalStartDate, allocModalDuration));
     }
   }, [allocModalStartDate, allocModalDuration]);
 
@@ -1839,18 +1847,15 @@ export default function Seats() {
         // Already paid / subscribed -> do not generate another invoice
         setShouldGenerateInvoice(false);
       } else {
-        // No active subscription -> allow invoice generation and reset to defaults
-        setShouldGenerateInvoice(true);
-        setDurationMode(1);
-        const today = new Date().toISOString().split('T')[0];
-        setStartDate(today);
-        const end = new Date(today);
+        const baseDate = formatYYYYMMDD(student?.joiningDate) || formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+        setStartDate(baseDate);
+        const end = new Date(baseDate);
         end.setMonth(end.getMonth() + 1);
-        setEndDate(end.toISOString().split('T')[0]);
+        setEndDate(formatYYYYMMDD(end));
         setShiftId('');
       }
     }
-  }, [isDrawerOpen, studentProfileId, studentsData, shifts]);
+  }, [isDrawerOpen, studentProfileId, studentsData, shifts, preselectedStudent]);
 
   // Submit Allocate Seat Modal (Popup)
   const handleModalAllocate = async (e: React.FormEvent) => {
@@ -1908,11 +1913,11 @@ export default function Seats() {
     setIsDetailsExpanded(false);
 
     if (seat.status === 'AVAILABLE') {
-      const today = new Date().toISOString().split('T')[0];
-      setStartDate(today);
-      const end = new Date(today);
+      const baseDate = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+      setStartDate(baseDate);
+      const end = new Date(baseDate);
       end.setMonth(end.getMonth() + 1);
-      setEndDate(end.toISOString().split('T')[0]);
+      setEndDate(formatYYYYMMDD(end));
       if (preselectedStudent) {
         setStudentProfileId(preselectedStudent.id);
         setStudentSearchQuery(preselectedStudent.name);
@@ -1936,10 +1941,10 @@ export default function Seats() {
         const activeAllocation = activeAllocations[0];
         const nextDay = new Date(activeAllocation.endDate);
         nextDay.setDate(nextDay.getDate() + 1);
-        setRenewStartDate(nextDay.toISOString().split('T')[0]);
+        setRenewStartDate(formatYYYYMMDD(nextDay));
         setRenewShiftId(activeAllocation.shiftId || '');
-        setEditStartDate(activeAllocation.startDate ? activeAllocation.startDate.split('T')[0] : '');
-        setEditEndDate(activeAllocation.endDate ? activeAllocation.endDate.split('T')[0] : '');
+        setEditStartDate(activeAllocation.startDate ? formatYYYYMMDD(activeAllocation.startDate) : '');
+        setEditEndDate(activeAllocation.endDate ? formatYYYYMMDD(activeAllocation.endDate) : '');
       } else {
         setSelectedAllocationId(null);
       }
@@ -1950,11 +1955,11 @@ export default function Seats() {
       setRenewPaymentMethod('UPI');
 
       if (preselectedStudent) {
-        const today = new Date().toISOString().split('T')[0];
-        setStartDate(today);
-        const end = new Date(today);
+        const baseDate = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+        setStartDate(baseDate);
+        const end = new Date(baseDate);
         end.setMonth(end.getMonth() + 1);
-        setEndDate(end.toISOString().split('T')[0]);
+        setEndDate(formatYYYYMMDD(end));
         setStudentProfileId(preselectedStudent.id);
         setStudentSearchQuery(preselectedStudent.name);
         setShiftId('');
@@ -1970,11 +1975,11 @@ export default function Seats() {
 
   const handleOpenAllocateModal = () => {
     if (!selectedSeat) return;
-    const today = new Date().toISOString().split('T')[0];
-    setStartDate(today);
-    const end = new Date(today);
+    const baseDate = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+    setStartDate(baseDate);
+    const end = new Date(baseDate);
     end.setMonth(end.getMonth() + 1);
-    setEndDate(end.toISOString().split('T')[0]);
+    setEndDate(formatYYYYMMDD(end));
     if (preselectedStudent) {
       setStudentProfileId(preselectedStudent.id);
       setStudentSearchQuery(preselectedStudent.name);
@@ -2003,12 +2008,10 @@ export default function Seats() {
     if (selectedSeat && selectedAllocationId) {
       const alloc = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
       if (alloc) {
-        const nextDay = new Date(alloc.endDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        setRenewStartDate(nextDay.toISOString().split('T')[0]);
+        setRenewStartDate(addDaysToDate(alloc.endDate, 1));
         setRenewShiftId(alloc.shiftId || '');
-        setEditStartDate(alloc.startDate ? alloc.startDate.split('T')[0] : '');
-        setEditEndDate(alloc.endDate ? alloc.endDate.split('T')[0] : '');
+        setEditStartDate(formatYYYYMMDD(alloc.startDate));
+        setEditEndDate(formatYYYYMMDD(alloc.endDate));
       }
     }
   }, [selectedAllocationId, selectedSeat]);
@@ -2017,11 +2020,7 @@ export default function Seats() {
   useEffect(() => {
     if (durationMode === 'flex') return;
     if (startDate && typeof durationMode === 'number') {
-      const date = new Date(startDate);
-      if (!isNaN(date.getTime())) {
-        date.setMonth(date.getMonth() + durationMode);
-        setEndDate(date.toISOString().split('T')[0]);
-      }
+      setEndDate(addMonthsToDate(startDate, durationMode));
     } else {
       setEndDate('');
     }
@@ -2072,12 +2071,8 @@ export default function Seats() {
     if (renewShiftId && shifts) {
       const shift = shifts.find((s: any) => s.id === renewShiftId);
       if (shift && renewStartDate) {
-        const start = new Date(renewStartDate);
-        if (!isNaN(start.getTime())) {
-          start.setMonth(start.getMonth() + renewDuration);
-          setRenewEndDate(start.toISOString().split('T')[0]);
-          
-          let price = shift.price || 0;
+        setRenewEndDate(addMonthsToDate(renewStartDate, renewDuration));
+        let price = shift.price || 0;
           if (renewDuration === 3 && shift.price3Months) {
             price = shift.price3Months;
           } else if (renewDuration === 6 && shift.price6Months) {
@@ -2086,7 +2081,6 @@ export default function Seats() {
             price = price * renewDuration;
           }
           setRenewAmount(price.toString());
-        }
       }
     }
   }, [renewShiftId, renewStartDate, renewDuration, shifts]);
@@ -2156,8 +2150,13 @@ export default function Seats() {
     const activeAllocation = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
     if (!activeAllocation) return;
 
-    const confirmVacate = window.confirm(`Are you sure you want to vacate ${activeAllocation.studentProfile?.user?.name || 'this student'}?`);
-    if (!confirmVacate) return;
+    const confirmed = await showAlert(`Are you sure you want to vacate ${activeAllocation.studentProfile?.user?.name || 'this student'}?`, {
+      title: "Vacate Seat",
+      confirmText: "Vacate Seat",
+      cancelText: "Cancel",
+      type: "danger",
+    });
+    if (!confirmed) return;
     try {
       await vacateSeat({ id: selectedSeat.id, studentProfileId: activeAllocation.studentProfileId }).unwrap();
       setIsDrawerOpen(false);
@@ -2349,7 +2348,12 @@ export default function Seats() {
   };
 
   const handleDeleteSeat = async (id: string) => {
-    const confirmed = window.confirm("Are you sure you want to delete this seat?");
+    const confirmed = await showAlert("Are you sure you want to delete this seat?", {
+      title: "Delete Seat",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      type: "danger",
+    });
     if (!confirmed) return;
     try {
       await deleteSeat(id).unwrap();
@@ -2917,14 +2921,19 @@ export default function Seats() {
 
         {/* Dates Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <div>
-            <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>Start Date</label>
-            <input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>End Date</label>
-            <input type="date" required disabled={durationMode !== 'flex'} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: durationMode !== 'flex' ? '#f1f5f9' : '#ffffff', cursor: durationMode !== 'flex' ? 'not-allowed' : 'text' }} />
-          </div>
+          <DatePicker
+            label="Start Date"
+            required
+            value={startDate}
+            onChange={(val) => setStartDate(val)}
+          />
+          <DatePicker
+            label="End Date"
+            required
+            disabled={durationMode !== 'flex'}
+            value={endDate}
+            onChange={(val) => setEndDate(val)}
+          />
         </div>
 
         {/* Generate Fee Invoice Switch */}
@@ -3154,9 +3163,14 @@ export default function Seats() {
 
           {selectedBranch && seatMap && seatMap.length > 0 && (
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (activeRoomEditingId) {
-                  const exit = window.confirm("Exit visualization mode? Unsaved layouts will be discarded.");
+                  const exit = await showAlert("Exit visualization mode? Unsaved layouts will be discarded.", {
+                    title: "Exit Visualization",
+                    confirmText: "Discard & Exit",
+                    cancelText: "Keep Editing",
+                    type: "danger",
+                  });
                   if (!exit) return;
                   setActiveRoomEditingId(null);
                   setTempLayout({});
@@ -4560,9 +4574,30 @@ export default function Seats() {
                                     : 'N/A'}
                                 </span>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
                                 <span style={{ color: 'var(--text-slate)' }}>Password:</span>
-                                <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace' }}>{activeAllocation.studentProfile?.user?.rawPassword || 'Student@123'}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                                    {showPasswordInDrawer ? (activeAllocation.studentProfile?.user?.rawPassword || 'Student@123') : '••••••••'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowPasswordInDrawer(!showPasswordInDrawer)}
+                                    title={showPasswordInDrawer ? 'Hide Password' : 'Show Password'}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      padding: '2px 4px',
+                                      color: 'var(--accent-blue)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      borderRadius: '4px',
+                                    }}
+                                  >
+                                    {showPasswordInDrawer ? <EyeOff size={14} /> : <Eye size={14} />}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -4587,14 +4622,18 @@ export default function Seats() {
                           {isEditingDates ? (
                             <form onSubmit={handleUpdateAllocationDates} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: '#F8FAFC', padding: '10px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                                <div>
-                                  <label style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '2px' }}>Start</label>
-                                  <input type="date" required value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} style={{ padding: '6px', fontSize: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%' }} />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '2px' }}>End</label>
-                                  <input type="date" required value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} style={{ padding: '6px', fontSize: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%' }} />
-                                </div>
+                                <DatePicker
+                                  label="Start"
+                                  required
+                                  value={editStartDate}
+                                  onChange={(val) => setEditStartDate(val)}
+                                />
+                                <DatePicker
+                                  label="End"
+                                  required
+                                  value={editEndDate}
+                                  onChange={(val) => setEditEndDate(val)}
+                                />
                               </div>
                               <Button type="submit" size="sm" variant="primary" style={{ backgroundColor: 'var(--accent-blue)', width: '100%', marginTop: '4px' }} isLoading={isUpdatingAllocation}>Save Dates</Button>
                             </form>
@@ -4710,14 +4749,18 @@ export default function Seats() {
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Start Date</label>
-                            <input type="date" required value={renewStartDate} onChange={(e) => setRenewStartDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%' }} />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>End Date</label>
-                            <input type="date" required value={renewEndDate} onChange={(e) => setRenewEndDate(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%' }} />
-                          </div>
+                          <DatePicker
+                            label="Start Date"
+                            required
+                            value={renewStartDate}
+                            onChange={(val) => setRenewStartDate(val)}
+                          />
+                          <DatePicker
+                            label="End Date"
+                            required
+                            value={renewEndDate}
+                            onChange={(val) => setRenewEndDate(val)}
+                          />
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -5260,6 +5303,8 @@ export default function Seats() {
         seatMap={seatMap}
         onSuccess={handleAllocateModalSuccess}
         preselectedStudentId={preselectedStudent?.id}
+        preselectedJoiningDate={preselectedStudent?.joiningDate}
+        preselectedShiftId={preselectedStudent?.shiftId}
       />
 
       {/* Invoice Receipt Modal */}

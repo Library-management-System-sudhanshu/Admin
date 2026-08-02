@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
@@ -13,7 +14,9 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
-import { ArrowLeft, UserPlus, MapPin, Layers, Camera } from 'lucide-react';
+import { CustomCalendar } from '../components/ui/CustomCalendar';
+import { ArrowLeft, UserPlus, MapPin, Layers, Camera, Plus, Calendar as CalendarIcon } from 'lucide-react';
+import { getTodayYYYYMMDD, formatDateDisplay } from '../utils/dateUtils';
 import '../components/ui/Globals.css';
 
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -53,7 +56,7 @@ export default function NewAdmission() {
 
   // Success Modal & Newly Created Student Profile Info
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [createdStudent, setCreatedStudent] = useState<{ id: string; name: string } | null>(null);
+  const [createdStudent, setCreatedStudent] = useState<{ id: string; name: string; joiningDate?: string; shiftId?: string } | null>(null);
 
   const handleResetForm = () => {
     setName('');
@@ -100,6 +103,38 @@ export default function NewAdmission() {
   const [shiftId, setShiftId] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [avatar, setAvatar] = useState('');
+  const [joiningDate, setJoiningDate] = useState(() => getTodayYYYYMMDD());
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [openDirection, setOpenDirection] = useState<'bottom' | 'top'>('bottom');
+  const dateContainerRef = useRef<HTMLDivElement>(null);
+
+  const toggleCalendarPicker = () => {
+    if (!showCalendarPicker && dateContainerRef.current) {
+      const rect = dateContainerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow < 340 && spaceAbove > spaceBelow) {
+        setOpenDirection('top');
+      } else {
+        setOpenDirection('bottom');
+      }
+    }
+    setShowCalendarPicker(!showCalendarPicker);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dateContainerRef.current && !dateContainerRef.current.contains(event.target as Node)) {
+        setShowCalendarPicker(false);
+      }
+    };
+    if (showCalendarPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCalendarPicker]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -260,6 +295,7 @@ export default function NewAdmission() {
         password,
         gender,
         address,
+        joiningDate,
         guardianName: guardianName || undefined,
         guardianMobile: guardianMobile || undefined,
         aadharNumber: aadharNumber || undefined,
@@ -272,15 +308,14 @@ export default function NewAdmission() {
 
       showToast('Student admitted successfully!', 'success');
       
-      if (result?.profile) {
-        setCreatedStudent({
-          id: result.profile.id,
-          name: name,
-        });
-        setIsSuccessModalOpen(true);
-      } else {
-        navigate('/students');
-      }
+      const studentId = result?.profile?.id || result?.student?.id || result?.id || result?.data?.id;
+      setCreatedStudent({
+        id: studentId || 'new-student',
+        name: name,
+        joiningDate: joiningDate,
+        shiftId: shiftId,
+      });
+      setIsSuccessModalOpen(true);
     } catch (err: any) {
       showToast(err?.data?.message || 'Failed to complete admission', 'error');
     }
@@ -299,15 +334,19 @@ export default function NewAdmission() {
     if (shiftsError) {
       return [{ value: '', label: 'Error loading shifts' }];
     }
-    if (!shifts || shifts.length === 0) {
-      return [{ value: '', label: 'No Shift (Admission only)' }];
-    }
+    const baseOptions = !shifts || shifts.length === 0
+      ? [{ value: '', label: 'No Shift (Admission only)' }]
+      : [
+          { value: '', label: 'No Shift (Admission only)' },
+          ...shifts.map((s: any) => ({
+            value: s.id,
+            label: `${s.name} (₹${s.price})`,
+          })),
+        ];
+
     return [
-      { value: '', label: 'No Shift (Admission only)' },
-      ...shifts.map((s: any) => ({
-        value: s.id,
-        label: `${s.name} (₹${s.price})`,
-      })),
+      ...baseOptions,
+      { value: 'ADD_NEW_SHIFT', label: '+ Add New Shift', isAction: true },
     ];
   }, [shifts, isLoadingShifts, shiftsError]);
 
@@ -438,7 +477,7 @@ export default function NewAdmission() {
                 value={mobile}
                 error={errors.mobile}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '');
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                   handleChange('mobile', val, setMobile);
                 }}
               />
@@ -462,10 +501,69 @@ export default function NewAdmission() {
               <Input
                 label="Aadhar Card Number"
                 placeholder="e.g. 123456789012"
+                maxLength={12}
                 value={aadharNumber}
                 error={errors.aadharNumber}
-                onChange={(e) => handleChange('aadharNumber', e.target.value, setAadharNumber)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                  handleChange('aadharNumber', val, setAadharNumber);
+                }}
               />
+              <div ref={dateContainerRef} style={{ position: 'relative' }}>
+                <label className="custom-input-label">Admission / Joining Date *</label>
+                <div
+                  onClick={toggleCalendarPicker}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0 14px',
+                    height: '42px',
+                    borderRadius: '10px',
+                    border: showCalendarPicker ? '1.5px solid #D97706' : '1px solid var(--border-color)',
+                    backgroundColor: '#ffffff',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: showCalendarPicker ? '0 0 0 3px rgba(217, 119, 6, 0.15)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-navy)' }}>
+                    {joiningDate ? new Date(joiningDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Select date'}
+                  </span>
+                  <CalendarIcon size={18} style={{ color: '#D97706' }} />
+                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-slate)', marginTop: '4px', display: 'block' }}>
+                  Click to open custom calendar (past or future allowed)
+                </span>
+
+                {showCalendarPicker && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      ...(openDirection === 'top'
+                        ? { bottom: 'calc(100% + 6px)' }
+                        : { top: 'calc(100% + 6px)' }),
+                      left: 0,
+                      zIndex: 9999,
+                      boxShadow: '0 20px 45px rgba(0, 0, 0, 0.18), 0 4px 14px rgba(0, 0, 0, 0.08)',
+                      borderRadius: '18px',
+                      backgroundColor: '#ffffff'
+                    }}
+                  >
+                    <CustomCalendar
+                      compact
+                      value={joiningDate ? new Date(joiningDate) : new Date()}
+                      onChange={(d) => {
+                        const yyyy = d.getFullYear();
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        setJoiningDate(`${yyyy}-${mm}-${dd}`);
+                        setShowCalendarPicker(false);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </Card>
@@ -498,6 +596,10 @@ export default function NewAdmission() {
               <Select
                 value={shiftId}
                 onChange={(val) => {
+                  if (val === 'ADD_NEW_SHIFT') {
+                    navigate('/billing?tab=shifts&action=add-shift', { state: { tab: 1, openCreateShift: true } });
+                    return;
+                  }
                   setShiftId(val);
                   const selectedShift = shifts?.find((s: any) => s.id === val);
                   setAmountPaid(selectedShift ? selectedShift.price.toString() : '');
@@ -552,7 +654,7 @@ export default function NewAdmission() {
               value={guardianMobile}
               error={errors.guardianMobile}
               onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, '');
+                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                 handleChange('guardianMobile', val, setGuardianMobile);
               }}
             />
@@ -590,29 +692,30 @@ export default function NewAdmission() {
 
       </form>
 
-      {/* Success Modal (Custom lightweight overlay box with simple UI and no black background) */}
-      {isSuccessModalOpen && (
+      {/* Success Modal (Rendered via Portal to guarantee exact screen center positioning) */}
+      {isSuccessModalOpen && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
           left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.35)',
           backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 9999,
+          zIndex: 999999,
         }}>
           <div style={{
             background: '#ffffff',
             borderRadius: '24px',
             padding: '32px',
-            width: '100%',
+            width: '90%',
             maxWidth: '420px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03)',
-            border: '1px solid rgba(15, 23, 42, 0.06)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid rgba(15, 23, 42, 0.08)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -646,14 +749,14 @@ export default function NewAdmission() {
                 variant="primary"
                 style={{ borderRadius: '12px', width: '100%', padding: '10px 0', fontWeight: 700 }}
                 onClick={() => {
-                  if (createdStudent) {
-                    navigate('/seats', {
-                      state: {
-                        preselectedStudentId: createdStudent.id,
-                        preselectedStudentName: createdStudent.name,
-                      }
-                    });
-                  }
+                  navigate('/seats', {
+                    state: {
+                      preselectedStudentId: createdStudent?.id,
+                      preselectedStudentName: createdStudent?.name || name,
+                      preselectedJoiningDate: createdStudent?.joiningDate || joiningDate,
+                      preselectedShiftId: createdStudent?.shiftId || shiftId,
+                    }
+                  });
                 }}
               >
                 Allocate a Seat Now
@@ -676,7 +779,8 @@ export default function NewAdmission() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

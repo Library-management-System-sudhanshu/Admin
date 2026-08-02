@@ -25,7 +25,8 @@ import {
   CreditCard,
   LogOut,
   Sparkles,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import './Layout.css';
 
@@ -118,6 +119,7 @@ export default function Layout() {
     { text: 'Library', icon: <LibraryIcon className="sidebar-link-icon" />, path: '/library' },
     { text: 'Complaints', icon: <MessageSquareWarning className="sidebar-link-icon" />, path: '/complaints' },
     { text: 'Notices', icon: <Bell className="sidebar-link-icon" />, path: '/notices' },
+    { text: 'Calendar', icon: <CalendarIcon className="sidebar-link-icon" />, path: '/calendar' },
     { text: 'WhatsApp', icon: <MessageCircle className="sidebar-link-icon" />, path: '/whatsapp' },
     { text: 'Settings', icon: <Settings className="sidebar-link-icon" />, path: '/settings' },
   ];
@@ -289,7 +291,7 @@ export default function Layout() {
             </button>
 
             {/* Quick Add Button */}
-            <div className="quick-add-container" ref={quickAddRef} style={{ position: 'relative' }}>
+            <div className="quick-add-container" ref={quickAddRef} style={{ position: 'relative', zIndex: 1001 }}>
               <button className="topbar-btn" style={{ background: 'var(--accent-blue)', color: '#ffffff', borderRadius: '10px', display: 'flex', gap: '6px', fontSize: '0.78rem', fontWeight: 600, padding: '6px 12px' }} onClick={() => setIsQuickAddOpen(!isQuickAddOpen)}>
                 <Plus size={14} />
                 <span className="topbar-quick-add-text">Quick Add</span>
@@ -312,7 +314,7 @@ export default function Layout() {
             </div>
 
             {/* Notifications Popover */}
-            <div className="notifications-container" ref={notificationsRef} style={{ position: 'relative' }}>
+            <div className="notifications-container" ref={notificationsRef} style={{ position: 'relative', zIndex: 1001 }}>
               <button className="topbar-btn" onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} style={{ position: 'relative' }}>
                 <Bell size={18} />
                 {metrics && metrics.expiringSubscriptions > 0 && (

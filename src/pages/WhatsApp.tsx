@@ -10,6 +10,7 @@ import {
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
+import { DatePicker } from '../components/ui/DatePicker';
 import {
   Box,
   Typography,
@@ -467,15 +468,10 @@ export default function WhatsApp() {
 
                 {selectedTemplateId === 'renewal_reminder' && (
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
-                    <TextField 
-                      sx={inputStyle as any} 
+                    <DatePicker 
                       label="Expiry End Date" 
-                      type="date" 
-                      fullWidth 
-                      size="small" 
-                      slotProps={{ inputLabel: { shrink: true } } as any} 
                       value={endDate} 
-                      onChange={(e) => setEndDate(e.target.value)} 
+                      onChange={(val) => setEndDate(val)} 
                     />
                     <TextField sx={inputStyle} label="Seat Number" fullWidth size="small" value={seatNumber} onChange={(e) => setSeatNumber(e.target.value)} />
                   </Box>
@@ -483,25 +479,15 @@ export default function WhatsApp() {
 
                 {selectedTemplateId === 'holiday_notice' && (
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2, mb: 3 }}>
-                    <TextField 
-                      sx={inputStyle as any} 
+                    <DatePicker 
                       label="Holiday Date" 
-                      type="date" 
-                      fullWidth 
-                      size="small" 
-                      slotProps={{ inputLabel: { shrink: true } } as any} 
                       value={holidayDate} 
-                      onChange={(e) => setHolidayDate(e.target.value)} 
+                      onChange={(val) => setHolidayDate(val)} 
                     />
-                    <TextField 
-                      sx={inputStyle as any} 
+                    <DatePicker 
                       label="Resume Date" 
-                      type="date" 
-                      fullWidth 
-                      size="small" 
-                      slotProps={{ inputLabel: { shrink: true } } as any} 
                       value={resumeDate} 
-                      onChange={(e) => setResumeDate(e.target.value)} 
+                      onChange={(val) => setResumeDate(val)} 
                     />
                     <TextField sx={inputStyle} label="Reason" fullWidth size="small" value={reason} onChange={(e) => setReason(e.target.value)} />
                   </Box>
