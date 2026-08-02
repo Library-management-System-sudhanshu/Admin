@@ -10,14 +10,5 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build Admin
-        run: npm run build
-
       - name: Deploy Admin
-        run: sudo /usr/local/bin/deploy-admin
+        run: /usr/local/bin/deploy-admin
