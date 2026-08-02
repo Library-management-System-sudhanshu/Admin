@@ -19,10 +19,5 @@ jobs:
       - name: Build Admin
         run: npm run build
 
-      - name: Deploy Build
-        run: |
-          sudo rm -rf /var/www/admin/*
-          sudo cp -r dist/* /var/www/admin/
-
-      - name: Reload Nginx
-        run: sudo systemctl reload nginx
+      - name: Deploy Admin
+        run: sudo /usr/local/bin/deploy-admin
