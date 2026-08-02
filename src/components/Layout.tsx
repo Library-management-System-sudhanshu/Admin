@@ -60,7 +60,7 @@ export default function Layout() {
   const greeting = useMemo(() => {
     const hours = new Date().getHours();
     if (hours < 12) return 'Good Morning 👋';
-    if (hours < 17) return 'Good Afternoon 👋';
+    if (hours < 17) return 'Goods Afternoon 👋';
     return 'Good Evening 👋';
   }, []);
 
