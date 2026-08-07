@@ -14,6 +14,7 @@ interface LayoutCreatorModalProps {
   seatMap: any[] | undefined;
   currentFloor: any;
   selectedBranch: string;
+  selectedParentId?: string;
 }
 
 export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
@@ -24,6 +25,7 @@ export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
   seatMap,
   currentFloor,
   selectedBranch,
+  selectedParentId,
 }) => {
   const { showToast } = useToast();
   const [addFloor] = useAddFloorMutation();
@@ -37,7 +39,9 @@ export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setCreatorName('');
-      if (creatorType === 'room') {
+      if (selectedParentId) {
+        setParentId(selectedParentId);
+      } else if (creatorType === 'room') {
         if (currentFloor) {
           setParentId(currentFloor.id);
         } else if (seatMap && seatMap.length > 0) {
@@ -49,7 +53,7 @@ export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
         setParentId('');
       }
     }
-  }, [isOpen, creatorType, seatMap, currentFloor]);
+  }, [isOpen, creatorType, seatMap, currentFloor, selectedParentId]);
 
   const handleCreate = async () => {
     if (!creatorName.trim()) {

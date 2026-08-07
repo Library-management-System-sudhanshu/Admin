@@ -63,6 +63,7 @@ import {
   HelpCircle,
   Building,
   User,
+  Armchair,
   Lock,
   Unlock,
   Eye,
@@ -2992,6 +2993,34 @@ export default function Seats() {
 
   // Render classroom study hall grid layout representation
   const renderStudyHallGrid = (room: any) => {
+    if (!room.seats || room.seats.length === 0) {
+      return (
+        <div className="empty-state-container" style={{ padding: '36px 24px', background: 'rgba(248, 250, 252, 0.6)', borderRadius: '16px', border: '1px dashed rgba(15, 23, 42, 0.12)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(37, 99, 235, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', marginBottom: '12px' }}>
+            <Armchair size={24} />
+          </div>
+          <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-navy)' }}>
+            No seats created in {room.name}
+          </h4>
+          <p style={{ margin: '4px 0 16px 0', fontSize: '0.8rem', color: 'var(--text-slate)', maxWidth: '380px' }}>
+            Add seats (e.g. 1-50 or A1-A20) to start configuring and allocating students to this hall.
+          </p>
+          <Button 
+            onClick={() => {
+              setParentId(room.id);
+              setCreatorType('seat');
+              setOpenCreator(true);
+            }} 
+            variant="primary" 
+            size="sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px', backgroundColor: 'var(--accent-blue)', padding: '8px 16px' }}
+          >
+            <Plus size={14} /> Add Seats to {room.name}
+          </Button>
+        </div>
+      );
+    }
+
     const sortedAndFiltered = getSortedSeats(room.seats, room.id);
     if (sortedAndFiltered.length === 0) {
       return (
