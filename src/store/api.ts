@@ -245,6 +245,14 @@ export const api = createApi({
       }),
       invalidatesTags: ['Seats'],
     }),
+    addBulkSeats: builder.mutation({
+      query: (data) => ({
+        url: 'seats/seats/bulk',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Seats'],
+    }),
     deleteSeat: builder.mutation({
       query: (id) => ({
         url: `seats/${id}`,
@@ -576,6 +584,7 @@ export const {
   useAddFloorMutation,
   useAddRoomMutation,
   useAddSeatMutation,
+  useAddBulkSeatsMutation,
   useDeleteSeatMutation,
   useDeleteRoomMutation,
   useDeleteFloorMutation,

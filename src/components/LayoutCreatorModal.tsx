@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAddFloorMutation, useAddRoomMutation, useAddSeatMutation } from '../store/api';
+import { useAddFloorMutation, useAddRoomMutation, useAddSeatMutation, useAddBulkSeatsMutation } from '../store/api';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
@@ -31,6 +31,7 @@ export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
   const [addFloor] = useAddFloorMutation();
   const [addRoom] = useAddRoomMutation();
   const [addSeat] = useAddSeatMutation();
+  const [addBulkSeats] = useAddBulkSeatsMutation();
 
   const [creatorName, setCreatorName] = useState('');
   const [parentId, setParentId] = useState('');
@@ -55,11 +56,44 @@ export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
     }
   }, [isOpen, creatorType, seatMap, currentFloor, selectedParentId]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Parse ranges like "1-50", "A1-A20", or comma-separated "1, 2, 3"
+  const parseSeatNumbers = (input: string): string[] => {
+    const trimmed = input.trim();
+    if (trimmed.includes(',')) {
+      return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (trimmed.includes('-')) {
+      const parts = trimmed.split('-');
+      if (parts.length === 2) {
+        const startStr = parts[0].trim();
+        const endStr = parts[1].trim();
+        const startMatch = startStr.match(/^([A-Za-z\s]*?)(\d+)$/);
+        const endMatch = endStr.match(/^([A-Za-z\s]*?)(\d+)$/);
+        if (startMatch && endMatch) {
+          const prefix = startMatch[1] || endMatch[1] || '';
+          const start = parseInt(startMatch[2], 10);
+          const end = parseInt(endMatch[2], 10);
+          if (!isNaN(start) && !isNaN(end) && start <= end && (end - start) <= 300) {
+            const numbers: string[] = [];
+            for (let i = start; i <= end; i++) {
+              numbers.push(`${prefix}${i}`);
+            }
+            return numbers;
+          }
+        }
+      }
+    }
+    return [trimmed];
+  };
+
   const handleCreate = async () => {
     if (!creatorName.trim()) {
       showToast('Please enter a name or number', 'error');
       return;
     }
+    setIsSubmitting(true);
     try {
       if (creatorType === 'floor') {
         await addFloor({ branchId: selectedBranch, name: creatorName }).unwrap();
@@ -67,6 +101,7 @@ export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
       } else if (creatorType === 'room') {
         if (!parentId) {
           showToast('Please select a floor first', 'error');
+          setIsSubmitting(false);
           return;
         }
         await addRoom({ floorId: parentId, name: creatorName }).unwrap();
@@ -74,29 +109,31 @@ export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
       } else if (creatorType === 'seat') {
         if (!parentId) {
           showToast('Please select a room first', 'error');
+          setIsSubmitting(false);
           return;
         }
-        if (creatorName.includes('-')) {
-          const [startStr, endStr] = creatorName.split('-');
-          const start = parseInt(startStr.trim(), 10);
-          const end = parseInt(endStr.trim(), 10);
-          if (!isNaN(start) && !isNaN(end) && start <= end && end - start <= 200) {
-            for (let i = start; i <= end; i++) {
-              await addSeat({ roomId: parentId, number: i.toString() }).unwrap();
-            }
-            showToast(`Seats ${start} to ${end} created!`, 'success');
-          } else {
-            await addSeat({ roomId: parentId, number: creatorName }).unwrap();
-            showToast('Seat created!', 'success');
+        const seatNumbers = parseSeatNumbers(creatorName);
+        if (seatNumbers.length > 1) {
+          try {
+            await addBulkSeats({ roomId: parentId, numbers: seatNumbers }).unwrap();
+            showToast(`${seatNumbers.length} seats created in one go!`, 'success');
+          } catch (bulkErr: any) {
+            // Fallback to parallel requests if bulk API is not supported on older backend
+            await Promise.all(
+              seatNumbers.map(num => addSeat({ roomId: parentId, number: num }).unwrap())
+            );
+            showToast(`${seatNumbers.length} seats created successfully!`, 'success');
           }
-        } else {
-          await addSeat({ roomId: parentId, number: creatorName }).unwrap();
-          showToast('Seat created!', 'success');
+        } else if (seatNumbers.length === 1) {
+          await addSeat({ roomId: parentId, number: seatNumbers[0] }).unwrap();
+          showToast('Seat created successfully!', 'success');
         }
       }
       onClose();
     } catch (err: any) {
       showToast(err.data?.message || 'Creation failed', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -182,8 +219,8 @@ export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
         >
           {creatorType === 'room' ? 'Proceed to Seat' : 'Cancel'}
         </Button>
-        <Button onClick={handleCreate} variant="primary" style={{ backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }}>
-          Create
+        <Button onClick={handleCreate} disabled={isSubmitting} variant="primary" style={{ backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }}>
+          {isSubmitting ? 'Creating...' : 'Create'}
         </Button>
       </div>
     </Modal>
