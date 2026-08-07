@@ -59,7 +59,58 @@ export default function Login() {
       setShowDisabledModal(true);
       navigate('/login', { replace: true });
     }
-  }, [location.search, showToast, navigate]);
+
+    // Google Identity Services (GIS) Integration
+    const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
+    if (clientId) {
+      const scriptId = 'google-gsi-script';
+      if (!document.getElementById(scriptId)) {
+        const script = document.createElement('script');
+        script.id = scriptId;
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          if ((window as any).google?.accounts?.id) {
+            (window as any).google.accounts.id.initialize({
+              client_id: clientId,
+              callback: async (response: any) => {
+                if (response.credential) {
+                  try {
+                    const res = await googleLogin({ idToken: response.credential }).unwrap();
+                    dispatch(setCredentials(res));
+                    if (res.requiresWorkspaceInfo) {
+                      navigate('/setup-workspace');
+                    } else if (res.user?.role === 'SUPER_ADMIN') {
+                      navigate('/super-admin');
+                    } else {
+                      navigate('/dashboard');
+                    }
+                  } catch (err: any) {
+                    setError(err?.data?.message || 'Google Sign-In failed.');
+                  }
+                }
+              }
+            });
+          }
+        };
+        document.body.appendChild(script);
+      }
+    }
+  }, [location.search, showToast, navigate, googleLogin, dispatch]);
+
+  const triggerGoogleAuth = () => {
+    const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
+    if (clientId && (window as any).google?.accounts?.id) {
+      (window as any).google.accounts.id.prompt((notification: any) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          setShowGoogleModal(true);
+        }
+      });
+    } else {
+      setShowGoogleModal(true);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -531,7 +582,7 @@ export default function Login() {
               <button
                 type="button"
                 className="btn-social-outline"
-                onClick={() => setShowGoogleModal(true)}
+                onClick={triggerGoogleAuth}
                 disabled={isGoogleLoading}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -570,7 +621,7 @@ export default function Login() {
                   </div>
 
                   <div className="premium-input-group">
-                    <label className="premium-label">Workspace Name</label>
+                    <label className="premium-label">Library/Study Space Name</label>
                     <div className="premium-input-wrapper">
                       <Building size={16} className="premium-input-icon" />
                       <input
@@ -762,7 +813,7 @@ export default function Login() {
               <button
                 type="button"
                 className="btn-social-outline"
-                onClick={() => setShowGoogleModal(true)}
+                onClick={triggerGoogleAuth}
                 disabled={isGoogleLoading}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
