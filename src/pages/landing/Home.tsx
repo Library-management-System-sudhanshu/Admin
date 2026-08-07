@@ -5,7 +5,7 @@ import {
   Armchair, Users, ReceiptText, Clock, Building2, LayoutDashboard, 
   SlidersHorizontal, LineChart, Bell, Database, CheckCircle, XCircle, 
   HelpCircle, Mail, Phone, MapPin, TrendingUp, UserCheck, ChevronDown, Check,
-  ArrowRight, ShieldCheck, Zap, Sparkles, Smile, Star
+  ArrowRight, ShieldCheck, Zap, Smile, Star
 } from 'lucide-react';
 import './Landing.css';
 
@@ -200,7 +200,7 @@ export default function Home() {
           {/* Text Info */}
           <div className="lp-hero-text-side">
             <div className="lp-hero-tag">
-              <Sparkles size={13} style={{ marginRight: '4px' }} />
+              <Zap size={13} style={{ marginRight: '4px' }} />
               <span>TRISHUL OS v2.0</span>
             </div>
             

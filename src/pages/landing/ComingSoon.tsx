@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Sparkles } from 'lucide-react';
+import { ArrowLeft, Mail, Zap } from 'lucide-react';
 import { useToast } from '../../components/ui/ToastContext';
 import './Landing.css';
 
@@ -27,7 +27,7 @@ export default function ComingSoon() {
       <div className="landing-container subpage-centered-container">
         
         <div className="lp-hero-tag" style={{ marginBottom: '1.5rem' }}>
-          <Sparkles size={13} style={{ marginRight: '4px' }} />
+          <Zap size={13} style={{ marginRight: '4px' }} />
           <span>IN DEVELOPMENT</span>
         </div>
         
