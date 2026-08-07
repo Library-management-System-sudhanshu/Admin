@@ -878,7 +878,7 @@ export default function WhatsApp() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000,
+          zIndex: 999999,
           padding: '16px'
         }}>
           <div style={{

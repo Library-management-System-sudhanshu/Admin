@@ -800,7 +800,7 @@ export default function Login() {
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(15, 23, 42, 0.3)', backdropFilter: 'blur(8px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, animation: 'fadeIn 200ms ease-out'
+          zIndex: 999999, animation: 'fadeIn 200ms ease-out'
         }}>
           <div className="auth-card premium-modal-glass" style={{ width: '100%', maxWidth: '400px', margin: '2rem' }}>
             <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>

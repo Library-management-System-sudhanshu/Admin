@@ -3471,8 +3471,12 @@ export default function Seats() {
 
                     {/* Room dropdown actions */}
                     <button
-                      onClick={() => setActiveRoomMenuId(activeRoomMenuId === room.id ? null : room.id)}
-                      style={{ border: 'none', background: 'none', color: '#64748B', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveRoomMenuId(activeRoomMenuId === room.id ? null : room.id);
+                      }}
+                      style={{ border: 'none', background: 'none', color: '#64748B', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: '6px' }}
+                      title="Room options"
                     >
                       <MoreVertical size={16} />
                     </button>
@@ -3481,42 +3485,55 @@ export default function Seats() {
                     {activeRoomMenuId === room.id && (
                       <>
                         <div 
-                          onClick={() => setActiveRoomMenuId(null)}
-                          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveRoomMenuId(null);
+                          }}
+                          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9998 }}
                         />
-                        <div style={{
-                          position: 'absolute',
-                          right: 0,
-                          top: '100%',
-                          backgroundColor: '#ffffff',
-                          border: '1px solid var(--border-card)',
-                          borderRadius: '8px',
-                          boxShadow: 'var(--shadow-hover)',
-                          zIndex: 101,
-                          minWidth: '120px',
-                          padding: '4px 0',
-                          display: 'flex',
-                          flexDirection: 'column'
-                        }}>
+                        <div 
+                          style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: '100%',
+                            backgroundColor: '#ffffff',
+                            border: '1px solid var(--border-card)',
+                            borderRadius: '10px',
+                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                            zIndex: 9999,
+                            minWidth: '130px',
+                            padding: '6px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedRoomToEdit(room);
                               setEditRoomName(room.name);
                               setOpenEditRoomModal(true);
                               setActiveRoomMenuId(null);
                             }}
-                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-navy)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', textAlign: 'left', cursor: 'pointer', color: 'var(--text-navy)', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 150ms ease' }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'none'}
                           >
-                            <Edit2 size={12} /> Rename
+                            <Edit2 size={14} /> Rename
                           </button>
                           <button
-                            onClick={() => {
-                              handleDeleteRoom(room.id);
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setActiveRoomMenuId(null);
+                              handleDeleteRoom(room.id);
                             }}
-                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left', cursor: 'pointer', color: 'var(--status-red)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', textAlign: 'left', cursor: 'pointer', color: 'var(--status-red)', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 150ms ease' }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#fef2f2'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'none'}
                           >
-                            <Trash2 size={12} /> Delete
+                            <Trash2 size={14} /> Delete
                           </button>
                         </div>
                       </>
@@ -4916,7 +4933,7 @@ export default function Seats() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 9999,
+            zIndex: 999999,
           }}>
             <div style={{
               background: '#ffffff',

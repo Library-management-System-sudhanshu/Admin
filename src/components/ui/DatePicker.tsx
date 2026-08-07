@@ -108,7 +108,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
             position: 'absolute',
             ...(openDirection === 'bottom' ? { top: '100%', marginTop: '6px' } : { bottom: '100%', marginBottom: '6px' }),
             left: 0,
-            zIndex: 9999,
+            zIndex: 1000005,
             animation: 'fadeIn 150ms ease-out',
           }}
         >
