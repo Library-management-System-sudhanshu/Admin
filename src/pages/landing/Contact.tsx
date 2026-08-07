@@ -140,7 +140,7 @@ export default function Contact() {
                     className="lp-form-input"
                     placeholder="name@business.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.toLowerCase())}
                   />
                 </div>
 

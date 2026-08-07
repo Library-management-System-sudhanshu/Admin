@@ -972,7 +972,7 @@ export default function Students() {
               required
               value={editEmail}
               error={editErrors.email}
-              onChange={(e) => setEditEmail(e.target.value)}
+              onChange={(e) => setEditEmail(e.target.value.toLowerCase())}
             />
             <Input
               label="Mobile Number"

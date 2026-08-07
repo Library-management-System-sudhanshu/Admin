@@ -15,6 +15,12 @@
 .billing-hero-card::after { content:""; position:absolute; width:170px; height:170px; border-radius:50%; right:-60px; top:-75px; background:rgba(56,189,248,.12); }
 .billing-stat-card { border:1px solid #e2e8f0; background:#fff !important; }
 .billing-hero-card:hover,.billing-stat-card:hover { transform:translateY(-3px); box-shadow:0 14px 30px rgba(15,23,42,.09) !important; }
+.billing-action-card { cursor:pointer; user-select:none; }
+.billing-action-card:hover { border-color:#f59e0b; }
+.billing-action-card:active { transform:translateY(-1px) scale(.99); }
+.billing-action-card:focus-visible { outline:3px solid rgba(245,158,11,.24); outline-offset:3px; }
+.billing-action-card.active { border-color:#f59e0b; background:linear-gradient(145deg,#fffbeb,#fff7ed) !important; box-shadow:0 12px 28px rgba(217,119,6,.13) !important; }
+.billing-action-card.active::after { content:"Active filter"; position:absolute; top:18px; right:18px; padding:4px 8px; border-radius:999px; background:#fef3c7; color:#b45309; font-size:10px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; }
 .billing-stat-icon { width:38px; height:38px; display:grid; place-items:center; border-radius:11px; color:#7dd3fc; background:rgba(56,189,248,.14); margin-bottom:16px; }
 .billing-stat-icon.blue { color:#2563eb; background:#eff6ff; }.billing-stat-icon.amber { color:#d97706; background:#fffbeb; }
 .billing-stat-label { color:#94a3b8; font-size:12px !important; font-weight:700 !important; }

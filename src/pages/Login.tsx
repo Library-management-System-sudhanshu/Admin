@@ -220,8 +220,9 @@ export default function Login() {
   };
 
   const handleRegisterChange = (field: string, value: string, setter: (val: string) => void) => {
-    setter(value);
-    validateField(field, value);
+    const finalVal = field === 'email' ? value.toLowerCase() : value;
+    setter(finalVal);
+    validateField(field, finalVal);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -449,7 +450,7 @@ export default function Login() {
                     className="premium-input"
                     placeholder="admin@yourhall.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.toLowerCase())}
                   />
                 </div>
               </div>
@@ -854,7 +855,7 @@ export default function Login() {
                     className="premium-input"
                     placeholder="email@gmail.com"
                     value={googleEmail}
-                    onChange={(e) => setGoogleEmail(e.target.value)}
+                    onChange={(e) => setGoogleEmail(e.target.value.toLowerCase())}
                   />
                 </div>
               </div>

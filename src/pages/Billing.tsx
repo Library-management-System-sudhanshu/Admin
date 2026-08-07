@@ -195,7 +195,9 @@ export default function Billing() {
       }
 
       // 2. Status Filter
-      if (statusFilter !== 'ALL' && payment.status !== statusFilter) {
+      if (statusFilter === 'NEEDS_ATTENTION') {
+        if (payment.status !== 'UNPAID' && payment.status !== 'PARTIAL') return false;
+      } else if (statusFilter !== 'ALL' && payment.status !== statusFilter) {
         return false;
       }
 
@@ -484,11 +486,24 @@ export default function Billing() {
               <Typography className="billing-stat-value dark">{billingSummary.paid}</Typography>
               <Typography className="billing-stat-meta neutral">of {billingSummary.total} total invoices</Typography>
             </Card>
-            <Card className="billing-stat-card">
+            <Card
+              className={`billing-stat-card billing-action-card ${statusFilter === 'NEEDS_ATTENTION' ? 'active' : ''}`}
+              onClick={() => setStatusFilter(statusFilter === 'NEEDS_ATTENTION' ? 'ALL' : 'NEEDS_ATTENTION')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setStatusFilter(statusFilter === 'NEEDS_ATTENTION' ? 'ALL' : 'NEEDS_ATTENTION');
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-pressed={statusFilter === 'NEEDS_ATTENTION'}
+              aria-label="Filter invoices that need attention"
+            >
               <Box className="billing-stat-icon amber"><Clock size={20} /></Box>
               <Typography className="billing-stat-label">Needs attention</Typography>
               <Typography className="billing-stat-value dark">{billingSummary.pending}</Typography>
-              <Typography className="billing-stat-meta neutral">unpaid or partially paid</Typography>
+              <Typography className="billing-stat-meta neutral">{statusFilter === 'NEEDS_ATTENTION' ? 'Showing attention items · click to clear' : 'Unpaid or partially paid · click to view'}</Typography>
             </Card>
           </Box>
 
@@ -525,6 +540,7 @@ export default function Billing() {
                   <MenuItem value="PAID">Paid</MenuItem>
                   <MenuItem value="PARTIAL">Partial</MenuItem>
                   <MenuItem value="UNPAID">Unpaid</MenuItem>
+                  <MenuItem value="NEEDS_ATTENTION">Needs Attention</MenuItem>
                 </Select>
                 </FormControl>
               </Box>

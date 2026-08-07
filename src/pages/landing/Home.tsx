@@ -1050,7 +1050,7 @@ export default function Home() {
                   className="lp-form-input"
                   placeholder="name@business.com"
                   value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
+                  onChange={(e) => setContactEmail(e.target.value.toLowerCase())}
                 />
               </div>
 

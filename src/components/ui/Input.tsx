@@ -33,6 +33,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
     ? (showPassword ? 'text' : 'password') 
     : props.type;
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (props.type === 'email') {
+      e.target.value = e.target.value.toLowerCase();
+    }
+    props.onChange?.(e);
+  };
+
   return (
     <div className={containerClasses}>
       {label && (
@@ -46,6 +53,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           ref={ref}
           className={`custom-input ${isPasswordType ? 'is-password' : ''}`}
           {...props}
+          onChange={handleChange}
           type={resolvedType}
         />
         {isPasswordType && (

@@ -47,7 +47,7 @@ export default function ComingSoon() {
             style={{ flexGrow: 1 }}
             placeholder="Enter your email address"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value.toLowerCase())}
           />
           <button
             type="submit"
