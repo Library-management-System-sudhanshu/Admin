@@ -9,7 +9,7 @@ import { useToast } from '../components/ui/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { Card } from '../components/ui/Card';
-import { ArrowLeft, Sparkles, Armchair, Building2, Layers, Landmark } from 'lucide-react';
+import { ArrowLeft, Armchair, Building2, Layers, Landmark } from 'lucide-react';
 import '../components/ui/Globals.css';
 
 export default function TransferSeat() {
@@ -131,7 +131,7 @@ export default function TransferSeat() {
         </button>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            Seat Transfer Portal <Sparkles size={20} color="var(--accent-blue)" />
+            Seat Transfer Portal
           </h1>
           <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem', color: 'var(--text-slate)', fontWeight: 500 }}>
             Move student to a different seat in the same branch location.

@@ -52,7 +52,7 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { Button } from '../components/ui/Button';
-import { Plus, X, CreditCard, Calendar, User, History, Clock, Sparkles, Sun, SunMedium, Sunset, Moon, Users, IndianRupee, CheckCircle2 } from 'lucide-react';
+import { Plus, X, CreditCard, Calendar, User, History, Clock, Sun, SunMedium, Sunset, Moon, Users, IndianRupee, CheckCircle2 } from 'lucide-react';
 import { styled, keyframes } from '@mui/material/styles';
 import { Search, Download, TrendingUp, WalletCards, SlidersHorizontal, RotateCcw, ArrowUpRight } from 'lucide-react';
 import './Billing.css';
@@ -134,7 +134,7 @@ const PRESET_SHIFTS = [
   { id: 'evening', label: 'Evening', subText: '6 PM - 11 PM', name: 'Evening Shift', startTime: '18:00', endTime: '23:00', icon: Sunset },
   { id: 'night', label: 'Night', subText: '11 PM - 6 AM', name: 'Night Shift', startTime: '23:00', endTime: '06:00', icon: Moon },
   { id: 'fullday', label: 'Full Day', subText: '8 AM - 8 PM', name: 'Full Day Shift', startTime: '08:00', endTime: '20:00', icon: Clock },
-  { id: 'custom', label: 'Custom', subText: 'Manual hours', name: '', startTime: '09:00', endTime: '17:00', icon: Sparkles }
+  { id: 'custom', label: 'Custom', subText: 'Manual hours', name: '', startTime: '09:00', endTime: '17:00', icon: Clock }
 ];
 
 export default function Billing() {
@@ -925,7 +925,7 @@ export default function Billing() {
             {/* Quick Presets Selection */}
             <Box>
               <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.06em', mb: 1.25, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Sparkles size={14} style={{ color: 'var(--accent-blue)' }} /> Quick Presets
+                <Clock size={14} style={{ color: 'var(--accent-blue)' }} /> Quick Presets
               </Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.25 }}>
                 {PRESET_SHIFTS.map((preset) => {

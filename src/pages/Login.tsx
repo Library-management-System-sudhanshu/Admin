@@ -6,7 +6,7 @@ import { setCredentials } from '../store/authSlice';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/ToastContext';
 import { 
-  Mail, Lock, User, Building, MapPin, Sparkles, TrendingUp, Users, Wallet, Clock, 
+  Mail, Lock, User, Building, MapPin, TrendingUp, Users, Wallet, Clock, 
   ArrowRight, Eye, EyeOff, Check, HelpCircle, Activity, Globe, Shield, RefreshCw, AlertCircle
 } from 'lucide-react';
 import './Login.css';
@@ -697,7 +697,7 @@ export default function Login() {
                     <div className="premium-input-group">
                       <label className="premium-label">GST Number</label>
                       <div className="premium-input-wrapper">
-                        <Sparkles size={16} className="premium-input-icon" />
+                        <Building size={16} className="premium-input-icon" />
                         <input
                           type="text"
                           className={`premium-input ${errors.gstNumber ? 'input-error' : ''}`}

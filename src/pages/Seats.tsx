@@ -55,7 +55,6 @@ import {
   CheckCircle,
   Users,
   Wrench,
-  Sparkles,
   SlidersHorizontal,
   X,
   History,
@@ -63,6 +62,7 @@ import {
   MoreVertical,
   HelpCircle,
   Building,
+  User,
   Lock,
   Unlock,
   Eye,
@@ -2803,7 +2803,7 @@ export default function Seats() {
     return (
       <form onSubmit={handleAllocate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
-          <Sparkles size={16} />
+          <User size={16} />
           <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Assign Student Seat</h4>
         </div>
 
@@ -3106,7 +3106,7 @@ export default function Seats() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '16px' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.025em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-             Seat Map <Sparkles size={20} color="var(--accent-blue)" />
+             Seat Map
           </h1>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: '#475569', fontWeight: 500 }}>
             Manage branches, floors, rooms and student.
@@ -3159,6 +3159,33 @@ export default function Seats() {
                 <Edit2 size={12} />
               </button>
             </div>
+          )}
+
+          {selectedBranch && currentFloor && (
+            <button
+              onClick={() => {
+                setCreatorType('room');
+                setParentId(currentFloor.id);
+                setOpenCreator(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                border: '1px solid rgba(37, 99, 235, 0.2)',
+                backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                color: 'var(--accent-blue)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 150ms ease'
+              }}
+              title="Add Room"
+            >
+              <Plus size={14} /> Add Room
+            </button>
           )}
 
           {selectedBranch && seatMap && seatMap.length > 0 && (
@@ -3376,6 +3403,31 @@ export default function Seats() {
           </p>
           <Button onClick={() => { setCreatorType('floor'); setOpenCreator(true); }} variant="primary" style={{ backgroundColor: 'var(--accent-blue)' }}>
             Add Your First Floor
+          </Button>
+        </div>
+      ) : !currentFloor?.rooms || currentFloor.rooms.length === 0 ? (
+        <div className="empty-state-container" style={{ padding: '48px 24px', background: 'rgba(255, 255, 255, 0.7)', borderRadius: '16px', border: '1px solid var(--border-card)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'rgba(37, 99, 235, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', marginBottom: '16px' }}>
+            <DoorOpen size={28} />
+          </div>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-navy)' }}>
+            No rooms created in {currentFloor?.name || 'this floor'}
+          </h3>
+          <p style={{ margin: '8px 0 20px 0', fontSize: '0.875rem', color: 'var(--text-slate)', maxWidth: '420px' }}>
+            You have created "{currentFloor?.name || 'this floor'}". Add a room or hall to start configuring seats.
+          </p>
+          <Button 
+            onClick={() => {
+              if (currentFloor) {
+                setCreatorType('room');
+                setParentId(currentFloor.id);
+                setOpenCreator(true);
+              }
+            }} 
+            variant="primary" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '12px', backgroundColor: 'var(--accent-blue)' }}
+          >
+            <Plus size={16} /> Add Room to {currentFloor?.name || 'Floor'}
           </Button>
         </div>
       ) : (

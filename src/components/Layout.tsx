@@ -24,7 +24,7 @@ import {
   User,
   CreditCard,
   LogOut,
-  Sparkles,
+  Clock,
   SlidersHorizontal
 } from 'lucide-react';
 import './Layout.css';
@@ -333,7 +333,7 @@ export default function Layout() {
                 {metrics && metrics.expiringSubscriptions > 0 ? (
                   <button className="profile-dropdown-item" style={{ whiteSpace: 'normal', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', borderBottom: '1px solid rgba(15,23,42,0.03)' }} onClick={() => { setIsNotificationsOpen(false); navigate('/seats'); }}>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '2px' }}>
-                      <Sparkles size={12} style={{ color: 'var(--status-amber)' }} />
+                      <Clock size={12} style={{ color: 'var(--status-amber)' }} />
                       <span style={{ fontWeight: 600, fontSize: '0.75rem', color: 'var(--text-navy)' }}>Expiring Subscriptions</span>
                     </div>
                     <span style={{ fontSize: '0.68rem', color: 'var(--text-slate)' }}>{metrics.expiringSubscriptions} students subscription will expire within the next 7 days.</span>

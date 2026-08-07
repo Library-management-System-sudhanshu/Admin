@@ -37,8 +37,12 @@ export const LayoutCreatorModal: React.FC<LayoutCreatorModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setCreatorName('');
-      if (creatorType === 'room' && seatMap && seatMap.length > 0) {
-        setParentId(seatMap[0].id);
+      if (creatorType === 'room') {
+        if (currentFloor) {
+          setParentId(currentFloor.id);
+        } else if (seatMap && seatMap.length > 0) {
+          setParentId(seatMap[0].id);
+        }
       } else if (creatorType === 'seat' && currentFloor?.rooms && currentFloor.rooms.length > 0) {
         setParentId(currentFloor.rooms[0].id);
       } else {

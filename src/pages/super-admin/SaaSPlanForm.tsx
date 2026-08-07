@@ -8,7 +8,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/ToastContext';
-import { ArrowLeft, Save, Sparkles, Check, Info } from 'lucide-react';
+import { ArrowLeft, Save, Zap, Check, Info } from 'lucide-react';
 
 export default function SaaSPlanForm() {
   const { id } = useParams<{ id: string }>();
@@ -125,7 +125,7 @@ export default function SaaSPlanForm() {
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <Sparkles size={20} />
+            <Zap size={20} />
           </div>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
