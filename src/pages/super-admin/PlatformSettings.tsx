@@ -151,7 +151,7 @@ export default function PlatformSettings() {
                 label="Support Email Address"
                 type="email"
                 value={supportEmail}
-                onChange={(e) => setSupportEmail(e.target.value)}
+                onChange={(e) => setSupportEmail(e.target.value.toLowerCase())}
                 placeholder="support@studyflow.in"
                 required
               />

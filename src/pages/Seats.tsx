@@ -55,7 +55,6 @@ import {
   CheckCircle,
   Users,
   Wrench,
-  Sparkles,
   SlidersHorizontal,
   X,
   History,
@@ -63,6 +62,8 @@ import {
   MoreVertical,
   HelpCircle,
   Building,
+  User,
+  Armchair,
   Lock,
   Unlock,
   Eye,
@@ -2803,7 +2804,7 @@ export default function Seats() {
     return (
       <form onSubmit={handleAllocate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--accent-blue)', marginBottom: '4px' }}>
-          <Sparkles size={16} />
+          <User size={16} />
           <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Assign Student Seat</h4>
         </div>
 
@@ -2992,6 +2993,34 @@ export default function Seats() {
 
   // Render classroom study hall grid layout representation
   const renderStudyHallGrid = (room: any) => {
+    if (!room.seats || room.seats.length === 0) {
+      return (
+        <div className="empty-state-container" style={{ padding: '36px 24px', background: 'rgba(248, 250, 252, 0.6)', borderRadius: '16px', border: '1px dashed rgba(15, 23, 42, 0.12)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(37, 99, 235, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', marginBottom: '12px' }}>
+            <Armchair size={24} />
+          </div>
+          <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-navy)' }}>
+            No seats created in {room.name}
+          </h4>
+          <p style={{ margin: '4px 0 16px 0', fontSize: '0.8rem', color: 'var(--text-slate)', maxWidth: '380px' }}>
+            Add seats (e.g. 1-50 or A1-A20) to start configuring and allocating students to this hall.
+          </p>
+          <Button 
+            onClick={() => {
+              setParentId(room.id);
+              setCreatorType('seat');
+              setOpenCreator(true);
+            }} 
+            variant="primary" 
+            size="sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px', backgroundColor: 'var(--accent-blue)', padding: '8px 16px' }}
+          >
+            <Plus size={14} /> Add Seats to {room.name}
+          </Button>
+        </div>
+      );
+    }
+
     const sortedAndFiltered = getSortedSeats(room.seats, room.id);
     if (sortedAndFiltered.length === 0) {
       return (
@@ -3106,7 +3135,7 @@ export default function Seats() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '16px' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.025em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-             Seat Map <Sparkles size={20} color="var(--accent-blue)" />
+             Seat Map
           </h1>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: '#475569', fontWeight: 500 }}>
             Manage branches, floors, rooms and student.
@@ -3159,6 +3188,33 @@ export default function Seats() {
                 <Edit2 size={12} />
               </button>
             </div>
+          )}
+
+          {selectedBranch && currentFloor && (
+            <button
+              onClick={() => {
+                setCreatorType('room');
+                setParentId(currentFloor.id);
+                setOpenCreator(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                border: '1px solid rgba(37, 99, 235, 0.2)',
+                backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                color: 'var(--accent-blue)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 150ms ease'
+              }}
+              title="Add Room"
+            >
+              <Plus size={14} /> Add Room
+            </button>
           )}
 
           {selectedBranch && seatMap && seatMap.length > 0 && (
@@ -3378,6 +3434,31 @@ export default function Seats() {
             Add Your First Floor
           </Button>
         </div>
+      ) : !currentFloor?.rooms || currentFloor.rooms.length === 0 ? (
+        <div className="empty-state-container" style={{ padding: '48px 24px', background: 'rgba(255, 255, 255, 0.7)', borderRadius: '16px', border: '1px solid var(--border-card)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'rgba(37, 99, 235, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', marginBottom: '16px' }}>
+            <DoorOpen size={28} />
+          </div>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-navy)' }}>
+            No rooms created in {currentFloor?.name || 'this floor'}
+          </h3>
+          <p style={{ margin: '8px 0 20px 0', fontSize: '0.875rem', color: 'var(--text-slate)', maxWidth: '420px' }}>
+            You have created "{currentFloor?.name || 'this floor'}". Add a room or hall to start configuring seats.
+          </p>
+          <Button 
+            onClick={() => {
+              if (currentFloor) {
+                setCreatorType('room');
+                setParentId(currentFloor.id);
+                setOpenCreator(true);
+              }
+            }} 
+            variant="primary" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '12px', backgroundColor: 'var(--accent-blue)' }}
+          >
+            <Plus size={16} /> Add Room to {currentFloor?.name || 'Floor'}
+          </Button>
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {currentFloor?.rooms?.map((room: any) => {
@@ -3471,8 +3552,12 @@ export default function Seats() {
 
                     {/* Room dropdown actions */}
                     <button
-                      onClick={() => setActiveRoomMenuId(activeRoomMenuId === room.id ? null : room.id)}
-                      style={{ border: 'none', background: 'none', color: '#64748B', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveRoomMenuId(activeRoomMenuId === room.id ? null : room.id);
+                      }}
+                      style={{ border: 'none', background: 'none', color: '#64748B', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: '6px' }}
+                      title="Room options"
                     >
                       <MoreVertical size={16} />
                     </button>
@@ -3481,42 +3566,55 @@ export default function Seats() {
                     {activeRoomMenuId === room.id && (
                       <>
                         <div 
-                          onClick={() => setActiveRoomMenuId(null)}
-                          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveRoomMenuId(null);
+                          }}
+                          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9998 }}
                         />
-                        <div style={{
-                          position: 'absolute',
-                          right: 0,
-                          top: '100%',
-                          backgroundColor: '#ffffff',
-                          border: '1px solid var(--border-card)',
-                          borderRadius: '8px',
-                          boxShadow: 'var(--shadow-hover)',
-                          zIndex: 101,
-                          minWidth: '120px',
-                          padding: '4px 0',
-                          display: 'flex',
-                          flexDirection: 'column'
-                        }}>
+                        <div 
+                          style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: '100%',
+                            backgroundColor: '#ffffff',
+                            border: '1px solid var(--border-card)',
+                            borderRadius: '10px',
+                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                            zIndex: 9999,
+                            minWidth: '130px',
+                            padding: '6px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedRoomToEdit(room);
                               setEditRoomName(room.name);
                               setOpenEditRoomModal(true);
                               setActiveRoomMenuId(null);
                             }}
-                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left', cursor: 'pointer', color: 'var(--text-navy)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', textAlign: 'left', cursor: 'pointer', color: 'var(--text-navy)', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 150ms ease' }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'none'}
                           >
-                            <Edit2 size={12} /> Rename
+                            <Edit2 size={14} /> Rename
                           </button>
                           <button
-                            onClick={() => {
-                              handleDeleteRoom(room.id);
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setActiveRoomMenuId(null);
+                              handleDeleteRoom(room.id);
                             }}
-                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left', cursor: 'pointer', color: 'var(--status-red)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                            style={{ border: 'none', background: 'none', padding: '8px 12px', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', textAlign: 'left', cursor: 'pointer', color: 'var(--status-red)', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 150ms ease' }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#fef2f2'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'none'}
                           >
-                            <Trash2 size={12} /> Delete
+                            <Trash2 size={14} /> Delete
                           </button>
                         </div>
                       </>
@@ -4916,7 +5014,7 @@ export default function Seats() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 9999,
+            zIndex: 999999,
           }}>
             <div style={{
               background: '#ffffff',

@@ -8,7 +8,7 @@ import { Select } from './ui/Select';
 import { Switch } from './ui/Switch';
 import { DatePicker } from './ui/DatePicker';
 import { useToast } from './ui/ToastContext';
-import { Sparkles, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { formatYYYYMMDD, addMonthsToDate } from '../utils/dateUtils';
 interface AllocateSeatModalProps {
   isOpen: boolean;

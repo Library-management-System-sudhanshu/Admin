@@ -17,7 +17,7 @@ import { useToast } from '../components/ui/ToastContext';
 import { Select } from '../components/ui/Select';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
-import { AlertTriangle, ShieldAlert, Radio, Volume2, Check, CreditCard, Sparkles } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, Radio, Volume2, Check, CreditCard } from 'lucide-react';
 
 export default function Settings() {
   const { user } = useSelector((state: RootState) => state.auth);

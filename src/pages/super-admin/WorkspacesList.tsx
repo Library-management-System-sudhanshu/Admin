@@ -270,7 +270,7 @@ export default function WorkspacesList() {
                 label="Owner Email Address"
                 type="email"
                 value={formData.ownerEmail}
-                onChange={(e) => setFormData({ ...formData, ownerEmail: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, ownerEmail: e.target.value.toLowerCase() })}
                 placeholder="e.g. rajesh@email.com"
                 required
               />

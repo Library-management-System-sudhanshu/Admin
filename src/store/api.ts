@@ -105,7 +105,10 @@ export const api = createApi({
 
     // Dashboard Metrics
     getMetrics: builder.query({
-      query: () => 'dashboard/metrics',
+      query: (params) => ({
+        url: 'dashboard/metrics',
+        params,
+      }),
       providesTags: ['Metrics'],
     }),
 
@@ -237,6 +240,14 @@ export const api = createApi({
     addSeat: builder.mutation({
       query: (data) => ({
         url: 'seats/seats',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Seats'],
+    }),
+    addBulkSeats: builder.mutation({
+      query: (data) => ({
+        url: 'seats/seats/bulk',
         method: 'POST',
         body: data,
       }),
@@ -573,6 +584,7 @@ export const {
   useAddFloorMutation,
   useAddRoomMutation,
   useAddSeatMutation,
+  useAddBulkSeatsMutation,
   useDeleteSeatMutation,
   useDeleteRoomMutation,
   useDeleteFloorMutation,

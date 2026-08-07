@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { useGetSaaSPlansQuery, useUpdateSaaSPlanMutation } from '../../store/api';
-import { Plus, Edit, Zap, Award, Sparkles, Check } from 'lucide-react';
+import { Plus, Edit, Zap, Award, Check } from 'lucide-react';
 import { useToast } from '../../components/ui/ToastContext';
 
 // Helper to resolve card styles based on pricing tiers
@@ -36,7 +36,7 @@ const getPlanTheme = (price: number) => {
       gradient: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
       shadow: 'rgba(139, 92, 246, 0.15)',
       badge: 'Enterprise Elite',
-      icon: <Sparkles size={22} style={{ color: '#8b5cf6' }} />
+      icon: <Zap size={22} style={{ color: '#8b5cf6' }} />
     };
   }
 };

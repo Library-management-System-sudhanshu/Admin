@@ -34,7 +34,6 @@ import {
   AlertTriangle,
   FileText
 } from 'lucide-react';
-import { CustomCalendar } from '../components/ui/CustomCalendar';
 import themeColors from '../theme/colors';
 import './Dashboard.css';
 
@@ -63,14 +62,9 @@ const Sparkline = ({ data, stroke }: { data: number[]; stroke: string }) => {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data: metrics, isLoading, error } = useGetMetricsQuery({});
+  const [expiringDays, setExpiringDays] = useState<number>(7);
+  const { data: metrics, isLoading, error } = useGetMetricsQuery({ days: expiringDays });
   const [hoveredAction, setHoveredAction] = useState<number | null>(null);
-  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
-
-
-
-
-
 
   if (isLoading) {
     return (
@@ -149,16 +143,15 @@ export default function Dashboard() {
       path: '/billing',
     },
     {
-      title: 'Expiring Plan (7d)',
+      title: `Expiring Plan (${expiringDays}d)`,
       value: metrics.expiringSubscriptions,
       icon: <CalendarClock size={20} />,
       gradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.02))',
       iconColor: '#EF4444',
-      trend: '+2',
-      trendUp: false, // More expirations is warning
+      hasDropdown: true,
       sparkData: [2, 4, 3, 5, 2, 6, metrics.expiringSubscriptions],
       path: '/students',
-      state: { filterExpiration: 'EXPIRING_SOON' },
+      state: { filterExpiration: 'EXPIRING_SOON', days: expiringDays },
     },
   ];
 
@@ -195,17 +188,46 @@ export default function Dashboard() {
               className="dashboard-kpi-card"
               onClick={() => navigate(kpi.path, { state: kpi.state })}
             >
-              {/* Card Header: Icon & Trend */}
+              {/* Card Header: Icon & Trend or Dropdown */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: kpi.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', color: kpi.iconColor }}>
                   {kpi.icon}
                 </div>
 
-                {/* Trend indicators */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: kpi.trendUp ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: kpi.trendUp ? 'var(--status-emerald)' : 'var(--status-red)' }}>
-                  {kpi.trendUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                  <span>{kpi.trend}</span>
-                </div>
+                {kpi.hasDropdown ? (
+                  <select
+                    value={expiringDays}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      setExpiringDays(Number(e.target.value));
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      padding: '3px 8px',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                      color: '#ef4444',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <option value={1}>1 Day</option>
+                    <option value={3}>3 Days</option>
+                    <option value={7}>7 Days</option>
+                    <option value={15}>15 Days</option>
+                    <option value={30}>30 Days</option>
+                  </select>
+                ) : (
+                  /* Trend indicators */
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: kpi.trendUp ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: kpi.trendUp ? 'var(--status-emerald)' : 'var(--status-red)' }}>
+                    {kpi.trendUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    <span>{kpi.trend}</span>
+                  </div>
+                )}
               </div>
 
               {/* Number and Label */}
@@ -363,16 +385,6 @@ export default function Dashboard() {
 
       {/* RIGHT COLUMN: Summary & Activity TIMELINE Panel */}
       <div className="dashboard-side-col">
-        {/* CALENDAR WIDGET */}
-        <div style={{ marginBottom: '16px' }}>
-          <CustomCalendar
-            compact
-            value={calendarDate}
-            onChange={(date) => setCalendarDate(date)}
-            style={{ width: '100%', maxWidth: '100%' }}
-          />
-        </div>
-
         {/* 1. TODAY'S SUMMARY */}
         <div style={{ background: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '18px', padding: '20px', boxShadow: 'var(--shadow-soft)' }}>
           <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-navy)', margin: '0 0 16px 0', textTransform: 'uppercase', letterSpacing: '0.03em' }}>

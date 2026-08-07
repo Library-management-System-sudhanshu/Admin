@@ -106,15 +106,21 @@ export default function Students() {
   const [filterExpiration, setFilterExpiration] = useState(() => {
     return (location.state as any)?.filterExpiration || '';
   });
+  const [filterDays, setFilterDays] = useState<number | undefined>(() => {
+    return (location.state as any)?.days;
+  });
 
   // Reset page to 1 when filters or search change
   useEffect(() => {
     setPage(1);
-  }, [search, branchId, filterShiftId, filterExpiration]);
+  }, [search, branchId, filterShiftId, filterExpiration, filterDays]);
 
   React.useEffect(() => {
     if (location.state && (location.state as any).filterExpiration !== undefined) {
       setFilterExpiration((location.state as any).filterExpiration);
+    }
+    if (location.state && (location.state as any).days !== undefined) {
+      setFilterDays((location.state as any).days);
     }
   }, [location.state]);
 
@@ -700,7 +706,7 @@ export default function Students() {
                             border: '1px solid rgba(239, 68, 68, 0.2)',
                           };
                         } else if (diffDays <= 7) {
-                          statusText = diffDays === 0 ? 'Expires Today' : `Expires in ${diffDays} days`;
+                          statusText = diffDays === 0 ? 'Expires Today' : `Expires in ${diffDays} ${diffDays === 1 ? 'day' : 'days'}`;
                           badgeStyle = {
                             ...badgeStyle,
                             color: 'var(--status-gold)',
@@ -708,7 +714,7 @@ export default function Students() {
                             border: '1px solid rgba(217, 119, 6, 0.2)',
                           };
                         } else {
-                          statusText = 'Active';
+                          statusText = `Active (${diffDays} days remaining)`;
                           badgeStyle = {
                             ...badgeStyle,
                             color: 'var(--status-emerald)',
@@ -966,7 +972,7 @@ export default function Students() {
               required
               value={editEmail}
               error={editErrors.email}
-              onChange={(e) => setEditEmail(e.target.value)}
+              onChange={(e) => setEditEmail(e.target.value.toLowerCase())}
             />
             <Input
               label="Mobile Number"

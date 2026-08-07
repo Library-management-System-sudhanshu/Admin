@@ -157,7 +157,7 @@ export default function SaaSBillingGuard({ children }: SaaSBillingGuardProps) {
       </div>
 
       {showWelcomeModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}>
           <div style={{ background: 'white', padding: '3rem', borderRadius: '16px', maxWidth: '500px', width: '100%', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
             <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '1rem', color: '#0f172a' }}>Welcome to StudyFlow!</h2>
             <p style={{ color: '#475569', marginBottom: '2rem', fontSize: '1.1rem', lineHeight: 1.5 }}>
@@ -179,7 +179,7 @@ export default function SaaSBillingGuard({ children }: SaaSBillingGuardProps) {
       )}
 
       {showExpiredModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.9)' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.9)' }}>
           <div style={{ background: 'white', padding: '3rem', borderRadius: '16px', maxWidth: '900px', width: '100%', textAlign: 'center' }}>
             <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1rem', color: '#ef4444' }}>Your Trial Has Expired</h2>
             <p style={{ color: '#475569', marginBottom: '2.5rem', fontSize: '1.1rem' }}>

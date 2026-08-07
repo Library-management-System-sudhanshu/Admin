@@ -559,7 +559,7 @@ export default function Profile() {
                     required
                     value={email}
                     disabled
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.toLowerCase())}
                   />
                   <Input
                     label="Mobile Number"

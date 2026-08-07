@@ -6,7 +6,7 @@ import { setCredentials } from '../store/authSlice';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/ToastContext';
 import { 
-  Mail, Lock, User, Building, MapPin, Sparkles, TrendingUp, Users, Wallet, Clock, 
+  Mail, Lock, User, Building, MapPin, TrendingUp, Users, Wallet, Clock, 
   ArrowRight, Eye, EyeOff, Check, HelpCircle, Activity, Globe, Shield, RefreshCw, AlertCircle
 } from 'lucide-react';
 import './Login.css';
@@ -59,7 +59,58 @@ export default function Login() {
       setShowDisabledModal(true);
       navigate('/login', { replace: true });
     }
-  }, [location.search, showToast, navigate]);
+
+    // Google Identity Services (GIS) Integration
+    const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
+    if (clientId) {
+      const scriptId = 'google-gsi-script';
+      if (!document.getElementById(scriptId)) {
+        const script = document.createElement('script');
+        script.id = scriptId;
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          if ((window as any).google?.accounts?.id) {
+            (window as any).google.accounts.id.initialize({
+              client_id: clientId,
+              callback: async (response: any) => {
+                if (response.credential) {
+                  try {
+                    const res = await googleLogin({ idToken: response.credential }).unwrap();
+                    dispatch(setCredentials(res));
+                    if (res.requiresWorkspaceInfo) {
+                      navigate('/setup-workspace');
+                    } else if (res.user?.role === 'SUPER_ADMIN') {
+                      navigate('/super-admin');
+                    } else {
+                      navigate('/dashboard');
+                    }
+                  } catch (err: any) {
+                    setError(err?.data?.message || 'Google Sign-In failed.');
+                  }
+                }
+              }
+            });
+          }
+        };
+        document.body.appendChild(script);
+      }
+    }
+  }, [location.search, showToast, navigate, googleLogin, dispatch]);
+
+  const triggerGoogleAuth = () => {
+    const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
+    if (clientId && (window as any).google?.accounts?.id) {
+      (window as any).google.accounts.id.prompt((notification: any) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          setShowGoogleModal(true);
+        }
+      });
+    } else {
+      setShowGoogleModal(true);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,8 +271,9 @@ export default function Login() {
   };
 
   const handleRegisterChange = (field: string, value: string, setter: (val: string) => void) => {
-    setter(value);
-    validateField(field, value);
+    const finalVal = field === 'email' ? value.toLowerCase() : value;
+    setter(finalVal);
+    validateField(field, finalVal);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -449,7 +501,7 @@ export default function Login() {
                     className="premium-input"
                     placeholder="admin@yourhall.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.toLowerCase())}
                   />
                 </div>
               </div>
@@ -530,7 +582,7 @@ export default function Login() {
               <button
                 type="button"
                 className="btn-social-outline"
-                onClick={() => setShowGoogleModal(true)}
+                onClick={triggerGoogleAuth}
                 disabled={isGoogleLoading}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -569,7 +621,7 @@ export default function Login() {
                   </div>
 
                   <div className="premium-input-group">
-                    <label className="premium-label">Workspace Name</label>
+                    <label className="premium-label">Library/Study Space Name</label>
                     <div className="premium-input-wrapper">
                       <Building size={16} className="premium-input-icon" />
                       <input
@@ -696,7 +748,7 @@ export default function Login() {
                     <div className="premium-input-group">
                       <label className="premium-label">GST Number</label>
                       <div className="premium-input-wrapper">
-                        <Sparkles size={16} className="premium-input-icon" />
+                        <Building size={16} className="premium-input-icon" />
                         <input
                           type="text"
                           className={`premium-input ${errors.gstNumber ? 'input-error' : ''}`}
@@ -761,7 +813,7 @@ export default function Login() {
               <button
                 type="button"
                 className="btn-social-outline"
-                onClick={() => setShowGoogleModal(true)}
+                onClick={triggerGoogleAuth}
                 disabled={isGoogleLoading}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -799,7 +851,7 @@ export default function Login() {
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(15, 23, 42, 0.3)', backdropFilter: 'blur(8px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, animation: 'fadeIn 200ms ease-out'
+          zIndex: 999999, animation: 'fadeIn 200ms ease-out'
         }}>
           <div className="auth-card premium-modal-glass" style={{ width: '100%', maxWidth: '400px', margin: '2rem' }}>
             <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -854,7 +906,7 @@ export default function Login() {
                     className="premium-input"
                     placeholder="email@gmail.com"
                     value={googleEmail}
-                    onChange={(e) => setGoogleEmail(e.target.value)}
+                    onChange={(e) => setGoogleEmail(e.target.value.toLowerCase())}
                   />
                 </div>
               </div>

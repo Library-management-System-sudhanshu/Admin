@@ -91,7 +91,7 @@ export default function SuperAdminLogin() {
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value.toLowerCase())}
                 style={{ width: '100%', padding: '0.75rem 1rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: 'white', fontSize: '0.9rem', outline: 'none' }}
                 placeholder="admin@trishul.com"
               />

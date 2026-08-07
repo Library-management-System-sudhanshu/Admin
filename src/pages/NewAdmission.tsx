@@ -236,8 +236,9 @@ export default function NewAdmission() {
   };
 
   const handleChange = (field: string, value: string, setter: (val: string) => void) => {
-    setter(value);
-    validateField(field, value);
+    const finalVal = field === 'email' ? value.toLowerCase() : value;
+    setter(finalVal);
+    validateField(field, finalVal);
   };
 
   const validateForm = () => {
