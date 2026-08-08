@@ -449,21 +449,20 @@ export default function Billing() {
 
   return (
     <Box className="billing-page">
-      <Box style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+      {/* Tabs & Collect Fee Action Row */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2, borderBottom: '1px solid #e2e8f0' }}>
+        <Tabs value={tab} onChange={(_, val) => setTab(val)} className="billing-tabs" variant="scrollable" scrollButtons={false} sx={{ mb: 0, borderBottom: 'none' }}>
+          <Tab label="Collection ledger" />
+          <Tab label="Shifts & pricing" />
+        </Tabs>
         <Button 
           variant="primary" 
           onClick={() => setOpenCollect(true)}
-          className="billing-primary-action"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: 600, marginBottom: '6px' }}
         >
-          <Plus size={18} /> <span>Collect fee</span>
+          <Plus size={16} /> <span>Collect Fee</span>
         </Button>
       </Box>
-
-      {/* Tabs */}
-      <Tabs value={tab} onChange={(_, val) => setTab(val)} className="billing-tabs" variant="scrollable" scrollButtons={false}>
-        <Tab label="Collection ledger" />
-        <Tab label="Shifts & pricing" />
-      </Tabs>
 
       {tab === 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

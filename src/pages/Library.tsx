@@ -121,29 +121,29 @@ export default function Library() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+      {/* Tabs & Action Buttons Row */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tab} onChange={(_, val) => setTab(val)} sx={{ mb: 0 }}>
+          <Tab label="Book Catalog" />
+          <Tab label="Active Borrowers" />
+        </Tabs>
+        <Box sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
           <Button 
             variant="outline" 
             onClick={() => setOpenIssue(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '8px 16px', borderRadius: '10px', fontWeight: 600 }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600 }}
           >
-            <BookOpen size={16} /> Issue Book
+            <BookOpen size={15} /> Issue Book
           </Button>
           <Button 
             variant="primary" 
             onClick={() => setOpenAddBook(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '8px 16px', borderRadius: '10px', fontWeight: 600, backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 600, backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
           >
-            <Plus size={16} /> Add Book
+            <Plus size={15} /> Add Book
           </Button>
         </Box>
       </Box>
-
-      <Tabs value={tab} onChange={(_, val) => setTab(val)} sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
-        <Tab label="Book Catalog" />
-        <Tab label="Active Borrowers" />
-      </Tabs>
 
       {tab === 0 && (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>

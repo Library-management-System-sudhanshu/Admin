@@ -78,6 +78,73 @@ type ChannelKey = typeof channels[number]['key'];
 
 const WHATSAPP_WINDOW_NAME = 'StudyFlowWhatsAppWindow';
 
+const PREDEFINED_EMAIL_TEMPLATES = [
+  {
+    id: 'fee_reminder',
+    name: 'Fee Payment Reminder',
+    subject: 'Fee Payment Reminder - StudyFlow',
+    body: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+  <h2 style="color: #2563eb; margin-top: 0;">Fee Payment Reminder</h2>
+  <p>Dear <strong>{{studentName}}</strong>,</p>
+  <p>This is a friendly reminder that your subscription fee for <strong>{{branchName}}</strong> is due soon.</p>
+  <p>Please clear your pending dues at the desk counter or via our portal to ensure your seat remains reserved without interruption.</p>
+  <br/>
+  <p style="margin-bottom: 0;">Best regards,<br/><strong>Team StudyFlow</strong></p>
+</div>`,
+  },
+  {
+    id: 'renewal_alert',
+    name: 'Subscription Expiry & Renewal Alert',
+    subject: 'Your Study Hall Seat Subscription is Expiring Soon',
+    body: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+  <h2 style="color: #d97706; margin-top: 0;">Subscription Expiring Soon</h2>
+  <p>Hello <strong>{{studentName}}</strong>,</p>
+  <p>Your seat subscription plan at <strong>{{branchName}}</strong> will expire shortly.</p>
+  <p>To retain your assigned study desk and shift timings, please renew your plan as soon as possible.</p>
+  <br/>
+  <p style="margin-bottom: 0;">Thank you for studying with us!<br/><strong>Team StudyFlow</strong></p>
+</div>`,
+  },
+  {
+    id: 'holiday_notice',
+    name: 'Holiday & Facility Closure Notice',
+    subject: 'Holiday Announcement - {{branchName}}',
+    body: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+  <h2 style="color: #dc2626; margin-top: 0;">Holiday Announcement</h2>
+  <p>Dear Students,</p>
+  <p>Please note that <strong>{{branchName}}</strong> will remain closed for upcoming holidays.</p>
+  <p>Normal study hall access and shift schedules will resume promptly after the break.</p>
+  <br/>
+  <p style="margin-bottom: 0;">Warm regards,<br/><strong>StudyFlow Management</strong></p>
+</div>`,
+  },
+  {
+    id: 'general_announcement',
+    name: 'General Announcement',
+    subject: 'Important Notice for All Students',
+    body: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+  <h2 style="color: #0f172a; margin-top: 0;">Important Notice</h2>
+  <p>Dear <strong>{{studentName}}</strong>,</p>
+  <p>We have a quick announcement regarding library rules and facilities. Please keep your study area clean, maintain silence, and follow branch guidelines at all times.</p>
+  <br/>
+  <p style="margin-bottom: 0;">Thank you for your cooperation!<br/><strong>Team StudyFlow</strong></p>
+</div>`,
+  },
+  {
+    id: 'welcome_onboarding',
+    name: 'Welcome & Admission Onboarding',
+    subject: 'Welcome to StudyFlow - Registration Confirmed',
+    body: `<div style="font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.6;">
+  <h2 style="color: #16a34a; margin-top: 0;">Welcome to StudyFlow!</h2>
+  <p>Dear <strong>{{studentName}}</strong>,</p>
+  <p>We are excited to welcome you to <strong>{{branchName}}</strong>! Your seat registration has been successfully processed.</p>
+  <p>If you need assistance with wifi, locker access, or shift schedules, please speak with our staff desk.</p>
+  <br/>
+  <p style="margin-bottom: 0;">Happy Learning,<br/><strong>Team StudyFlow</strong></p>
+</div>`,
+  },
+];
+
 /* ─── Shared Student Filter + Table Component ─── */
 function StudentFilterPanel({
   branches, shifts, branchId, setBranchId, shiftId, setShiftId, statusFilter, setStatusFilter,
@@ -314,6 +381,16 @@ export default function MessagesBroadcast() {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [fromEmail, setFromEmail] = useState('');
+  const [selectedEmailTemplate, setSelectedEmailTemplate] = useState('');
+
+  const handleEmailTemplateChange = (tmplId: string) => {
+    setSelectedEmailTemplate(tmplId);
+    const tmpl = PREDEFINED_EMAIL_TEMPLATES.find((t) => t.id === tmplId);
+    if (tmpl) {
+      setEmailSubject(tmpl.subject);
+      setEmailBody(tmpl.body);
+    }
+  };
 
   /* ─── WhatsApp Helpers ─── */
   const extractTemplateVariables = (text: string) => {
@@ -574,6 +651,26 @@ export default function MessagesBroadcast() {
               {/* ── Email Compose ── */}
               {activeChannel === 'email' && (
                 <>
+                  <FormControl fullWidth size="small" sx={{ mb: 2, ...inputStyle }}>
+                    <InputLabel id="email-template-label">Select Predefined Email Template (Optional)</InputLabel>
+                    <Select
+                      labelId="email-template-label"
+                      value={selectedEmailTemplate}
+                      label="Select Predefined Email Template (Optional)"
+                      onChange={(e) => handleEmailTemplateChange(e.target.value)}
+                      MenuProps={menuProps}
+                    >
+                      <MenuItem value="">
+                        <em>Custom Email (No Template Selected)</em>
+                      </MenuItem>
+                      {PREDEFINED_EMAIL_TEMPLATES.map((tmpl) => (
+                        <MenuItem key={tmpl.id} value={tmpl.id}>
+                          {tmpl.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
                   <TextField
                     label="Sender Email (From)"
                     placeholder="noreply@yourdomain.com or onboarding@resend.dev"
@@ -594,11 +691,11 @@ export default function MessagesBroadcast() {
                   <TextField
                     label="Email Body (HTML supported)"
                     placeholder="<h2>Hello {{studentName}}</h2><p>Your subscription is expiring soon...</p>"
-                    fullWidth multiline rows={5}
+                    fullWidth multiline rows={6}
                     value={emailBody}
                     onChange={(e) => setEmailBody(e.target.value)}
                     sx={{ mb: 2, ...inputStyle }}
-                    helperText="Use {{studentName}} for personalization. HTML tags are supported."
+                    helperText="Use {{studentName}} or {{branchName}} for personalization. Rich HTML is supported."
                   />
                 </>
               )}
