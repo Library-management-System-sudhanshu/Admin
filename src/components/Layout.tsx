@@ -13,7 +13,7 @@ import {
   Library as LibraryIcon,
   MessageSquareWarning,
   Bell,
-  MessageCircle,
+  Megaphone,
   Settings,
   Building2,
   Menu,
@@ -73,6 +73,40 @@ export default function Layout() {
     });
   }, []);
 
+  const pageHeader = useMemo(() => {
+    switch (location.pathname) {
+      case '/dashboard':
+        return { title: 'Dashboard', subtitle: '' };
+      case '/new-admission':
+        return { title: 'New Admission', subtitle: 'Admit new students and allocate seats' };
+      case '/students':
+        return { title: 'Students Directory', subtitle: 'Manage student records and profiles' };
+      case '/seats':
+        return { title: 'Seat Map', subtitle: 'Manage branches, floors, rooms and student.' };
+      case '/billing':
+        return { title: 'Billing & Payments', subtitle: 'Track fee collections and invoices' };
+      case '/library':
+        return { title: 'Library Management', subtitle: 'Issue and track book allocations' };
+      case '/complaints':
+        return { title: 'Complaints & Feedback', subtitle: 'Manage student grievances and resolutions' };
+      case '/notices':
+        return { title: 'Notice Board', subtitle: 'Publish announcements and notices' };
+      case '/messages':
+        return { title: 'Messages & Broadcast', subtitle: 'Send targeted messages via WhatsApp, SMS, or Email' };
+      case '/settings':
+        return { title: 'Workspace Settings', subtitle: 'Configure branches, shifts, and plans' };
+      case '/profile':
+        return { title: 'My Account', subtitle: 'Manage account settings and subscription' };
+      case '/transfer-seat':
+        return { title: 'Transfer Seat', subtitle: 'Move student to a different seat' };
+      case '/calendar':
+        return { title: 'Calendar', subtitle: 'View schedule and upcoming events' };
+      default:
+        if (location.pathname.startsWith('/super-admin')) return { title: 'Super Admin Console', subtitle: 'Platform administration' };
+        return { title: 'StudyFlow', subtitle: '' };
+    }
+  }, [location.pathname]);
+
   const branchName = branches && branches.length > 0 ? branches[0].name : 'Main Branch';
 
   const handleLogout = () => {
@@ -118,7 +152,7 @@ export default function Layout() {
     { text: 'Library', icon: <LibraryIcon className="sidebar-link-icon" />, path: '/library' },
     { text: 'Complaints', icon: <MessageSquareWarning className="sidebar-link-icon" />, path: '/complaints' },
     { text: 'Notices', icon: <Bell className="sidebar-link-icon" />, path: '/notices' },
-    { text: 'WhatsApp', icon: <MessageCircle className="sidebar-link-icon" />, path: '/whatsapp' },
+    { text: 'Messages & Broadcast', icon: <Megaphone className="sidebar-link-icon" />, path: '/messages' },
     { text: 'Settings', icon: <Settings className="sidebar-link-icon" />, path: '/settings' },
   ];
 
@@ -252,30 +286,43 @@ export default function Layout() {
             <button className="mobile-menu-btn" onClick={toggleSidebar}>
               <Menu size={20} />
             </button>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', lineHeight: 1.25 }}>
-                  {greeting}, {user?.name || 'User'}
+            {location.pathname === '/dashboard' ? (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', lineHeight: 1.25 }}>
+                    {greeting}, {user?.name || 'User'}
+                  </span>
+                  {saasSub && (
+                    <span style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      background: saasSub.status === 'ACTIVE' ? '#dbeafe' : '#fef3c7',
+                      color: saasSub.status === 'ACTIVE' ? '#1e40af' : '#b45309',
+                      textTransform: 'uppercase',
+                      border: saasSub.status === 'ACTIVE' ? '1px solid #bfdbfe' : '1px solid #fde68a'
+                    }}>
+                      {saasSub.saasPlan?.name || saasSub.status} Plan
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-slate)', fontWeight: 500, marginTop: '4px' }}>
+                  {todayDate} • <span style={{ color: 'var(--status-emerald)', fontWeight: 600 }}>{branchName} is running smoothly today.</span>
                 </span>
-                {saasSub && (
-                  <span style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '6px',
-                    background: saasSub.status === 'ACTIVE' ? '#dbeafe' : '#fef3c7',
-                    color: saasSub.status === 'ACTIVE' ? '#1e40af' : '#b45309',
-                    textTransform: 'uppercase',
-                    border: saasSub.status === 'ACTIVE' ? '1px solid #bfdbfe' : '1px solid #fde68a'
-                  }}>
-                    {saasSub.saasPlan?.name || saasSub.status} Plan
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', lineHeight: 1.25 }}>
+                  {pageHeader.title}
+                </span>
+                {pageHeader.subtitle && (
+                  <span style={{ fontSize: '0.76rem', color: 'var(--text-slate)', fontWeight: 500, marginTop: '2px' }}>
+                    {pageHeader.subtitle}
                   </span>
                 )}
               </div>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-slate)', fontWeight: 500, marginTop: '4px' }}>
-                {todayDate} • <span style={{ color: 'var(--status-emerald)', fontWeight: 600 }}>{branchName} is running smoothly today.</span>
-              </span>
-            </div>
+            )}
           </div>
 
           {/* Topbar Actions */}

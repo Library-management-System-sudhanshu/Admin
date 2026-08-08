@@ -72,9 +72,6 @@ export default function Notices() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A', mb: 4 }}>
-        Notices & Broadcasts
-      </Typography>
 
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, alignItems: 'start' }}>
         {/* Create Notice Column */}

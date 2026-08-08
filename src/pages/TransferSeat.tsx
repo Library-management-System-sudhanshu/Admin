@@ -121,22 +121,14 @@ export default function TransferSeat() {
 
   return (
     <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header and Back Link */}
+      {/* Back Link Bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <button 
           onClick={() => navigate(-1)} 
-          style={{ border: 'none', background: '#ffffff', boxShadow: 'var(--shadow-soft)', cursor: 'pointer', padding: '8px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-navy)' }}
+          style={{ border: 'none', background: '#ffffff', boxShadow: 'var(--shadow-soft)', cursor: 'pointer', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-navy)', fontSize: '0.85rem', fontWeight: 600 }}
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} /> Back
         </button>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            Seat Transfer Portal
-          </h1>
-          <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem', color: 'var(--text-slate)', fontWeight: 500 }}>
-            Move student to a different seat in the same branch location.
-          </p>
-        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '24px', alignItems: 'start' }}>

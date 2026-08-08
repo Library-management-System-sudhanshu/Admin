@@ -52,6 +52,8 @@ export const api = createApi({
     'SaaSPlans',
     'SaaSSubscription',
     'SuperAdminMetrics',
+    'SmsLogs',
+    'EmailLogs',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -555,6 +557,34 @@ export const api = createApi({
       }),
       invalidatesTags: ['SaaSSubscription'],
     }),
+
+    // SMS Broadcast
+    sendSmsBroadcast: builder.mutation({
+      query: (data) => ({
+        url: 'sms/broadcast',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['SmsLogs'],
+    }),
+    getSmsLogs: builder.query({
+      query: () => 'sms/logs',
+      providesTags: ['SmsLogs'],
+    }),
+
+    // Email Broadcast (Resend)
+    sendEmailBroadcast: builder.mutation({
+      query: (data) => ({
+        url: 'email/broadcast',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['EmailLogs'],
+    }),
+    getEmailLogs: builder.query({
+      query: () => 'email/logs',
+      providesTags: ['EmailLogs'],
+    }),
   }),
 });
 
@@ -630,5 +660,9 @@ export const {
   useStartSaaSTrialMutation,
   useCreateSaaSPaymentMutation,
   useVerifySaaSPaymentMutation,
+  useSendSmsBroadcastMutation,
+  useGetSmsLogsQuery,
+  useSendEmailBroadcastMutation,
+  useGetEmailLogsQuery,
 } = api;
 

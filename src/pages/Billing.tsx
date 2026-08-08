@@ -54,7 +54,7 @@ import {
 import { Button } from '../components/ui/Button';
 import { Plus, X, CreditCard, Calendar, User, History, Clock, Sun, SunMedium, Sunset, Moon, Users, IndianRupee, CheckCircle2 } from 'lucide-react';
 import { styled, keyframes } from '@mui/material/styles';
-import { Search, Download, TrendingUp, WalletCards, SlidersHorizontal, RotateCcw, ArrowUpRight } from 'lucide-react';
+import { Search, Download, TrendingUp, WalletCards, SlidersHorizontal, RotateCcw, ArrowUpRight, Info } from 'lucide-react';
 import './Billing.css';
 
 // Fade‑in animation for table rows
@@ -449,12 +449,7 @@ export default function Billing() {
 
   return (
     <Box className="billing-page">
-      <Box className="billing-page-header">
-        <Box>
-          <Typography className="billing-eyebrow">FINANCE WORKSPACE</Typography>
-          <Typography variant="h4" className="billing-title">Billing & Subscriptions</Typography>
-          <Typography className="billing-subtitle">Track collections, manage invoices and configure your seating plans.</Typography>
-        </Box>
+      <Box style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
         <Button 
           variant="primary" 
           onClick={() => setOpenCollect(true)}

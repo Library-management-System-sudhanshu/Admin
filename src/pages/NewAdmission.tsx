@@ -363,34 +363,26 @@ export default function NewAdmission() {
         }
       `}} />
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+      {/* Back Action Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <button
           onClick={() => navigate(-1)}
           style={{
             background: '#ffffff',
             border: '1px solid var(--border-card)',
             borderRadius: '8px',
-            width: '34px',
-            height: '34px',
+            padding: '6px 12px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: '6px',
             cursor: 'pointer',
             color: 'var(--text-navy)',
-            flexShrink: 0,
+            fontSize: '0.85rem',
+            fontWeight: 600,
           }}
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={16} /> Back
         </button>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-navy)' }}>
-            New Admission
-          </h1>
-          <span style={{ fontSize: '0.775rem', color: 'var(--text-slate)' }}>
-            Register a student and set up subscription
-          </span>
-        </div>
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

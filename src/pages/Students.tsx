@@ -528,24 +528,7 @@ export default function Students() {
         }
       `}} />
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', gap: '0.5rem' }}>
-        <h1 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-navy)' }}>
-          Students
-          {data?.total != null && (
-            <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-slate)', marginLeft: '0.5rem' }}>
-              ({data.total})
-            </span>
-          )}
-        </h1>
-        <Button 
-          variant="primary" 
-          onClick={() => navigate('/new-admission')}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.4rem 0.85rem', fontSize: '0.8rem', borderRadius: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}
-        >
-          <Plus size={15} /> New Admission
-        </Button>
-      </div>
+
 
       {/* High-Density Integrated Filter Toolbar */}
       <div

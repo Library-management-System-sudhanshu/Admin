@@ -219,11 +219,7 @@ export default function Settings() {
         }
       `}</style>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A' }}>
-          Workspace Settings
-        </Typography>
-      </Box>
+
 
       {/* Tabs Layout */}
       <Box sx={{ borderBottom: 1, borderColor: '#E2E8F0', mb: 4 }}>

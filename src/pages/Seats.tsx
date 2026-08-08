@@ -3147,17 +3147,8 @@ export default function Seats() {
         </div>
       )}
       
-      {/* 1. TOP HEADER SECTION */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '16px' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.025em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-             Seat Map
-          </h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: '#475569', fontWeight: 500 }}>
-            Manage branches, floors, rooms and student.
-          </p>
-        </div>
-
+      {/* 1. TOP CONTROLS BAR */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '16px' }}>
         {/* Right side controls (Selectors & User) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '6px 10px', borderRadius: '20px', border: '1px solid rgba(15, 23, 42, 0.05)', boxShadow: 'var(--shadow-soft)' }}>
