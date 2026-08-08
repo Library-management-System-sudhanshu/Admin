@@ -9,7 +9,7 @@ import { Switch } from './ui/Switch';
 import { DatePicker } from './ui/DatePicker';
 import { useToast } from './ui/ToastContext';
 import { Search } from 'lucide-react';
-import { formatYYYYMMDD, addMonthsToDate } from '../utils/dateUtils';
+import { formatYYYYMMDD, addMonthsToDate, addDaysToDate } from '../utils/dateUtils';
 interface AllocateSeatModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -70,7 +70,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     end.setMonth(end.getMonth() + 1);
     return formatYYYYMMDD(end);
   });
-  const [durationMode, setDurationMode] = useState<number | 'flex'>(1);
+  const [durationMode, setDurationMode] = useState<number | string>(1);
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
@@ -169,8 +169,17 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   // Duration modes calculations
   useEffect(() => {
     if (durationMode === 'flex') return;
-    if (startDate && typeof durationMode === 'number') {
-      setEndDate(addMonthsToDate(startDate, durationMode));
+    if (!startDate) return;
+
+    if (durationMode === '7d') {
+      setEndDate(addDaysToDate(startDate, 7));
+    } else if (durationMode === '10d') {
+      setEndDate(addDaysToDate(startDate, 10));
+    } else if (durationMode === '15d') {
+      setEndDate(addDaysToDate(startDate, 15));
+    } else {
+      const months = typeof durationMode === 'number' ? durationMode : parseInt(durationMode as string) || 1;
+      setEndDate(addMonthsToDate(startDate, months));
     }
   }, [startDate, durationMode]);
 
@@ -219,14 +228,26 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     if (!shift) return 0;
 
     const basePrice = shift.price || 0;
-    if (typeof durationMode === 'number') {
-      if (durationMode === 3 && shift.price3Months) {
+
+    if (durationMode === '7d') {
+      return Math.round((basePrice / 30) * 7);
+    }
+    if (durationMode === '10d') {
+      return Math.round((basePrice / 30) * 10);
+    }
+    if (durationMode === '15d') {
+      return Math.round((basePrice / 30) * 15);
+    }
+
+    if (typeof durationMode === 'number' || !isNaN(Number(durationMode))) {
+      const months = Number(durationMode);
+      if (months === 3 && shift.price3Months) {
         return shift.price3Months;
       }
-      if (durationMode === 6 && shift.price6Months) {
+      if (months === 6 && shift.price6Months) {
         return shift.price6Months;
       }
-      return basePrice * durationMode;
+      return basePrice * months;
     } else if (durationMode === 'flex' && startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -475,15 +496,18 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
               <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Duration</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <Select
-                  value={typeof durationMode === 'number' ? durationMode : ''}
-                  onChange={(val) => setDurationMode(Number(val))}
-                  placeholder="Months"
+                  value={durationMode}
+                  onChange={(val) => setDurationMode(isNaN(Number(val)) ? val : Number(val))}
+                  placeholder="Select Duration"
                   style={{ flex: 1 }}
                   options={[
-                    { value: 1, label: '1 Month' },
+                    { value: 1, label: '1 Month (Standard)' },
                     { value: 2, label: '2 Months' },
-                    { value: 3, label: '3 Months' },
-                    { value: 6, label: '6 Months' }
+                    { value: 3, label: '3 Months (Quarterly)' },
+                    { value: 6, label: '6 Months (Half Yearly)' },
+                    { value: '7d', label: '7 Days (Short Term)' },
+                    { value: '10d', label: '10 Days (Short Term)' },
+                    { value: '15d', label: '15 Days (Half Month)' },
                   ]}
                 />
                 <button

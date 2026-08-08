@@ -226,7 +226,7 @@ export default function Seats() {
   // Renewal form
 
   const [renewShiftId, setRenewShiftId] = useState('');
-  const [renewDuration, setRenewDuration] = useState<number>(1);
+  const [renewDuration, setRenewDuration] = useState<number | string>(1);
   const [spacers, setSpacers] = useState<{ id: string; x: number; y: number; w?: number; h?: number; type?: string; groups?: any[] }[]>([]);
   const [renewStartDate, setRenewStartDate] = useState('');
   const [renewEndDate, setRenewEndDate] = useState('');
@@ -2072,16 +2072,32 @@ export default function Seats() {
     if (renewShiftId && shifts) {
       const shift = shifts.find((s: any) => s.id === renewShiftId);
       if (shift && renewStartDate) {
-        setRenewEndDate(addMonthsToDate(renewStartDate, renewDuration));
+        let endDateCalculated = '';
         let price = shift.price || 0;
-          if (renewDuration === 3 && shift.price3Months) {
+
+        if (renewDuration === '7d') {
+          endDateCalculated = addDaysToDate(renewStartDate, 7);
+          price = Math.round((price / 30) * 7);
+        } else if (renewDuration === '10d') {
+          endDateCalculated = addDaysToDate(renewStartDate, 10);
+          price = Math.round((price / 30) * 10);
+        } else if (renewDuration === '15d') {
+          endDateCalculated = addDaysToDate(renewStartDate, 15);
+          price = Math.round((price / 30) * 15);
+        } else {
+          const months = typeof renewDuration === 'number' ? renewDuration : parseInt(renewDuration as string) || 1;
+          endDateCalculated = addMonthsToDate(renewStartDate, months);
+          if (months === 3 && shift.price3Months) {
             price = shift.price3Months;
-          } else if (renewDuration === 6 && shift.price6Months) {
+          } else if (months === 6 && shift.price6Months) {
             price = shift.price6Months;
           } else {
-            price = price * renewDuration;
+            price = price * months;
           }
-          setRenewAmount(price.toString());
+        }
+
+        setRenewEndDate(endDateCalculated);
+        setRenewAmount(price.toString());
       }
     }
   }, [renewShiftId, renewStartDate, renewDuration, shifts]);
@@ -4836,12 +4852,16 @@ export default function Seats() {
                           <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Plan Duration</label>
                           <Select
                             value={renewDuration}
-                            onChange={(val: any) => setRenewDuration(Number(val))}
+                            onChange={(val: any) => setRenewDuration(isNaN(Number(val)) ? val : Number(val))}
                             placeholder="Select Duration"
                             options={[
-                              { value: 1, label: '1 Month' },
-                              { value: 3, label: '3 Months (Discounted)' },
-                              { value: 6, label: '6 Months (Discounted)' },
+                              { value: 1, label: '1 Month (Standard)' },
+                              { value: 2, label: '2 Months' },
+                              { value: 3, label: '3 Months (Quarterly)' },
+                              { value: 6, label: '6 Months (Half Yearly)' },
+                              { value: '7d', label: '7 Days (Short Term)' },
+                              { value: '10d', label: '10 Days (Short Term)' },
+                              { value: '15d', label: '15 Days (Half Month)' },
                             ]}
                           />
                         </div>

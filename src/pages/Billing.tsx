@@ -1097,6 +1097,7 @@ export default function Billing() {
                   placeholder="e.g. 800"
                   value={shiftFormData.price ?? ''}
                   onChange={(e) => setShiftFormData({ ...shiftFormData, price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                  helperText={shiftFormData.price ? `Approx ~₹${Math.round(Number(shiftFormData.price) / 30)}/day (Auto-calculated for short term 7d/10d/15d plans)` : ''}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '10px',
@@ -1119,7 +1120,7 @@ export default function Billing() {
                 />
               </Box>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 1.5 }}>
                 <TextField
                   label="3-Month Price (₹) - Optional"
                   type="number"
@@ -1146,6 +1147,22 @@ export default function Billing() {
                     }
                   }}
                 />
+              </Box>
+
+              {/* Flexible Days & Months Plan Helper Box */}
+              <Box sx={{
+                p: 1.5,
+                borderRadius: '10px',
+                backgroundColor: '#f0f9ff',
+                border: '1px solid #bae6fd',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 1.2
+              }}>
+                <Info size={16} style={{ color: '#0284c7', flexShrink: 0, marginTop: '2px' }} />
+                <Typography sx={{ fontSize: '0.75rem', color: '#0369a1', lineHeight: 1.45 }}>
+                  <strong>Flexible Duration Support:</strong> Most students (95%) choose standard monthly plans (1, 2, 3, or 6 months). For short-term plans (e.g. 7 days, 10 days, 15 days), the system automatically calculates pro-rated pricing using the daily rate when allocating or renewing seats.
+                </Typography>
               </Box>
             </Box>
           </DialogContent>

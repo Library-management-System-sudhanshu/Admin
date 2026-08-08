@@ -352,56 +352,66 @@ export default function NewAdmission() {
   }, [shifts, isLoadingShifts, shiftsError]);
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '40px' }} className="animate-fade-in">
-      {/* HEADER SECTION */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+    <div style={{ width: '100%', maxWidth: '780px', margin: '0 auto', paddingBottom: '32px' }} className="animate-fade-in">
+      {/* Responsive CSS */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 600px) {
+          .na-avatar-row { flex-direction: column !important; align-items: center !important; gap: 16px !important; }
+          .na-avatar-row > div:last-child { min-width: 100% !important; }
+          .na-submit-row { flex-direction: column-reverse !important; }
+          .na-submit-row > button { width: 100% !important; min-width: unset !important; }
+        }
+      `}} />
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
         <button
           onClick={() => navigate(-1)}
           style={{
             background: '#ffffff',
             border: '1px solid var(--border-card)',
-            borderRadius: '10px',
-            width: '38px',
-            height: '38px',
+            borderRadius: '8px',
+            width: '34px',
+            height: '34px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
             color: 'var(--text-navy)',
-            boxShadow: 'var(--shadow-soft)',
+            flexShrink: 0,
           }}
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} />
         </button>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-navy)', letterSpacing: '-0.02em' }}>
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-navy)' }}>
             New Admission
           </h1>
-          <span style={{ fontSize: '0.825rem', color: 'var(--text-slate)' }}>
-            Register a new student profile and set up their subscription.
+          <span style={{ fontSize: '0.775rem', color: 'var(--text-slate)' }}>
+            Register a student and set up subscription
           </span>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         
-        {/* CARD 1: PERSONAL INFORMATION */}
-        <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)', overflow: 'visible' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '12px' }}>
-            <UserPlus size={18} style={{ color: 'var(--accent-blue)' }} />
-            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-navy)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+        {/* SECTION 1: PERSONAL DETAILS */}
+        <Card elevation="sm" style={{ padding: '16px 18px', background: '#ffffff', borderRadius: '14px', border: '1px solid var(--border-card)', overflow: 'visible' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '10px' }}>
+            <UserPlus size={16} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+            <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-navy)' }}>
               Personal Details
             </h3>
           </div>
 
-          <div style={{ display: 'flex', gap: '28px', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            {/* Left Column: Avatar Photo Upload */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', minWidth: '140px' }}>
+          <div className="na-avatar-row" style={{ display: 'flex', gap: '20px', flexDirection: 'row', alignItems: 'flex-start' }}>
+            {/* Avatar */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
               <div style={{ position: 'relative' }}>
                 <div 
                   style={{ 
-                    width: '110px', 
-                    height: '110px', 
+                    width: '80px', 
+                    height: '80px', 
                     borderRadius: '50%', 
                     background: avatar ? `url(${avatar}) no-repeat center center / cover` : 'linear-gradient(135deg, var(--accent-blue) 0%, #3b82f6 100%)',
                     display: 'flex',
@@ -409,9 +419,9 @@ export default function NewAdmission() {
                     justifyContent: 'center',
                     color: 'white',
                     fontWeight: 700,
-                    fontSize: '2.8rem',
+                    fontSize: '2rem',
+                    border: '2px solid #ffffff',
                     boxShadow: 'var(--shadow-soft)',
-                    border: '3px solid #ffffff'
                   }}
                 >
                   {!avatar && (name?.charAt(0).toUpperCase() || 'A')}
@@ -420,22 +430,21 @@ export default function NewAdmission() {
                   htmlFor="avatar-upload" 
                   style={{ 
                     position: 'absolute', 
-                    bottom: 2, 
-                    right: 2, 
+                    bottom: 0, 
+                    right: 0, 
                     backgroundColor: 'var(--accent-blue)', 
                     color: 'white', 
-                    width: '32px', 
-                    height: '32px', 
+                    width: '26px', 
+                    height: '26px', 
                     borderRadius: '50%', 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center', 
                     cursor: 'pointer',
                     border: '2px solid #ffffff',
-                    boxShadow: 'var(--shadow-soft)'
                   }}
                 >
-                  <Camera size={14} />
+                  <Camera size={12} />
                 </label>
                 <input 
                   id="avatar-upload" 
@@ -445,15 +454,13 @@ export default function NewAdmission() {
                   onChange={handleAvatarUpload} 
                 />
               </div>
-              {isUploadingImage ? (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', textAlign: 'center' }}>Uploading...</span>
-              ) : (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', textAlign: 'center', fontWeight: 600 }}>Student Photo</span>
-              )}
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)', fontWeight: 600 }}>
+                {isUploadingImage ? 'Uploading...' : 'Photo'}
+              </span>
             </div>
 
-            {/* Right Column: Personal Details Inputs */}
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '20px', minWidth: 0 }}>
+            {/* Fields Grid */}
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '14px', minWidth: 0 }}>
               <Input
                 label="Full Name *"
                 placeholder="e.g. Rohan Sharma"
@@ -511,16 +518,16 @@ export default function NewAdmission() {
                 }}
               />
               <div ref={dateContainerRef} style={{ position: 'relative' }}>
-                <label className="custom-input-label">Admission / Joining Date *</label>
+                <label className="custom-input-label">Admission Date *</label>
                 <div
                   onClick={toggleCalendarPicker}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '0 14px',
-                    height: '42px',
-                    borderRadius: '10px',
+                    padding: '0 12px',
+                    height: '40px',
+                    borderRadius: '8px',
                     border: showCalendarPicker ? '1.5px solid #D97706' : '1px solid var(--border-color)',
                     backgroundColor: '#ffffff',
                     cursor: 'pointer',
@@ -528,14 +535,11 @@ export default function NewAdmission() {
                     boxShadow: showCalendarPicker ? '0 0 0 3px rgba(217, 119, 6, 0.15)' : 'none'
                   }}
                 >
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-navy)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-navy)' }}>
                     {joiningDate ? new Date(joiningDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Select date'}
                   </span>
-                  <CalendarIcon size={18} style={{ color: '#D97706' }} />
+                  <CalendarIcon size={16} style={{ color: '#D97706' }} />
                 </div>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-slate)', marginTop: '4px', display: 'block' }}>
-                  Click to open custom calendar (past or future allowed)
-                </span>
 
                 {showCalendarPicker && (
                   <div
@@ -547,7 +551,7 @@ export default function NewAdmission() {
                       left: 0,
                       zIndex: 9999,
                       boxShadow: '0 20px 45px rgba(0, 0, 0, 0.18), 0 4px 14px rgba(0, 0, 0, 0.08)',
-                      borderRadius: '18px',
+                      borderRadius: '14px',
                       backgroundColor: '#ffffff'
                     }}
                   >
@@ -569,16 +573,16 @@ export default function NewAdmission() {
           </div>
         </Card>
 
-        {/* CARD 2: ACADEMIC & SUBSCRIPTION PLAN */}
-        <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)', overflow: 'visible' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '12px' }}>
-            <Layers size={18} style={{ color: 'var(--accent-blue)' }} />
-            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-navy)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              Branch & Subscription Plan
+        {/* SECTION 2: BRANCH & SUBSCRIPTION */}
+        <Card elevation="sm" style={{ padding: '16px 18px', background: '#ffffff', borderRadius: '14px', border: '1px solid var(--border-card)', overflow: 'visible' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '10px' }}>
+            <Layers size={16} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+            <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-navy)' }}>
+              Branch & Subscription
             </h3>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '14px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label className="custom-input-label">Target Branch *</label>
               <Select
@@ -593,7 +597,7 @@ export default function NewAdmission() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label className="custom-input-label">Select Seating Shift</label>
+              <label className="custom-input-label">Seating Shift</label>
               <Select
                 value={shiftId}
                 onChange={(val) => {
@@ -622,7 +626,7 @@ export default function NewAdmission() {
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
                   <label className="custom-input-label">Due Amount</label>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: dueAmount > 0 ? 'var(--status-red)' : 'var(--status-emerald)' }}>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: dueAmount > 0 ? 'var(--status-red)' : 'var(--status-emerald)' }}>
                     ₹{dueAmount}
                   </div>
                 </div>
@@ -631,16 +635,16 @@ export default function NewAdmission() {
           </div>
         </Card>
 
-        {/* CARD 3: CONTACT & ADDRESS */}
-        <Card elevation="sm" style={{ padding: '24px', background: '#ffffff', borderRadius: '18px', border: '1px solid var(--border-card)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '12px' }}>
-            <MapPin size={18} style={{ color: 'var(--accent-blue)' }} />
-            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-navy)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+        {/* SECTION 3: CONTACT & ADDRESS */}
+        <Card elevation="sm" style={{ padding: '16px 18px', background: '#ffffff', borderRadius: '14px', border: '1px solid var(--border-card)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '10px' }}>
+            <MapPin size={16} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+            <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-navy)' }}>
               Contact & Address
             </h3>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '14px' }}>
             <Input
               label="Guardian Name"
               placeholder="e.g. Satish Sharma"
@@ -670,14 +674,14 @@ export default function NewAdmission() {
           </div>
         </Card>
 
-        {/* SUBMIT BUTTONS */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '8px' }}>
+        {/* SUBMIT */}
+        <div className="na-submit-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '4px' }}>
           <Button
             type="button"
             variant="outline"
             onClick={() => navigate(-1)}
             disabled={isSubmitting}
-            style={{ borderRadius: '12px', minWidth: '120px' }}
+            style={{ borderRadius: '10px', minWidth: '110px' }}
           >
             Cancel
           </Button>
@@ -685,7 +689,7 @@ export default function NewAdmission() {
             type="submit"
             variant="primary"
             isLoading={isSubmitting}
-            style={{ borderRadius: '12px', minWidth: '180px' }}
+            style={{ borderRadius: '10px', minWidth: '160px' }}
           >
             Admit Student
           </Button>

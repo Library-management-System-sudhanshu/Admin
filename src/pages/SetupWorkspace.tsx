@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { useSetupWorkspaceMutation } from '../store/api';
+import { useSetupWorkspaceMutation, useUploadImageMutation } from '../store/api';
 import { setCredentials } from '../store/authSlice';
 import type { RootState } from '../store';
 import { 
@@ -12,11 +12,12 @@ import {
   ShieldCheck, 
   FileText, 
   Image as ImageIcon,
-  BookOpen,
   Armchair,
   AlertCircle,
-  Sparkles,
-  Compass
+  Compass,
+  Upload,
+  X,
+  Check
 } from 'lucide-react';
 
 export default function SetupWorkspace() {
@@ -24,15 +25,55 @@ export default function SetupWorkspace() {
   const dispatch = useDispatch();
   const { user, token } = useSelector((state: RootState) => state.auth);
   const [setupWorkspace, { isLoading }] = useSetupWorkspaceMutation();
+  const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [workspaceName, setWorkspaceName] = useState('');
   const [address, setAddress] = useState('');
   const [pincode, setPincode] = useState('');
   const [gstNumber, setGstNumber] = useState('');
   const [logo, setLogo] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState('');
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setApiError('Please select a valid image file (PNG, JPG, WEBP, GIF, SVG).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setApiError('Image file size must be less than 5MB.');
+      return;
+    }
+
+    setApiError('');
+    setUploadSuccess(false);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result as string;
+        const res = await uploadImage({ base64 }).unwrap();
+        
+        // Resolve full URL if server returns a relative path e.g. /uploads/upload_...
+        const baseUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:3000';
+        const finalUrl = res.url.startsWith('http') ? res.url : `${baseUrl.replace(/\/$/, '')}${res.url}`;
+        
+        setLogo(finalUrl);
+        setUploadSuccess(true);
+      } catch (err: any) {
+        setApiError(err?.data?.message || 'Image upload failed. Please try again.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -196,7 +237,7 @@ export default function SetupWorkspace() {
                 </div>
                 <div>
                   <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: '#60A5FA' }}>Library & Branch Details</h4>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>Set up location and GST credentials</p>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>Set up location, logo & GST credentials</p>
                 </div>
               </div>
 
@@ -430,39 +471,154 @@ export default function SetupWorkspace() {
               </div>
             </div>
 
-            {/* Logo URL */}
+            {/* Logo Image Upload & URL */}
             <div>
               <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#1E293B', marginBottom: '6px' }}>
-                Logo Image URL <span style={{ color: '#94A3B8', fontWeight: 500 }}>(Optional)</span>
+                Library Logo <span style={{ color: '#94A3B8', fontWeight: 500 }}>(Optional)</span>
               </label>
-              <div style={{ position: 'relative' }}>
-                <ImageIcon size={17} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748B' }} />
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '16px',
+                borderRadius: '16px',
+                border: '1px dashed #CBD5E1',
+                backgroundColor: '#F8FAFC',
+              }}>
+                {/* Logo Preview Avatar */}
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '14px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #E2E8F0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                  position: 'relative'
+                }}>
+                  {logo ? (
+                    <img 
+                      src={logo} 
+                      alt="Library Logo Preview" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Building size={28} style={{ color: '#94A3B8' }} />
+                  )}
+                </div>
+
+                {/* Actions & Buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingImage}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        borderRadius: '10px',
+                        border: '1px solid #2563EB',
+                        backgroundColor: 'rgba(37, 99, 235, 0.05)',
+                        color: '#2563EB',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: isUploadingImage ? 'not-allowed' : 'pointer',
+                        transition: 'all 150ms ease'
+                      }}
+                    >
+                      {isUploadingImage ? (
+                        <span>Uploading File...</span>
+                      ) : (
+                        <>
+                          <Upload size={14} />
+                          <span>Upload Image File</span>
+                        </>
+                      )}
+                    </button>
+
+                    {logo && (
+                      <button
+                        type="button"
+                        onClick={() => { setLogo(''); setUploadSuccess(false); }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '8px 12px',
+                          borderRadius: '10px',
+                          border: '1px solid #EF4444',
+                          backgroundColor: '#FEF2F2',
+                          color: '#EF4444',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <X size={14} />
+                        <span>Remove</span>
+                      </button>
+                    )}
+
+                    {uploadSuccess && (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        backgroundColor: '#D1FAE5',
+                        color: '#065F46',
+                        fontSize: '0.72rem',
+                        fontWeight: 700
+                      }}>
+                        <Check size={12} /> Uploaded
+                      </span>
+                    )}
+                  </div>
+
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: '#64748B' }}>
+                    Supports PNG, JPG, WEBP or SVG up to 5MB. Saved directly to server storage.
+                  </p>
+                </div>
+              </div>
+
+              {/* Optional URL Input Fallback */}
+              <div style={{ marginTop: '10px', position: 'relative' }}>
+                <ImageIcon size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
                 <input
                   type="text"
-                  placeholder="https://example.com/logo.png"
+                  placeholder="Or paste image URL (https://...)"
                   value={logo}
-                  onChange={(e) => setLogo(e.target.value)}
+                  onChange={(e) => { setLogo(e.target.value); setUploadSuccess(false); }}
                   style={{
                     width: '100%',
-                    padding: '12px 14px 12px 42px',
-                    borderRadius: '12px',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '0.88rem',
-                    fontWeight: 500,
-                    color: '#0F172A',
+                    padding: '8px 12px 8px 38px',
+                    borderRadius: '10px',
+                    border: '1px solid #E2E8F0',
+                    fontSize: '0.78rem',
+                    color: '#475569',
                     outline: 'none',
-                    backgroundColor: '#F8FAFC',
+                    backgroundColor: '#ffffff',
                     boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.backgroundColor = '#ffffff';
-                    e.target.style.borderColor = '#2563EB';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.12)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.backgroundColor = '#F8FAFC';
-                    e.target.style.borderColor = '#CBD5E1';
-                    e.target.style.boxShadow = 'none';
                   }}
                 />
               </div>
