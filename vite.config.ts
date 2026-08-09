@@ -10,7 +10,12 @@ export default defineConfig(({ mode }) => {
       allowedHosts: true,
       proxy: {
         '/api': {
-          target: env.VITE_API_URL || 'https://api.trishulindustries.online',
+          target: env.VITE_API_URL || 'http://localhost:3000',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/uploads': {
+          target: env.VITE_API_URL || 'http://localhost:3000',
           changeOrigin: true,
           secure: false,
         }

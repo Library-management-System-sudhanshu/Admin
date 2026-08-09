@@ -44,6 +44,7 @@ import {
   Tabs,
   Tab,
   Autocomplete,
+  Drawer,
 } from '@mui/material';
 import {
   Check as PaidIcon,
@@ -54,7 +55,7 @@ import {
 import { Button } from '../components/ui/Button';
 import { Plus, X, CreditCard, Calendar, User, History, Clock, Sun, SunMedium, Sunset, Moon, Users, IndianRupee, CheckCircle2 } from 'lucide-react';
 import { styled, keyframes } from '@mui/material/styles';
-import { Search, Download, TrendingUp, WalletCards, SlidersHorizontal, RotateCcw, ArrowUpRight } from 'lucide-react';
+import { Search, Download, TrendingUp, WalletCards, SlidersHorizontal, RotateCcw, ArrowUpRight, Info } from 'lucide-react';
 import './Billing.css';
 
 // Fade‑in animation for table rows
@@ -62,6 +63,33 @@ const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 `;
+
+const inputStyle = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '10px',
+    '& fieldset': { borderColor: '#cbd5e1' },
+    '&:hover fieldset': { borderColor: 'var(--primary)' },
+    '&.Mui-focused fieldset': { borderColor: 'var(--primary)' },
+  },
+  '& .MuiInputLabel-root': {
+    color: 'var(--text-secondary)',
+    '&.Mui-focused': { color: 'var(--primary)' },
+  },
+};
+
+const menuProps = {
+  PaperProps: {
+    sx: {
+      bgcolor: 'var(--bg-surface)',
+      border: '1px solid var(--border-color)',
+      '& .MuiMenuItem-root': {
+        color: 'var(--text-primary)',
+        '&:hover': { bgcolor: 'var(--bg-surface-hover)' },
+        '&.Mui-selected': { bgcolor: 'var(--primary-light)', color: 'var(--primary)' },
+      },
+    },
+  },
+} as any;
 
 const AnimatedTableRow = styled(TableRow)(({ theme }) => ({
   animation: `${fadeIn} 0.5s ease-out`,
@@ -71,6 +99,18 @@ const AnimatedTableRow = styled(TableRow)(({ theme }) => ({
 
 const HOURS = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
 const PERIODS = ['AM', 'PM'];
+
+const getDurationDays = (label: string): number => {
+  const lower = (label || '').toLowerCase().trim();
+  const numMatch = lower.match(/(\d+)/);
+  const num = numMatch ? parseInt(numMatch[1], 10) : 30;
+
+  if (lower.includes('year') || lower.includes('yr')) return num * 365;
+  if (lower.includes('month') || lower.includes('m')) return num * 30;
+  if (lower.includes('week') || lower.includes('wk')) return num * 7;
+  if (lower.includes('day') || lower.includes('d')) return num;
+  return num;
+};
 
 const getMinuteOptions = (currentMin: string) => {
   const base = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
@@ -301,8 +341,46 @@ export default function Billing() {
 
   const [openShiftModal, setOpenShiftModal] = useState(false);
   const [editShiftMode, setEditShiftMode] = useState(false);
-  const [shiftFormData, setShiftFormData] = useState({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: '' as any, price3Months: '' as any, price6Months: '' as any });
+  const [shiftFormData, setShiftFormData] = useState({
+    id: '',
+    name: '',
+    startTime: '09:00',
+    endTime: '17:00',
+    capacity: '' as any,
+    price: '' as any,
+    price7Days: '' as any,
+    price15Days: '' as any,
+    price3Months: '' as any,
+    price6Months: '' as any,
+  });
   const [selectedPreset, setSelectedPreset] = useState<string>('custom');
+
+  const [customPricingList, setCustomPricingList] = useState<{ label: string; price: number | string }[]>([
+    { label: '7 Days', price: '' },
+    { label: '15 Days', price: '' },
+    { label: '1 Month', price: '' },
+    { label: '2 Months', price: '' },
+    { label: '3 Months', price: '' },
+  ]);
+
+  const handleAddPricingTier = (label?: string, price?: number | string) => {
+    setCustomPricingList((prev) => [
+      ...prev,
+      { label: label || '1 Month', price: price !== undefined ? price : '' },
+    ]);
+  };
+
+  const handleUpdatePricingTier = (index: number, field: 'label' | 'price', value: any) => {
+    setCustomPricingList((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  const handleRemovePricingTier = (index: number) => {
+    setCustomPricingList((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleApplyPreset = (presetId: string, currentFormData: any) => {
     setSelectedPreset(presetId);
@@ -319,7 +397,25 @@ export default function Billing() {
 
   const handleOpenCreateShift = () => {
     setEditShiftMode(false);
-    setShiftFormData({ id: '', name: '', startTime: '09:00', endTime: '17:00', capacity: '' as any, price: '' as any, price3Months: '' as any, price6Months: '' as any });
+    setShiftFormData({
+      id: '',
+      name: '',
+      startTime: '09:00',
+      endTime: '17:00',
+      capacity: '',
+      price: '',
+      price7Days: '',
+      price15Days: '',
+      price3Months: '',
+      price6Months: '',
+    });
+    setCustomPricingList([
+      { label: '7 Days', price: '' },
+      { label: '15 Days', price: '' },
+      { label: '1 Month', price: '' },
+      { label: '2 Months', price: '' },
+      { label: '3 Months', price: '' },
+    ]);
     setSelectedPreset('custom');
     setOpenShiftModal(true);
   };
@@ -362,7 +458,33 @@ export default function Billing() {
 
   const handleOpenEditShift = (shift: any) => {
     setEditShiftMode(true);
-    setShiftFormData({ ...shift, capacity: shift.capacity ?? '', price3Months: shift.price3Months ?? '', price6Months: shift.price6Months ?? '' });
+    setShiftFormData({
+      ...shift,
+      capacity: shift.capacity ?? '',
+      price7Days: shift.price7Days ?? '',
+      price15Days: shift.price15Days ?? '',
+      price3Months: shift.price3Months ?? '',
+      price6Months: shift.price6Months ?? '',
+    });
+
+    let initialTiers: { label: string; price: number | string }[] = [];
+    if (Array.isArray(shift.customPricing) && shift.customPricing.length > 0) {
+      initialTiers = shift.customPricing.map((t: any) => ({ label: t.label, price: t.price }));
+    } else {
+      if (shift.price7Days) initialTiers.push({ label: '7 Days', price: shift.price7Days });
+      if (shift.price15Days) initialTiers.push({ label: '15 Days', price: shift.price15Days });
+      if (shift.price) initialTiers.push({ label: '1 Month', price: shift.price });
+      if (shift.price3Months) initialTiers.push({ label: '3 Months', price: shift.price3Months });
+      if (shift.price6Months) initialTiers.push({ label: '6 Months', price: shift.price6Months });
+      if (initialTiers.length === 0) {
+        initialTiers = [
+          { label: '7 Days', price: '' },
+          { label: '15 Days', price: '' },
+          { label: '1 Month', price: shift.price || '' },
+        ];
+      }
+    }
+    setCustomPricingList(initialTiers);
     const matchedPreset = PRESET_SHIFTS.find(p => p.name === shift.name && p.startTime === shift.startTime && p.endTime === shift.endTime);
     setSelectedPreset(matchedPreset ? matchedPreset.id : 'custom');
     setOpenShiftModal(true);
@@ -371,13 +493,41 @@ export default function Billing() {
   const handleSaveShift = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const cleanedCustomPricing = customPricingList
+        .filter((item) => item.label.trim() !== '' && item.price !== '' && item.price !== null && !isNaN(Number(item.price)))
+        .map((item) => ({
+          label: item.label.trim(),
+          price: parseFloat(item.price as string),
+        }));
+
+      // Sort in ascending order of duration length
+      cleanedCustomPricing.sort((a, b) => getDurationDays(a.label) - getDurationDays(b.label));
+
+      const getTierPrice = (labelText: string) => {
+        const found = cleanedCustomPricing.find((t) => t.label.toLowerCase().includes(labelText.toLowerCase()));
+        return found ? found.price : null;
+      };
+
+      const base1m = getTierPrice('1 month') || (cleanedCustomPricing.length > 0 ? cleanedCustomPricing[0].price : 0);
+      const p7d = getTierPrice('7 day') || (shiftFormData.price7Days ? parseFloat(shiftFormData.price7Days as any) : null);
+      const p15d = getTierPrice('15 day') || (shiftFormData.price15Days ? parseFloat(shiftFormData.price15Days as any) : null);
+      const p3m = getTierPrice('3 month') || (shiftFormData.price3Months ? parseFloat(shiftFormData.price3Months as any) : null);
+      const p6m = getTierPrice('6 month') || (shiftFormData.price6Months ? parseFloat(shiftFormData.price6Months as any) : null);
+
       const dataToSave = {
         ...shiftFormData,
         capacity: shiftFormData.capacity === '' || shiftFormData.capacity === null || shiftFormData.capacity === undefined ? null : parseInt(shiftFormData.capacity as any),
-        price: shiftFormData.price === '' || shiftFormData.price === null || shiftFormData.price === undefined ? 0 : parseFloat(shiftFormData.price as any),
-        price3Months: shiftFormData.price3Months === '' || shiftFormData.price3Months === null || shiftFormData.price3Months === undefined ? null : parseFloat(shiftFormData.price3Months as any),
-        price6Months: shiftFormData.price6Months === '' || shiftFormData.price6Months === null || shiftFormData.price6Months === undefined ? null : parseFloat(shiftFormData.price6Months as any),
+        price: base1m,
+        price7Days: p7d,
+        price15Days: p15d,
+        price3Months: p3m,
+        price6Months: p6m,
+        customPricing: cleanedCustomPricing,
       };
+      if (!editShiftMode || !dataToSave.id) {
+        delete (dataToSave as any).id;
+      }
+
       if (editShiftMode) {
         await updateShift({ id: shiftFormData.id, data: dataToSave }).unwrap();
         showToast('Shift updated successfully!', 'success');
@@ -449,26 +599,20 @@ export default function Billing() {
 
   return (
     <Box className="billing-page">
-      <Box className="billing-page-header">
-        <Box>
-          <Typography className="billing-eyebrow">FINANCE WORKSPACE</Typography>
-          <Typography variant="h4" className="billing-title">Billing & Subscriptions</Typography>
-          <Typography className="billing-subtitle">Track collections, manage invoices and configure your seating plans.</Typography>
-        </Box>
+      {/* Tabs & Collect Fee Action Row */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2, borderBottom: '1px solid #e2e8f0' }}>
+        <Tabs value={tab} onChange={(_, val) => setTab(val)} className="billing-tabs" variant="scrollable" scrollButtons={false} sx={{ mb: 0, borderBottom: 'none' }}>
+          <Tab label="Collection ledger" />
+          <Tab label="Shifts & pricing" />
+        </Tabs>
         <Button 
           variant="primary" 
           onClick={() => setOpenCollect(true)}
-          className="billing-primary-action"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: 600, marginBottom: '6px' }}
         >
-          <Plus size={18} /> <span>Collect fee</span>
+          <Plus size={16} /> <span>Collect Fee</span>
         </Button>
       </Box>
-
-      {/* Tabs */}
-      <Tabs value={tab} onChange={(_, val) => setTab(val)} className="billing-tabs" variant="scrollable" scrollButtons={false}>
-        <Tab label="Collection ledger" />
-        <Tab label="Shifts & pricing" />
-      </Tabs>
 
       {tab === 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -672,13 +816,13 @@ export default function Billing() {
       {tab === 1 && (
         <Card sx={{ p: 3, border: '1px solid #E2E8F0', boxShadow: 'none', borderRadius: 2.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>Shifts & Pricing</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>Shift Plans & Pricing Cards</Typography>
             <Button 
               variant="primary" 
               onClick={handleOpenCreateShift}
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '10px' }}
             >
-              <Plus size={16} /> Add Shift
+              <Plus size={16} /> Create New Shift
             </Button>
           </Box>
 
@@ -686,57 +830,176 @@ export default function Billing() {
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
               <CircularProgress />
             </Box>
+          ) : !shifts || shifts.length === 0 ? (
+            <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
+              <Typography color="text.secondary">No shift plans found. Create your first shift plan to get started.</Typography>
+            </Paper>
           ) : (
-            <TableContainer component={Paper} sx={{ boxShadow: 'none', border: '1px solid #E2E8F0', borderRadius: 2 }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Shift Name</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Start Time</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>End Time</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Capacity</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Monthly Price</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>3-Month Price</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>6-Month Price</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {shifts?.map((shift: any) => (
-                    <TableRow key={shift.id} hover>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.9rem' }}>{shift.name}</TableCell>
-                      <TableCell sx={{ fontSize: '0.875rem' }}>{shift.startTime}</TableCell>
-                      <TableCell sx={{ fontSize: '0.875rem' }}>{shift.endTime}</TableCell>
-                      <TableCell sx={{ fontSize: '0.875rem' }}>{shift.capacity ?? 'Unlimited'}</TableCell>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.9rem' }}>₹{shift.price}</TableCell>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.9rem', color: 'text.secondary' }}>
-                        {shift.price3Months ? `₹${shift.price3Months}` : '—'}
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.9rem', color: 'text.secondary' }}>
-                        {shift.price6Months ? `₹${shift.price6Months}` : '—'}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                          <IconButton size="small" color="primary" onClick={() => handleOpenEditShift(shift)}>
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={() => handleDeleteShift(shift.id)}>
-                            <DeleteIcon />
-                          </IconButton>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' }, gap: 2.5 }}>
+              {shifts.map((shift: any) => {
+                const timeLower = (shift.startTime || '').toLowerCase() + (shift.name || '').toLowerCase();
+                let icon = <Sun size={20} style={{ color: '#f59e0b' }} />;
+                let badgeBg = '#fef3c7';
+
+                if (timeLower.includes('night') || timeLower.includes('evening') || parseInt(shift.startTime) >= 18) {
+                  icon = <Moon size={20} style={{ color: '#6366f1' }} />;
+                  badgeBg = '#e0e7ff';
+                } else if (timeLower.includes('afternoon') || parseInt(shift.startTime) >= 12) {
+                  icon = <SunMedium size={20} style={{ color: '#ea580c' }} />;
+                  badgeBg = '#ffedd5';
+                }
+
+                return (
+                  <Card
+                    key={shift.id}
+                    sx={{
+                      p: 2.5,
+                      borderRadius: 3,
+                      border: '1px solid var(--border-color)',
+                      bgcolor: 'var(--bg-surface)',
+                      boxShadow: 'var(--shadow-sm)',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: 'var(--shadow-md)',
+                        borderColor: 'var(--primary)',
+                      },
+                    }}
+                  >
+                    <Box>
+                      {/* Card Top: Shift Icon, Name, Capacity */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box sx={{ width: 38, height: 38, borderRadius: '12px', bgcolor: badgeBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {icon}
+                          </Box>
+                          <Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'var(--text-navy)', lineHeight: 1.2 }}>
+                              {shift.name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'var(--text-slate)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', mt: 0.5 }}>
+                              <Clock size={12} /> {shift.startTime} — {shift.endTime}
+                            </Typography>
+                          </Box>
                         </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {(!shifts || shifts.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                        No shifts found. Create your first shift to get started.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                        <Chip
+                          label={shift.capacity ? `Cap: ${shift.capacity}` : 'Unlimited'}
+                          size="small"
+                          sx={{ fontSize: '0.7rem', fontWeight: 700, bgcolor: 'var(--bg-surface-hover)', color: 'var(--text-secondary)' }}
+                        />
+                      </Box>
+
+                      {/* Dynamic Duration Pricing Tiers (Sorted Ascending with Daily Rate) */}
+                      <Box sx={{ mb: 2.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--text-slate)', mb: 1.25, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.7rem' }}>
+                          Configured Duration Pricing & Daily Rates
+                        </Typography>
+
+                        {(() => {
+                          let rawTiers: { label: string; price: number }[] = Array.isArray(shift.customPricing) && shift.customPricing.length > 0
+                            ? shift.customPricing
+                            : [
+                                ...(shift.price7Days ? [{ label: '7 Days', price: Number(shift.price7Days) }] : []),
+                                ...(shift.price15Days ? [{ label: '15 Days', price: Number(shift.price15Days) }] : []),
+                                ...(shift.price ? [{ label: '1 Month', price: Number(shift.price) }] : []),
+                                ...(shift.price3Months ? [{ label: '3 Months', price: Number(shift.price3Months) }] : []),
+                                ...(shift.price6Months ? [{ label: '6 Months', price: Number(shift.price6Months) }] : []),
+                              ];
+
+                          if (rawTiers.length === 0) {
+                            return (
+                              <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: 'var(--bg-surface-hover)', border: '1px dashed var(--border-color)', boxShadow: 'none' }}>
+                                <Typography variant="caption" sx={{ color: 'var(--text-slate)', fontStyle: 'italic' }}>
+                                  No duration tiers added yet (Base: ₹{shift.price || 0}/month)
+                                </Typography>
+                              </Paper>
+                            );
+                          }
+
+                          // Sort in ascending order of duration length
+                          const sortedTiers = [...rawTiers].sort((a, b) => getDurationDays(a.label) - getDurationDays(b.label));
+
+                          return (
+                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(130px, 1fr))' }, gap: 1.25 }}>
+                              {sortedTiers.map((t, idx) => {
+                                const days = getDurationDays(t.label);
+                                const dailyPrice = days > 0 ? Math.round(Number(t.price) / days) : 0;
+                                const is1Month = t.label.toLowerCase().includes('1 month');
+
+                                return (
+                                  <Box
+                                    key={idx}
+                                    sx={{
+                                      p: 1.5,
+                                      borderRadius: '12px',
+                                      bgcolor: is1Month ? '#eff6ff' : '#f8fafc',
+                                      border: is1Month ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: 0.2,
+                                      transition: 'all 0.15s ease',
+                                      boxShadow: is1Month ? '0 2px 8px rgba(37, 99, 235, 0.08)' : 'none',
+                                      '&:hover': {
+                                        borderColor: '#3b82f6',
+                                        transform: 'translateY(-1px)',
+                                      },
+                                    }}
+                                  >
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: is1Month ? '#1d4ed8' : '#334155' }}>
+                                        {t.label}
+                                      </Typography>
+                                      {is1Month && (
+                                        <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: '#2563eb', bgcolor: '#dbeafe', px: 0.8, py: 0.1, borderRadius: '4px' }}>
+                                          Base
+                                        </Typography>
+                                      )}
+                                    </Box>
+
+                                    <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: is1Month ? '#1e40af' : '#0f172a', mt: 0.2 }}>
+                                      ₹{Number(t.price || 0).toLocaleString('en-IN')}
+                                    </Typography>
+
+                                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: is1Month ? '#2563eb' : '#64748b' }}>
+                                      ~₹{dailyPrice}/day
+                                    </Typography>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
+                          );
+                        })()}
+                      </Box>
+                    </Box>
+
+                    {/* Footer Actions */}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, pt: 1.5, borderTop: '1px solid var(--border-color)' }}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenEditShift(shift)}
+                        style={{ borderRadius: '8px', padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <EditIcon style={{ fontSize: 13 }} /> Edit Plan
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteShift(shift.id)}
+                        style={{ borderRadius: '8px', padding: '4px 8px', fontSize: '0.75rem', color: '#ef4444', borderColor: '#fca5a5' }}
+                      >
+                        <DeleteIcon style={{ fontSize: 13 }} />
+                      </Button>
+                    </Box>
+                  </Card>
+                );
+              })}
+            </Box>
           )}
         </Card>
       )}
@@ -855,25 +1118,28 @@ export default function Billing() {
         </form>
       </Dialog>
 
-      {/* Premium Add/Edit Shift Dialog */}
-      <Dialog
+      {/* Premium Slide-Over Right Sidebar Drawer for Create / Edit Shift */}
+      <Drawer
+        anchor="right"
         open={openShiftModal}
         onClose={() => setOpenShiftModal(false)}
-        maxWidth="sm"
-        fullWidth
         slotProps={{
+          backdrop: {
+            sx: {
+              backgroundColor: 'rgba(15, 23, 42, 0.4)',
+              backdropFilter: 'blur(4px)',
+            },
+          },
           paper: {
             sx: {
-              borderRadius: '24px',
-              boxShadow: '0 25px 60px -15px rgba(15, 23, 42, 0.25)',
-              border: '1px solid rgba(15, 23, 42, 0.08)',
-              overflow: 'hidden',
-              backgroundColor: '#ffffff',
-              maxHeight: '90vh',
+              width: { xs: '100%', sm: '540px', md: '620px' },
+              boxShadow: '-10px 0 30px rgba(0,0,0,0.15)',
+              borderLeft: '1px solid var(--border-color)',
+              bgcolor: 'var(--bg-surface)',
               display: 'flex',
               flexDirection: 'column',
-            }
-          }
+            },
+          },
         }}
       >
         {/* Header */}
@@ -884,7 +1150,7 @@ export default function Billing() {
           color: '#ffffff',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justify: 'space-between',
           flexShrink: 0
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -896,7 +1162,7 @@ export default function Billing() {
               border: '1px solid rgba(255, 255, 255, 0.15)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              justify: 'center',
               color: '#60a5fa',
               boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)'
             }}>
@@ -904,10 +1170,10 @@ export default function Billing() {
             </Box>
             <Box>
               <Typography sx={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-                {editShiftMode ? 'Edit Shift Settings' : 'Create New Shift'}
+                {editShiftMode ? 'Edit Shift Settings' : 'Create New Shift Plan'}
               </Typography>
               <Typography sx={{ fontSize: '0.78rem', color: '#94a3b8', mt: 0.5 }}>
-                Configure shift timings, seating capacity, and fee tiers
+                Configure shift timings, seating capacity, and dynamic pricing tiers
               </Typography>
             </Box>
           </Box>
@@ -920,7 +1186,7 @@ export default function Billing() {
         </Box>
 
         <form onSubmit={handleSaveShift} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-          <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5, overflowY: 'auto' }}>
+          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5, overflowY: 'auto', flex: 1 }}>
             
             {/* Quick Presets Selection */}
             <Box>
@@ -1078,84 +1344,107 @@ export default function Billing() {
               </Box>
             </Box>
 
-            {/* Pricing Tiers & Capacity Card */}
+            {/* Pricing Section — Dynamic Duration Tiers */}
             <Box sx={{
-              p: 2,
+              p: 2.5,
               borderRadius: '16px',
               background: '#ffffff',
               border: '1px solid #e2e8f0',
+              boxShadow: 'var(--shadow-sm)',
             }}>
-              <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px', mb: 1.5 }}>
-                <IndianRupee size={15} style={{ color: '#2563eb' }} /> Pricing Tiers & Capacity
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <IndianRupee size={16} style={{ color: 'var(--primary)' }} /> Dynamic Duration Pricing Tiers
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'var(--text-slate)', fontSize: '0.72rem' }}>
+                  Add as many duration options as needed
+                </Typography>
+              </Box>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 1.5 }}>
+              <Box sx={{ mb: 2.5 }}>
                 <TextField
-                  label="Monthly Base Price (₹) *"
-                  type="number"
-                  required
-                  placeholder="e.g. 800"
-                  value={shiftFormData.price ?? ''}
-                  onChange={(e) => setShiftFormData({ ...shiftFormData, price: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '10px',
-                      '& fieldset': { borderColor: '#cbd5e1' }
-                    }
-                  }}
-                />
-                <TextField
+                  fullWidth
                   label="Max Capacity (Optional)"
                   type="number"
-                  placeholder="Leave blank for unlimited"
+                  placeholder="Leave blank for unlimited capacity"
                   value={shiftFormData.capacity ?? ''}
                   onChange={(e) => setShiftFormData({ ...shiftFormData, capacity: e.target.value === '' ? '' : parseInt(e.target.value) })}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '10px',
-                      '& fieldset': { borderColor: '#cbd5e1' }
-                    }
-                  }}
+                  sx={inputStyle}
                 />
               </Box>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                <TextField
-                  label="3-Month Price (₹) - Optional"
-                  type="number"
-                  placeholder="e.g. 2100"
-                  value={shiftFormData.price3Months ?? ''}
-                  onChange={(e) => setShiftFormData({ ...shiftFormData, price3Months: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '10px',
-                      '& fieldset': { borderColor: '#cbd5e1' }
-                    }
-                  }}
-                />
-                <TextField
-                  label="6-Month Price (₹) - Optional"
-                  type="number"
-                  placeholder="e.g. 4000"
-                  value={shiftFormData.price6Months ?? ''}
-                  onChange={(e) => setShiftFormData({ ...shiftFormData, price6Months: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '10px',
-                      '& fieldset': { borderColor: '#cbd5e1' }
-                    }
-                  }}
-                />
+              {/* Quick Add Presets Row */}
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--text-slate)', mb: 1, display: 'block', textTransform: 'uppercase', letterSpacing: '0.03em', fontSize: '0.7rem' }}>
+                Quick Add Duration Preset:
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                {['7 Days', '15 Days', '1 Month', '2 Months', '3 Months', '4 Months', '5 Months', '6 Months', '12 Months'].map((presetLabel) => (
+                  <Button
+                    key={presetLabel}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!customPricingList.some((t) => t.label.toLowerCase() === presetLabel.toLowerCase())) {
+                        handleAddPricingTier(presetLabel, '');
+                      }
+                    }}
+                    style={{ borderRadius: '6px', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600 }}
+                  >
+                    + {presetLabel}
+                  </Button>
+                ))}
               </Box>
+
+              {/* Pricing Tiers List */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 2 }}>
+                {customPricingList.map((tier, idx) => (
+                  <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'var(--bg-surface-hover)', p: 1.5, borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                    <TextField
+                      label="Duration (e.g. 7 Days, 2 Months)"
+                      size="small"
+                      value={tier.label}
+                      onChange={(e) => handleUpdatePricingTier(idx, 'label', e.target.value)}
+                      sx={{ flex: 1.5, ...inputStyle }}
+                    />
+                    <TextField
+                      label="Price (₹)"
+                      type="number"
+                      size="small"
+                      placeholder="e.g. 100"
+                      value={tier.price ?? ''}
+                      onChange={(e) => handleUpdatePricingTier(idx, 'price', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                      sx={{ flex: 1, ...inputStyle }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemovePricingTier(idx)}
+                      sx={{ color: '#ef4444', p: 1, '&:hover': { bgcolor: '#fee2e2' } }}
+                    >
+                      <X size={16} />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleAddPricingTier('', '')}
+                style={{ width: '100%', borderRadius: '8px', padding: '8px 0', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <Plus size={15} /> Add Custom Duration Tier
+              </Button>
             </Box>
-          </DialogContent>
+          </Box>
 
-          <DialogActions sx={{ p: 2.5, px: 3, background: '#f8fafc', borderTop: '1px solid #e2e8f0', justifyContent: 'space-between', flexShrink: 0 }}>
+          {/* Footer Actions */}
+          <Box sx={{ p: 2.5, px: 3, background: 'var(--bg-surface-hover)', borderTop: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <Button
               type="button"
-              variant="text"
+              variant="outline"
               onClick={() => setOpenShiftModal(false)}
-              style={{ color: '#64748b', fontWeight: 600 }}
+              style={{ borderRadius: '10px', padding: '8px 20px', color: 'var(--text-secondary)' }}
             >
               Cancel
             </Button>
@@ -1165,18 +1454,18 @@ export default function Billing() {
                 background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                 color: '#ffffff',
                 borderRadius: '10px',
-                padding: '10px 24px',
+                padding: '10px 28px',
                 fontWeight: 700,
                 fontSize: '0.88rem',
                 boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
                 border: 'none'
               }}
             >
-              {editShiftMode ? 'Update Shift' : 'Save Shift'}
+              {editShiftMode ? 'Update Shift Plan' : 'Save Shift Plan'}
             </Button>
-          </DialogActions>
+          </Box>
         </form>
-      </Dialog>
+      </Drawer>
 
       {/* LEDGER RECORD DETAIL DRAWER */}
       <div 

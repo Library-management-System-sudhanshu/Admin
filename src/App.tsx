@@ -8,7 +8,7 @@ import Seats from './pages/Seats';
 import Billing from './pages/Billing';
 import Library from './pages/Library';
 import Complaints from './pages/Complaints';
-import WhatsApp from './pages/WhatsApp';
+import MessagesBroadcast from './pages/MessagesBroadcast';
 import Settings from './pages/Settings';
 import Notices from './pages/Notices';
 import SuperAdminLayout from './pages/super-admin/SuperAdminLayout';
@@ -85,7 +85,7 @@ export default function App() {
                 <Route path="/library" element={<Library />} />
                 <Route path="/complaints" element={<Complaints />} />
                 <Route path="/notices" element={<Notices />} />
-                <Route path="/whatsapp" element={<WhatsApp />} />
+                <Route path="/messages" element={<MessagesBroadcast />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/transfer-seat" element={<TransferSeat />} />

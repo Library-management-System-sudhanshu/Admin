@@ -52,6 +52,10 @@ export const api = createApi({
     'SaaSPlans',
     'SaaSSubscription',
     'SuperAdminMetrics',
+    'SmsLogs',
+    'EmailLogs',
+    'EmailStats',
+    'EmailDomain',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -555,6 +559,58 @@ export const api = createApi({
       }),
       invalidatesTags: ['SaaSSubscription'],
     }),
+
+    // SMS Broadcast
+    sendSmsBroadcast: builder.mutation({
+      query: (data) => ({
+        url: 'sms/broadcast',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['SmsLogs'],
+    }),
+    getSmsLogs: builder.query({
+      query: () => 'sms/logs',
+      providesTags: ['SmsLogs'],
+    }),
+
+    // Email Broadcast (Resend)
+    sendEmailBroadcast: builder.mutation({
+      query: (data) => ({
+        url: 'email/broadcast',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['EmailLogs', 'EmailStats'],
+    }),
+    getEmailLogs: builder.query({
+      query: () => 'email/logs',
+      providesTags: ['EmailLogs'],
+    }),
+    getEmailStats: builder.query({
+      query: () => 'email/stats',
+      providesTags: ['EmailStats'],
+    }),
+    getEmailDomain: builder.query({
+      query: (name = 'trishulindustries.online') => `email/domain?name=${encodeURIComponent(name)}`,
+      providesTags: ['EmailDomain'],
+    }),
+    verifyEmailDomain: builder.mutation({
+      query: (id) => ({
+        url: 'email/domain/verify',
+        method: 'POST',
+        body: { id },
+      }),
+      invalidatesTags: ['EmailDomain'],
+    }),
+    updateEmailDomain: builder.mutation({
+      query: (data) => ({
+        url: 'email/domain/update',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['EmailDomain'],
+    }),
   }),
 });
 
@@ -630,5 +686,13 @@ export const {
   useStartSaaSTrialMutation,
   useCreateSaaSPaymentMutation,
   useVerifySaaSPaymentMutation,
+  useSendSmsBroadcastMutation,
+  useGetSmsLogsQuery,
+  useSendEmailBroadcastMutation,
+  useGetEmailLogsQuery,
+  useGetEmailStatsQuery,
+  useGetEmailDomainQuery,
+  useVerifyEmailDomainMutation,
+  useUpdateEmailDomainMutation,
 } = api;
 

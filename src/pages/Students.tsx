@@ -25,7 +25,7 @@ import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
 import { useAlert } from '../components/ui/AlertContext';
 import { DatePicker } from '../components/ui/DatePicker';
-import { formatYYYYMMDD, formatDateDisplay, getTodayYYYYMMDD, addDaysToDate } from '../utils/dateUtils';
+import { formatYYYYMMDD, formatDateDisplay, getTodayYYYYMMDD, addDaysToDate, addMonthsToDate } from '../utils/dateUtils';
 import {
   Plus,
   Check,
@@ -43,7 +43,12 @@ import {
   ChevronRight,
   Camera,
   Eye,
-  EyeOff
+  EyeOff,
+  Search,
+  Users,
+  UserCheck,
+  AlertCircle,
+  RotateCcw
 } from 'lucide-react';
 
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -154,7 +159,7 @@ export default function Students() {
   const [renewEndDate, setRenewEndDate] = useState('');
   const [renewPaymentMethod, setRenewPaymentMethod] = useState<'UPI' | 'CASH' | 'RAZORPAY'>('UPI');
   const [renewAmount, setRenewAmount] = useState('');
-  const [renewDuration, setRenewDuration] = useState<number>(1);
+  const [renewDuration, setRenewDuration] = useState<number | string>(1);
   const [isRenewing, setIsRenewing] = useState(false);
 
 
@@ -189,6 +194,48 @@ export default function Students() {
   const filteredStudents = React.useMemo(() => {
     return data?.students || [];
   }, [data?.students]);
+
+  // Dynamic KPI Metrics calculations
+  const stats = React.useMemo(() => {
+    const list = data?.students || [];
+    let activeSeats = 0;
+    let expiringSoon = 0;
+    let expiredOrNoSeat = 0;
+
+    list.forEach((st: any) => {
+      const activeAlloc = st.allocations?.find((a: any) => a.isActive);
+      if (!activeAlloc) {
+        expiredOrNoSeat++;
+      } else if (activeAlloc.endDate) {
+        const end = new Date(activeAlloc.endDate);
+        const today = new Date();
+        end.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays < 0) {
+          expiredOrNoSeat++;
+        } else if (diffDays <= 7) {
+          expiringSoon++;
+        } else {
+          activeSeats++;
+        }
+      } else {
+        activeSeats++;
+      }
+    });
+
+    return { activeSeats, expiringSoon, expiredOrNoSeat };
+  }, [data?.students]);
+
+  const hasActiveFilters = Boolean(search || branchId || filterShiftId || filterExpiration);
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setBranchId('');
+    setFilterShiftId('');
+    setFilterExpiration('');
+  };
 
   const [_createStudent] = useCreateStudentMutation();
   const [updateStudent, { isLoading: isUpdating }] = useUpdateStudentMutation();
@@ -307,24 +354,32 @@ export default function Students() {
     if (renewShiftId && shifts) {
       const shift = shifts.find((s: any) => s.id === renewShiftId);
       if (shift && renewStartDate) {
-        const start = new Date(renewStartDate);
-        // Calculate end date based on renewDuration
-        start.setMonth(start.getMonth() + renewDuration);
-        try {
-          setRenewEndDate(start.toISOString().split('T')[0]);
-          
-          let price = shift.price || 0;
-          if (renewDuration === 3 && shift.price3Months) {
+        let endDateCalculated = '';
+        let price = shift.price || 0;
+
+        if (renewDuration === '7d') {
+          endDateCalculated = addDaysToDate(renewStartDate, 7);
+          price = Math.round((price / 30) * 7);
+        } else if (renewDuration === '10d') {
+          endDateCalculated = addDaysToDate(renewStartDate, 10);
+          price = Math.round((price / 30) * 10);
+        } else if (renewDuration === '15d') {
+          endDateCalculated = addDaysToDate(renewStartDate, 15);
+          price = Math.round((price / 30) * 15);
+        } else {
+          const months = typeof renewDuration === 'number' ? renewDuration : parseInt(renewDuration as string) || 1;
+          endDateCalculated = addMonthsToDate(renewStartDate, months);
+          if (months === 3 && shift.price3Months) {
             price = shift.price3Months;
-          } else if (renewDuration === 6 && shift.price6Months) {
+          } else if (months === 6 && shift.price6Months) {
             price = shift.price6Months;
           } else {
-            price = price * renewDuration;
+            price = price * months;
           }
-          setRenewAmount(price.toString());
-        } catch (e) {
-          // ignore
         }
+
+        setRenewEndDate(endDateCalculated);
+        setRenewAmount(price.toString());
       }
     }
   }, [renewShiftId, renewStartDate, renewDuration, shifts]);
@@ -424,76 +479,127 @@ export default function Students() {
 
   return (
     <div style={{ width: '100%' }}>
+      {/* Dynamic Scoped CSS for Student Records */}
       <style dangerouslySetInnerHTML={{ __html: `
         .student-hover-card-trigger {
           position: relative;
         }
 
         .student-hover-details-card {
-          opacity: 0;
-          visibility: hidden;
           position: absolute;
-          top: -20px;
-          left: 105%;
+          top: 100%;
+          left: 0;
+          z-index: 100;
           width: 280px;
           background: #ffffff;
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          border: 1px solid var(--border-card);
           border-radius: 12px;
-          box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
-          padding: 14px;
-          z-index: 999;
-          text-align: left;
-          white-space: normal;
-          pointer-events: none;
-          transform: translateX(10px);
-          transition: opacity 150ms ease, transform 150ms ease, visibility 150ms;
+          box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+          padding: 12px;
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(4px);
+          transition: all 180ms ease;
+          pointer-events: auto;
         }
 
         .student-hover-card-trigger:hover .student-hover-details-card {
           opacity: 1;
           visibility: visible;
-          transform: translateX(0);
+          transform: translateY(0);
+        }
+
+        .student-table-row {
+          transition: background-color 150ms ease;
+        }
+        .student-table-row:hover {
+          background-color: #F8FAFC !important;
+        }
+
+        .sr-filter-input::placeholder {
+          color: #94A3B8;
+        }
+
+        @media (max-width: 640px) {
+          .sr-filter-bar { flex-direction: column !important; }
+          .sr-filter-bar > div { width: 100% !important; flex: unset !important; }
+          .sr-status-chips { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .sr-status-chips::-webkit-scrollbar { display: none; }
         }
       `}} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0 }}>
-          Student Records
-        </h1>
-        <Button 
-          variant="primary" 
-          onClick={() => navigate('/new-admission')}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          <Plus size={18} /> New Admission
-        </Button>
-      </div>
 
-      {/* Filters Toolbar */}
-      <Card
-        elevation="sm"
+
+
+      {/* High-Density Integrated Filter Toolbar */}
+      <div
+        className="sr-filter-bar"
         style={{
-          padding: '0.75rem 1.25rem',
-          marginBottom: '1.5rem',
+          padding: '0.5rem 0.75rem',
+          marginBottom: '0.75rem',
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
-          gap: '1rem',
-          flexWrap: 'nowrap',
-          overflow: 'visible',
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-color)',
+          gap: '0.5rem',
+          flexWrap: 'wrap',
+          backgroundColor: '#ffffff',
+          border: '1px solid var(--border-card)',
           borderRadius: '0.75rem',
+          boxShadow: 'var(--shadow-soft)'
         }}
       >
-        <div style={{ width: '240px', flexShrink: 0 }}>
-          <Input
-            placeholder="Search by Name"
+        {/* Search Box */}
+        <div style={{ position: 'relative', flex: '1 1 220px', minWidth: '200px' }}>
+          <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+          <input
+            type="text"
+            placeholder="Search student by name, mobile, email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="no-margin"
+            className="sr-filter-input"
+            style={{
+              width: '100%',
+              padding: '0.45rem 2rem 0.45rem 2.2rem',
+              fontSize: '0.825rem',
+              borderRadius: '0.5rem',
+              border: '1px solid var(--border-card)',
+              outline: 'none',
+              backgroundColor: '#F8FAFC',
+              boxSizing: 'border-box',
+              color: 'var(--text-navy)',
+              transition: 'all 150ms ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.backgroundColor = '#ffffff';
+              e.target.style.borderColor = 'var(--accent-blue)';
+            }}
+            onBlur={(e) => {
+              if (!e.target.value) e.target.style.backgroundColor = '#F8FAFC';
+              e.target.style.borderColor = 'var(--border-card)';
+            }}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#94A3B8',
+                padding: '2px'
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
-        <div style={{ width: '180px', flexShrink: 0 }}>
+
+        {/* Branch Select */}
+        <div style={{ width: '165px', flexShrink: 0 }}>
           <Select
             value={branchId}
             onChange={(val) => setBranchId(val)}
@@ -507,7 +613,9 @@ export default function Students() {
             ]}
           />
         </div>
-        <div style={{ width: '180px', flexShrink: 0 }}>
+
+        {/* Shift Select */}
+        <div style={{ width: '165px', flexShrink: 0 }}>
           <Select
             value={filterShiftId}
             onChange={(val) => setFilterShiftId(val)}
@@ -521,7 +629,9 @@ export default function Students() {
             ]}
           />
         </div>
-        <div style={{ width: '180px', flexShrink: 0 }}>
+
+        {/* Expiration Status Select */}
+        <div style={{ width: '165px', flexShrink: 0 }}>
           <Select
             value={filterExpiration}
             onChange={(val) => setFilterExpiration(val)}
@@ -535,337 +645,423 @@ export default function Students() {
             ]}
           />
         </div>
-      </Card>
 
-      {/* Roster Table */}
+        {/* Reset Filters Button */}
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '0.45rem 0.75rem',
+              fontSize: '0.775rem',
+              fontWeight: 600,
+              color: 'var(--status-red)',
+              backgroundColor: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.15)',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 150ms ease'
+            }}
+          >
+            <RotateCcw size={13} /> Reset
+          </button>
+        )}
+      </div>
+
+      {/* Roster Table Card */}
       {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem', color: 'var(--primary)' }}>
-          <Loader2 className="spinner" size={40} />
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem 0', color: 'var(--primary)' }}>
+          <Loader2 className="spinner" size={36} />
         </div>
       ) : (
-        <>
-          <div className="custom-table-container" style={{ overflow: 'visible' }}>
-            <table className="custom-table" style={{ width: '100%' }}>
+        <div className="custom-table-container" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: '#ffffff', borderRadius: '0.75rem', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-soft)' }}>
+          <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>
-                <th>Student</th>
-                <th>Contact Info</th>
-                <th style={{ whiteSpace: 'nowrap' }}>Seat & Shift</th>
-                <th>Aadhar Card</th>
-                <th>Admission Date</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid var(--border-card)' }}>
+                <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Student</th>
+                <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Contact Info</th>
+                <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)', whiteSpace: 'nowrap' }}>Seat & Shift</th>
+                <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Aadhar Card</th>
+                <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Admission Date</th>
+                <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-               {filteredStudents.map((student: any) => {
-                 const activeAllocation = student.allocations?.find((a: any) => a.isActive);
-                 const isSubscriptionExpired = activeAllocation && activeAllocation.endDate && new Date(activeAllocation.endDate).getTime() < new Date().getTime();
-                 const hasSeat = !!activeAllocation;
-
-                 const avatarBorderColor = 
-                   isSubscriptionExpired ? '#ef4444' :
-                   student.status === 'APPROVED' ? (hasSeat ? 'var(--success)' : '#cbd5e1') :
-                   student.status === 'PENDING' ? 'var(--warning)' :
-                   student.status === 'REJECTED' ? 'var(--danger)' :
-                   'var(--border-color)';
-
-                return (
-                  <tr 
-                    key={student.id}
-                    onClick={() => {
-                      setSelectedStudentId(student.id);
-                      setDrawerActiveSection('DETAILS');
-                      setIsDrawerOpen(true);
-                    }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <td>
-                      <div className="student-hover-card-trigger" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div 
-                          className="avatar" 
-                          style={{ 
-                            border: `2.5px solid ${avatarBorderColor}`, 
-                            boxSizing: 'border-box',
-                            background: student.user?.avatar ? `url(${student.user.avatar}) no-repeat center center / cover` : undefined,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
+              {filteredStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-slate)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                      <Users size={36} style={{ opacity: 0.3 }} />
+                      <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-navy)' }}>No students found matching your criteria</span>
+                      <span style={{ fontSize: '0.775rem' }}>Try adjusting your search terms or filter selection.</span>
+                      {hasActiveFilters && (
+                        <button
+                          type="button"
+                          onClick={handleResetFilters}
+                          style={{
+                            marginTop: '0.5rem',
+                            padding: '0.4rem 0.9rem',
+                            fontSize: '0.775rem',
+                            fontWeight: 600,
+                            borderRadius: '0.5rem',
+                            border: '1px solid var(--accent-blue)',
+                            color: 'var(--accent-blue)',
+                            backgroundColor: 'rgba(37, 99, 235, 0.05)',
+                            cursor: 'pointer'
                           }}
                         >
-                          {!student.user?.avatar && student.user?.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{student.user?.name}</div>
-                          <div className="text-muted">{student.branch?.name || 'No Branch'}</div>
-                        </div>
-
-                        {/* Hover Details Card */}
-                        <div className="student-hover-details-card" onClick={(e) => e.stopPropagation()}>
-                          <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0F172A', borderBottom: '1px solid #F1F5F9', paddingBottom: '6px', marginBottom: '8px' }}>
-                            Seat & Shift History
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem' }}>
-                            {student.allocations && student.allocations.length > 0 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
-                                {student.allocations.map((alloc: any, idx: number) => {
-                                  const isAllocExpired = alloc.endDate && new Date(alloc.endDate).getTime() < new Date().getTime();
-                                  return (
-                                    <div key={alloc.id || idx} style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: '6px', marginBottom: '2px' }}>
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#0F172A' }}>
-                                        <span>Seat {alloc.seat?.number || 'N/A'}</span>
-                                        <span style={{ 
-                                          fontSize: '0.65rem',
-                                          padding: '2px 6px',
-                                          borderRadius: '4px',
-                                          fontWeight: 700,
-                                          color: alloc.isActive ? (isAllocExpired ? '#ef4444' : '#10b981') : '#64748b',
-                                          backgroundColor: alloc.isActive ? (isAllocExpired ? 'rgba(239,68,68,0.06)' : 'rgba(16,185,129,0.06)') : 'rgba(100,116,139,0.06)',
-                                          border: alloc.isActive ? (isAllocExpired ? '1px solid rgba(239,68,68,0.1)' : '1px solid rgba(16,185,129,0.1)') : '1px solid rgba(100,116,139,0.1)'
-                                        }}>
-                                          {alloc.isActive ? (isAllocExpired ? 'Expired' : 'Active') : 'Past'}
-                                        </span>
-                                      </div>
-                                      <div style={{ fontSize: '0.725rem', color: '#334155', fontWeight: 600, marginTop: '2px' }}>
-                                        {alloc.shift?.name || 'N/A'} Shift ({alloc.shift?.startTime} - {alloc.shift?.endTime})
-                                      </div>
-                                      <div style={{ fontSize: '0.675rem', color: '#64748B', marginTop: '2px' }}>
-                                        {new Date(alloc.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(alloc.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div style={{ fontStyle: 'italic', color: '#94A3B8', fontSize: '0.725rem', padding: '8px 0', textAlign: 'center' }}>
-                                No active or past seat history
-                              </div>
-                            )}
-
-                            {/* Secondary metadata footer */}
-                            <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '8px', marginTop: '4px', fontSize: '0.675rem', color: '#64748B', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                              <div><strong>Guardian:</strong> {student.guardianName || 'N/A'} {student.guardianMobile && `(${student.guardianMobile})`}</div>
-                              <div><strong>Joining Date:</strong> {student.joiningDate ? new Date(student.joiningDate).toLocaleDateString() : 'N/A'}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div>{student.user?.email}</div>
-                      <div className="text-muted">{student.user?.mobile}</div>
-                    </td>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      {(() => {
-                        const activeAllocation = student.allocations?.find((a: any) => a.isActive);
-                        if (!activeAllocation) {
-                          const activeSub = student.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
-                          const matchingShift = activeSub && shifts?.find((s: any) => 
-                            activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
-                          );
-                          if (matchingShift) {
-                            return (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.875rem' }}>
-                                <span style={{ fontWeight: 600, color: 'var(--accent-blue)' }}>
-                                  No Seat Allocated
-                                </span>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontStyle: 'italic' }}>
-                                  Paid: {matchingShift.name} ({matchingShift.startTime} - {matchingShift.endTime})
-                                </span>
-                              </div>
-                            );
-                          }
-                          return <span className="text-muted" style={{ fontStyle: 'italic', fontSize: '0.875rem' }}>No Seat Allocated</span>;
-                        }
-                        
-                        const end = new Date(activeAllocation.endDate);
-                        const today = new Date();
-                        end.setHours(0, 0, 0, 0);
-                        today.setHours(0, 0, 0, 0);
-                        const diffTime = end.getTime() - today.getTime();
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                        
-                        let statusText = '';
-                        let badgeStyle: React.CSSProperties = {
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          width: 'fit-content',
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.7rem',
-                          fontWeight: 600,
-                          lineHeight: 1.2,
-                          marginTop: '4px',
-                        };
-
-                        if (diffDays < 0) {
-                          statusText = 'Expired';
-                          badgeStyle = {
-                            ...badgeStyle,
-                            color: 'var(--status-red)',
-                            backgroundColor: 'rgba(239, 68, 68, 0.06)',
-                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                          };
-                        } else if (diffDays <= 7) {
-                          statusText = diffDays === 0 ? 'Expires Today' : `Expires in ${diffDays} ${diffDays === 1 ? 'day' : 'days'}`;
-                          badgeStyle = {
-                            ...badgeStyle,
-                            color: 'var(--status-gold)',
-                            backgroundColor: 'rgba(217, 119, 6, 0.06)',
-                            border: '1px solid rgba(217, 119, 6, 0.2)',
-                          };
-                        } else {
-                          statusText = `Active (${diffDays} days remaining)`;
-                          badgeStyle = {
-                            ...badgeStyle,
-                            color: 'var(--status-emerald)',
-                            backgroundColor: 'rgba(16, 185, 129, 0.06)',
-                            border: '1px solid rgba(16, 185, 129, 0.2)',
-                          };
-                        }
-
-                        return (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.875rem' }}>
-                            <div>
-                              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                                Seat {activeAllocation.seat?.number || 'N/A'}
-                              </span>
-                              <span style={{ color: 'var(--text-secondary)', marginLeft: '0.25rem', fontSize: '0.8rem' }}>
-                                ({activeAllocation.shift?.name || 'N/A'})
-                              </span>
-                            </div>
-                            <span style={badgeStyle}>
-                              {statusText}
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td>{student.aadharNumber || 'N/A'}</td>
-                    <td>{new Date(student.joiningDate).toLocaleDateString()}</td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <div className="action-buttons">
-                      {student.status === 'PENDING' && (
-                        <>
-                          <button 
-                            className="icon-btn success" 
-                            title="Approve" 
-                            onClick={() => handleStatusChange(student.id, 'APPROVED')}
-                          >
-                            <Check size={18} />
-                          </button>
-                          <button 
-                            className="icon-btn danger" 
-                            title="Reject" 
-                            onClick={() => handleStatusChange(student.id, 'REJECTED')}
-                          >
-                            <X size={18} />
-                          </button>
-                        </>
+                          Clear All Filters
+                        </button>
                       )}
-                      <button 
-                        className="icon-btn" 
-                        title="Edit Student" 
-                        onClick={() => handleOpenEdit(student)}
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button 
-                        className="icon-btn" 
-                        title="ID Card" 
-                        onClick={() => {
-                          setSelectedStudent(student);
-                          setOpenCard(true);
-                        }}
-                      >
-                        <IdCard size={18} />
-                      </button>
-                      <button 
-                        className="icon-btn danger" 
-                        title="Delete" 
-                        onClick={() => handleDelete(student.id)}
-                      >
-                        <Trash2 size={18} />
-                      </button>
                     </div>
                   </td>
                 </tr>
-              );
-            })}
+              ) : (
+                filteredStudents.map((student: any) => {
+                  const activeAllocation = student.allocations?.find((a: any) => a.isActive);
+                  const isSubscriptionExpired = activeAllocation && activeAllocation.endDate && new Date(activeAllocation.endDate).getTime() < new Date().getTime();
+                  const hasSeat = !!activeAllocation;
+
+                  const avatarBorderColor = 
+                    isSubscriptionExpired ? '#ef4444' :
+                    student.status === 'APPROVED' ? (hasSeat ? 'var(--status-emerald)' : '#cbd5e1') :
+                    student.status === 'PENDING' ? 'var(--status-gold)' :
+                    student.status === 'REJECTED' ? 'var(--status-red)' :
+                    'var(--border-card)';
+
+                  return (
+                    <tr 
+                      key={student.id}
+                      className="student-table-row"
+                      onClick={() => {
+                        setSelectedStudentId(student.id);
+                        setDrawerActiveSection('DETAILS');
+                        setIsDrawerOpen(true);
+                      }}
+                      style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-card)' }}
+                    >
+                      <td style={{ padding: '0.6rem 1rem' }}>
+                        <div className="student-hover-card-trigger" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                          <div 
+                            className="avatar" 
+                            style={{ 
+                              width: '34px',
+                              height: '34px',
+                              border: `2px solid ${avatarBorderColor}`, 
+                              boxSizing: 'border-box',
+                              background: student.user?.avatar ? `url(${student.user.avatar}) no-repeat center center / cover` : undefined,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.8rem',
+                              fontWeight: 700
+                            }}
+                          >
+                            {!student.user?.avatar && student.user?.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-navy)', lineHeight: 1.2 }}>
+                              {student.user?.name}
+                            </div>
+                            <div style={{ fontSize: '0.725rem', color: 'var(--text-slate)', marginTop: '2px' }}>
+                              {student.branch?.name || 'No Branch'}
+                            </div>
+                          </div>
+
+                          {/* Hover Details Card */}
+                          <div className="student-hover-details-card" onClick={(e) => e.stopPropagation()}>
+                            <div style={{ fontWeight: 700, fontSize: '0.825rem', color: '#0F172A', borderBottom: '1px solid #F1F5F9', paddingBottom: '6px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>Seat & Shift History</span>
+                              <span style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: 600 }}>ID: {student.id.substring(0, 6)}</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem' }}>
+                              {student.allocations && student.allocations.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+                                  {student.allocations.map((alloc: any, idx: number) => {
+                                    const isAllocExpired = alloc.endDate && new Date(alloc.endDate).getTime() < new Date().getTime();
+                                    return (
+                                      <div key={alloc.id || idx} style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: '6px', marginBottom: '2px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#0F172A' }}>
+                                          <span>Seat {alloc.seat?.number || 'N/A'}</span>
+                                          <span style={{ 
+                                            fontSize: '0.65rem',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontWeight: 700,
+                                            color: alloc.isActive ? (isAllocExpired ? '#ef4444' : '#10b981') : '#64748b',
+                                            backgroundColor: alloc.isActive ? (isAllocExpired ? 'rgba(239,68,68,0.06)' : 'rgba(16,185,129,0.06)') : 'rgba(100,116,139,0.06)',
+                                            border: alloc.isActive ? (isAllocExpired ? '1px solid rgba(239,68,68,0.1)' : '1px solid rgba(16,185,129,0.1)') : '1px solid rgba(100,116,139,0.1)'
+                                          }}>
+                                            {alloc.isActive ? (isAllocExpired ? 'Expired' : 'Active') : 'Past'}
+                                          </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.725rem', color: '#334155', fontWeight: 600, marginTop: '2px' }}>
+                                          {alloc.shift?.name || 'N/A'} Shift ({alloc.shift?.startTime} - {alloc.shift?.endTime})
+                                        </div>
+                                        <div style={{ fontSize: '0.675rem', color: '#64748B', marginTop: '2px' }}>
+                                          {new Date(alloc.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(alloc.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div style={{ fontStyle: 'italic', color: '#94A3B8', fontSize: '0.725rem', padding: '8px 0', textAlign: 'center' }}>
+                                  No active or past seat history
+                                </div>
+                              )}
+
+                              {/* Secondary metadata footer */}
+                              <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '8px', marginTop: '4px', fontSize: '0.675rem', color: '#64748B', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <div><strong>Guardian:</strong> {student.guardianName || 'N/A'} {student.guardianMobile && `(${student.guardianMobile})`}</div>
+                                <div><strong>Joining Date:</strong> {student.joiningDate ? new Date(student.joiningDate).toLocaleDateString() : 'N/A'}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td style={{ padding: '0.6rem 1rem' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-navy)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Mail size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }} title={student.user?.email}>
+                            {student.user?.email || 'N/A'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.725rem', color: 'var(--text-slate)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Phone size={11} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                          {student.user?.mobile || 'N/A'}
+                        </div>
+                      </td>
+
+                      <td style={{ padding: '0.6rem 1rem', whiteSpace: 'nowrap' }}>
+                        {(() => {
+                          const activeAllocation = student.allocations?.find((a: any) => a.isActive);
+                          if (!activeAllocation) {
+                            const activeSub = student.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
+                            const matchingShift = activeSub && shifts?.find((s: any) => 
+                              activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
+                            );
+                            if (matchingShift) {
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.8rem' }}>
+                                  <span style={{ fontWeight: 700, color: 'var(--accent-blue)' }}>
+                                    No Seat Allocated
+                                  </span>
+                                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.725rem', fontStyle: 'italic' }}>
+                                    Paid: {matchingShift.name} ({matchingShift.startTime} - {matchingShift.endTime})
+                                  </span>
+                                </div>
+                              );
+                            }
+                            return <span style={{ fontStyle: 'italic', fontSize: '0.775rem', color: 'var(--text-slate)' }}>No Seat Allocated</span>;
+                          }
+                          
+                          const end = new Date(activeAllocation.endDate);
+                          const today = new Date();
+                          end.setHours(0, 0, 0, 0);
+                          today.setHours(0, 0, 0, 0);
+                          const diffTime = end.getTime() - today.getTime();
+                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                          
+                          let statusText = '';
+                          let badgeStyle: React.CSSProperties = {
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            width: 'fit-content',
+                            padding: '2px 7px',
+                            borderRadius: '4px',
+                            fontSize: '0.675rem',
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            marginTop: '3px',
+                          };
+
+                          if (diffDays < 0) {
+                            statusText = 'Expired';
+                            badgeStyle = {
+                              ...badgeStyle,
+                              color: 'var(--status-red)',
+                              backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                              border: '1px solid rgba(239, 68, 68, 0.2)',
+                            };
+                          } else if (diffDays <= 7) {
+                            statusText = diffDays === 0 ? 'Expires Today' : `Expires in ${diffDays}d`;
+                            badgeStyle = {
+                              ...badgeStyle,
+                              color: 'var(--status-gold)',
+                              backgroundColor: 'rgba(217, 119, 6, 0.08)',
+                              border: '1px solid rgba(217, 119, 6, 0.2)',
+                            };
+                          } else {
+                            statusText = `Active (${diffDays}d left)`;
+                            badgeStyle = {
+                              ...badgeStyle,
+                              color: 'var(--status-emerald)',
+                              backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                              border: '1px solid rgba(16, 185, 129, 0.2)',
+                            };
+                          }
+
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', fontSize: '0.8rem' }}>
+                              <div>
+                                <span style={{ fontWeight: 700, color: 'var(--text-navy)' }}>
+                                  Seat {activeAllocation.seat?.number || 'N/A'}
+                                </span>
+                                <span style={{ color: 'var(--text-slate)', marginLeft: '0.25rem', fontSize: '0.75rem' }}>
+                                  ({activeAllocation.shift?.name || 'N/A'})
+                                </span>
+                              </div>
+                              <span style={badgeStyle}>
+                                {statusText}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </td>
+
+                      <td style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', color: 'var(--text-navy)', fontWeight: 500 }}>
+                        {student.aadharNumber ? (
+                          <span style={{ fontFamily: 'monospace', fontSize: '0.775rem', backgroundColor: '#F1F5F9', padding: '2px 6px', borderRadius: '4px' }}>
+                            {student.aadharNumber}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94A3B8', fontSize: '0.75rem' }}>N/A</span>
+                        )}
+                      </td>
+
+                      <td style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', color: 'var(--text-navy)' }}>
+                        {student.joiningDate ? new Date(student.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                      </td>
+
+                      <td style={{ padding: '0.6rem 1rem', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                        <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
+                          {student.status === 'PENDING' && (
+                            <>
+                              <button 
+                                className="icon-btn success" 
+                                title="Approve" 
+                                onClick={() => handleStatusChange(student.id, 'APPROVED')}
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button 
+                                className="icon-btn danger" 
+                                title="Reject" 
+                                onClick={() => handleStatusChange(student.id, 'REJECTED')}
+                              >
+                                <X size={16} />
+                              </button>
+                            </>
+                          )}
+                          <button 
+                            className="icon-btn" 
+                            title="Edit Student" 
+                            onClick={() => handleOpenEdit(student)}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            className="icon-btn" 
+                            title="ID Card" 
+                            onClick={() => {
+                              setSelectedStudent(student);
+                              setOpenCard(true);
+                            }}
+                          >
+                            <IdCard size={16} />
+                          </button>
+                          <button 
+                            className="icon-btn danger" 
+                            title="Delete" 
+                            onClick={() => handleDelete(student.id)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
-        </div>
 
-        {/* Pagination Controls */}
-        {data && data.total > 0 && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '12px 24px',
-            backgroundColor: '#ffffff',
-            borderTop: '1px solid rgba(15, 23, 42, 0.05)',
-            borderBottomLeftRadius: '16px',
-            borderBottomRightRadius: '16px',
-            marginTop: '-1px'
-          }}>
-            <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 500 }}>
-              Showing <span style={{ color: '#0F172A', fontWeight: 600 }}>{((page - 1) * 10) + 1}</span> to{' '}
-              <span style={{ color: '#0F172A', fontWeight: 600 }}>
-                {Math.min(page * 10, data.total)}
-              </span> of{' '}
-              <span style={{ color: '#0F172A', fontWeight: 600 }}>{data.total}</span> students
-            </span>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(15, 23, 42, 0.06)',
-                  backgroundColor: '#ffffff',
-                  color: page === 1 ? '#cbd5e1' : '#475569',
-                  cursor: page === 1 ? 'not-allowed' : 'pointer',
-                  transition: 'all 150ms ease',
-                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.02)'
-                }}
-              >
-                <ChevronLeft size={14} />
-              </button>
-              
-              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>
-                {page} / {Math.ceil(data.total / 10)}
+          {/* Integrated Pagination Footer */}
+          {data && data.total > 0 && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '0.6rem 1.25rem',
+              backgroundColor: '#F8FAFC',
+              borderTop: '1px solid var(--border-card)',
+              borderBottomLeftRadius: '0.75rem',
+              borderBottomRightRadius: '0.75rem'
+            }}>
+              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 500 }}>
+                Showing <span style={{ color: '#0F172A', fontWeight: 700 }}>{((page - 1) * 10) + 1}</span> to{' '}
+                <span style={{ color: '#0F172A', fontWeight: 700 }}>
+                  {Math.min(page * 10, data.total)}
+                </span> of{' '}
+                <span style={{ color: '#0F172A', fontWeight: 700 }}>{data.total}</span> students
               </span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-card)',
+                    backgroundColor: '#ffffff',
+                    color: page === 1 ? '#cbd5e1' : '#475569',
+                    cursor: page === 1 ? 'not-allowed' : 'pointer',
+                    transition: 'all 150ms ease',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.02)'
+                  }}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>
+                  {page} / {Math.ceil(data.total / 10)}
+                </span>
 
-              <button
-                disabled={page >= Math.ceil(data.total / 10)}
-                onClick={() => setPage(prev => Math.min(prev + 1, Math.ceil(data.total / 10)))}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(15, 23, 42, 0.06)',
-                  backgroundColor: '#ffffff',
-                  color: page >= Math.ceil(data.total / 10) ? '#cbd5e1' : '#475569',
-                  cursor: page >= Math.ceil(data.total / 10) ? 'not-allowed' : 'pointer',
-                  transition: 'all 150ms ease',
-                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.02)'
-                }}
-              >
-                <ChevronRight size={14} />
-              </button>
+                <button
+                  disabled={page >= Math.ceil(data.total / 10)}
+                  onClick={() => setPage(prev => Math.min(prev + 1, Math.ceil(data.total / 10)))}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-card)',
+                    backgroundColor: '#ffffff',
+                    color: page >= Math.ceil(data.total / 10) ? '#cbd5e1' : '#475569',
+                    cursor: page >= Math.ceil(data.total / 10) ? 'not-allowed' : 'pointer',
+                    transition: 'all 150ms ease',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.02)'
+                  }}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </>
-    )}
+          )}
+        </div>
+      )}
 
 
 
@@ -1428,12 +1624,16 @@ export default function Students() {
                           <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Plan Duration</label>
                           <Select
                             value={renewDuration}
-                            onChange={(val: any) => setRenewDuration(Number(val))}
+                            onChange={(val: any) => setRenewDuration(isNaN(Number(val)) ? val : Number(val))}
                             placeholder="Select Duration"
                             options={[
-                              { value: 1, label: '1 Month' },
-                              { value: 3, label: '3 Months (Discounted)' },
-                              { value: 6, label: '6 Months (Discounted)' },
+                              { value: 1, label: '1 Month (Standard)' },
+                              { value: 2, label: '2 Months' },
+                              { value: 3, label: '3 Months (Quarterly)' },
+                              { value: 6, label: '6 Months (Half Yearly)' },
+                              { value: '7d', label: '7 Days (Short Term)' },
+                              { value: '10d', label: '10 Days (Short Term)' },
+                              { value: '15d', label: '15 Days (Half Month)' },
                             ]}
                           />
                         </div>

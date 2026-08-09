@@ -50,9 +50,6 @@ export default function Complaints() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, color: '#0F172A', mb: 4 }}>
-        Student Grievance Complaints
-      </Typography>
 
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
