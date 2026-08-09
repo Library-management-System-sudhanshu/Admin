@@ -150,9 +150,9 @@ export default function Layout() {
     { text: 'Seat Map', icon: <Armchair className="sidebar-link-icon" />, path: '/seats' },
     { text: 'Billing & Payments', icon: <ReceiptText className="sidebar-link-icon" />, path: '/billing' },
     { text: 'Library', icon: <LibraryIcon className="sidebar-link-icon" />, path: '/library' },
+    { text: 'Messages & Broadcast', icon: <Megaphone className="sidebar-link-icon" />, path: '/messages' },
     { text: 'Complaints', icon: <MessageSquareWarning className="sidebar-link-icon" />, path: '/complaints' },
     { text: 'Notices', icon: <Bell className="sidebar-link-icon" />, path: '/notices' },
-    { text: 'Messages & Broadcast', icon: <Megaphone className="sidebar-link-icon" />, path: '/messages' },
     { text: 'Settings', icon: <Settings className="sidebar-link-icon" />, path: '/settings' },
   ];
 

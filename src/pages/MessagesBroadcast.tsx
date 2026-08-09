@@ -7,6 +7,7 @@ import {
   useGetSmsLogsQuery,
   useSendEmailBroadcastMutation,
   useGetEmailLogsQuery,
+  useGetEmailStatsQuery,
   useGetBranchesQuery,
   useGetShiftsQuery,
   useGetStudentsQuery,
@@ -15,6 +16,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import { DatePicker } from '../components/ui/DatePicker';
+import { useToast } from '../components/ui/ToastContext';
 import {
   Box,
   Typography,
@@ -33,6 +35,8 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Grid,
+  LinearProgress,
 } from '@mui/material';
 import { Button } from '../components/ui/Button';
 import { Send, MessageCircle, Smartphone, Mail, Megaphone, ChevronRight } from 'lucide-react';
@@ -313,6 +317,7 @@ function LogsTable({ logs, isLoading, showSubject }: { logs: any[]; isLoading: b
    MAIN COMPONENT
    ════════════════════════════════════════════════════════════════════ */
 export default function MessagesBroadcast() {
+  const { showToast } = useToast();
   const { user } = useSelector((state: RootState) => state.auth);
   const [activeChannel, setActiveChannel] = useState<ChannelKey>('whatsapp');
   const [subTab, setSubTab] = useState<'compose' | 'logs' | 'automation'>('compose');
@@ -322,6 +327,7 @@ export default function MessagesBroadcast() {
   const { data: whatsappLogs, isLoading: waLogsLoading } = useGetWhatsAppLogsQuery({});
   const { data: smsLogs, isLoading: smsLogsLoading } = useGetSmsLogsQuery({});
   const { data: emailLogs, isLoading: emailLogsLoading } = useGetEmailLogsQuery({});
+  const { data: emailStats } = useGetEmailStatsQuery({});
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
 
@@ -380,7 +386,7 @@ export default function MessagesBroadcast() {
   /* ─── Email State ─── */
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
-  const [fromEmail, setFromEmail] = useState('');
+  const [fromEmail, setFromEmail] = useState('StudyFlow <no-reply@trishulindustries.online>');
   const [selectedEmailTemplate, setSelectedEmailTemplate] = useState('');
 
   const handleEmailTemplateChange = (tmplId: string) => {
@@ -423,19 +429,19 @@ export default function MessagesBroadcast() {
   const handleSendIndividualWa = (student: any) => {
     const message = getTemplateTextPreview(student);
     let phone = student.user?.mobile ? student.user.mobile.replace(/\D/g, '') : '';
-    if (!phone) { alert('This student has no mobile number on file.'); return; }
+    if (!phone) { showToast('This student has no mobile number on file.', 'warning'); return; }
     if (phone.length === 10) phone = '91' + phone;
     const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
     const win = window.open(url, WHATSAPP_WINDOW_NAME, 'width=1000,height=750,resizable=yes,scrollbars=yes');
     if (win) win.focus();
-    else alert('Popup blocked — please allow popups for this site to send via WhatsApp Web.');
+    else showToast('Popup blocked — please allow popups for this site to send via WhatsApp Web.', 'warning');
   };
 
   const handleSendWaBroadcast = async (e?: React.FormEvent | React.MouseEvent) => {
     e?.preventDefault();
-    if (!selectedTemplateId) return;
+    if (!selectedTemplateId) { showToast('Please select a WhatsApp template.', 'warning'); return; }
     const selectedIds = Object.keys(selectedStudentIds).filter((k) => selectedStudentIds[k]);
-    if (selectedIds.length === 0) { alert('Please select at least one student.'); return; }
+    if (selectedIds.length === 0) { showToast('Please select at least one student recipient.', 'warning'); return; }
     try {
       await sendWhatsApp({
         templateId: selectedTemplateId,
@@ -443,54 +449,61 @@ export default function MessagesBroadcast() {
         filters: { branchId: branchId === 'ALL' ? undefined : branchId, shiftId: shiftId === 'ALL' ? undefined : shiftId, status: statusFilter === 'ALL' ? undefined : statusFilter },
         studentIds: selectedIds,
       }).unwrap();
-      alert('WhatsApp broadcast triggered successfully!');
+      showToast('WhatsApp broadcast triggered successfully!', 'success');
       setAmount(''); setDueDate(''); setEndDate(''); setSeatNumber(''); setHolidayDate(''); setResumeDate(''); setReason(''); setCustomMsg(''); setCustomVars({}); setFetchTrigger(false);
-    } catch { alert('Broadcast failed'); }
+    } catch (err: any) { showToast(err?.data?.message || 'WhatsApp broadcast failed', 'error'); }
   };
 
   const handleCreateTemplate = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!newTemplateName.trim() || !newTemplateText.trim()) { alert('Please fill out all fields.'); return; }
+    if (!newTemplateName.trim() || !newTemplateText.trim()) { showToast('Please fill out all template fields.', 'warning'); return; }
     try {
       await createTemplate({ name: newTemplateName, text: newTemplateText }).unwrap();
-      alert('Template created successfully!');
+      showToast('Template created successfully!', 'success');
       setIsTemplateModalOpen(false); setNewTemplateName(''); setNewTemplateText('');
-    } catch (err: any) { alert(err?.data?.message || 'Failed to create template'); }
+    } catch (err: any) { showToast(err?.data?.message || 'Failed to create template', 'error'); }
   };
 
   /* ─── SMS Send ─── */
   const handleSendSmsBroadcast = async () => {
-    if (!smsMessage.trim()) { alert('Please enter a message.'); return; }
+    if (!smsMessage.trim()) { showToast('Please enter an SMS message.', 'warning'); return; }
     const selectedIds = Object.keys(selectedStudentIds).filter((k) => selectedStudentIds[k]);
-    if (selectedIds.length === 0) { alert('Please select at least one student.'); return; }
+    if (selectedIds.length === 0) { showToast('Please select at least one student recipient.', 'warning'); return; }
     try {
       await sendSms({
         message: smsMessage,
         filters: { branchId: branchId === 'ALL' ? undefined : branchId, shiftId: shiftId === 'ALL' ? undefined : shiftId, status: statusFilter === 'ALL' ? undefined : statusFilter },
         studentIds: selectedIds,
       }).unwrap();
-      alert('SMS broadcast triggered successfully!');
+      showToast('SMS broadcast triggered successfully!', 'success');
       setSmsMessage(''); setFetchTrigger(false);
-    } catch { alert('SMS broadcast failed'); }
+    } catch (err: any) { showToast(err?.data?.message || 'SMS broadcast failed', 'error'); }
   };
 
   /* ─── Email Send ─── */
   const handleSendEmailBroadcast = async () => {
-    if (!emailSubject.trim() || !emailBody.trim()) { alert('Please enter subject and body.'); return; }
-    if (!fromEmail.trim()) { alert('Please enter a sender email address.'); return; }
+    if (!emailSubject.trim() || !emailBody.trim()) { showToast('Please enter email subject and body.', 'warning'); return; }
+    if (!fromEmail.trim()) { showToast('Please enter a sender email address.', 'warning'); return; }
     const selectedIds = Object.keys(selectedStudentIds).filter((k) => selectedStudentIds[k]);
-    if (selectedIds.length === 0) { alert('Please select at least one student.'); return; }
+    if (selectedIds.length === 0) { showToast('Please select at least one student recipient.', 'warning'); return; }
     try {
-      await sendEmail({
+      const res = await sendEmail({
         subject: emailSubject,
         message: emailBody,
         fromEmail,
         filters: { branchId: branchId === 'ALL' ? undefined : branchId, shiftId: shiftId === 'ALL' ? undefined : shiftId, status: statusFilter === 'ALL' ? undefined : statusFilter },
         studentIds: selectedIds,
       }).unwrap();
-      alert('Email broadcast triggered successfully!');
+
+      if (res.sentCount > 0 && res.failedCount === 0) {
+        showToast(`Email broadcast sent successfully to ${res.sentCount} recipient(s)!`, 'success');
+      } else if (res.sentCount > 0 && res.failedCount > 0) {
+        showToast(`Email sent to ${res.sentCount} recipient(s), but ${res.failedCount} failed.`, 'warning');
+      } else {
+        showToast('Failed to send email broadcast. Please check recipient addresses or domain config.', 'error');
+      }
       setEmailSubject(''); setEmailBody(''); setFetchTrigger(false);
-    } catch { alert('Email broadcast failed'); }
+    } catch (err: any) { showToast(err?.data?.message || err?.message || 'Email broadcast failed', 'error'); }
   };
 
   /* ─── Current channel info ─── */
@@ -651,6 +664,148 @@ export default function MessagesBroadcast() {
               {/* ── Email Compose ── */}
               {activeChannel === 'email' && (
                 <>
+                  {/* Email Usage & Quota Tracker Card */}
+                  <Box sx={{
+                    p: 2.5,
+                    mb: 2.5,
+                    borderRadius: '12px',
+                    bgcolor: 'var(--card-bg, #ffffff)',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: '10px',
+                          bgcolor: 'rgba(99, 102, 241, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justify: 'center',
+                          color: '#6366f1',
+                        }}>
+                          <Mail size={20} />
+                        </Box>
+                        <Box>
+                          <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            Email Usage & Quota Tracker
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            Resend Free Tier Quota Limits & Live Dispatch Counter
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Chip
+                        label={`Total Sent: ${emailStats?.totalCount || 0}`}
+                        size="small"
+                        sx={{ fontWeight: 700, fontSize: '0.75rem', bgcolor: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' }}
+                      />
+                    </Box>
+
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                      <Box sx={{ p: 1.5, borderRadius: '8px', border: '1px solid var(--border-color)', bgcolor: 'rgba(248, 250, 252, 0.5)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                          <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            Daily Limit (Today)
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: (emailStats?.dailyCount || 0) >= 100 ? '#ef4444' : '#10b981' }}>
+                            {emailStats?.dailyCount || 0} / {emailStats?.dailyLimit || 100}
+                          </Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={Math.min(100, (((emailStats?.dailyCount || 0) / (emailStats?.dailyLimit || 100)) * 100))}
+                          sx={{
+                            height: 7,
+                            borderRadius: 4,
+                            bgcolor: '#e2e8f0',
+                            '& .MuiLinearProgress-bar': {
+                              bgcolor: (emailStats?.dailyCount || 0) >= 90 ? '#ef4444' : (emailStats?.dailyCount || 0) >= 70 ? '#f59e0b' : '#10b981',
+                              borderRadius: 4,
+                            },
+                          }}
+                        />
+                        <Typography sx={{ fontSize: '0.7rem', color: 'var(--text-secondary)', mt: 0.5 }}>
+                          {emailStats?.dailyRemaining ?? 100} remaining today
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ p: 1.5, borderRadius: '8px', border: '1px solid var(--border-color)', bgcolor: 'rgba(248, 250, 252, 0.5)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                          <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            Monthly Quota (This Month)
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: (emailStats?.monthlyCount || 0) >= 3000 ? '#ef4444' : '#6366f1' }}>
+                            {emailStats?.monthlyCount || 0} / {emailStats?.monthlyLimit || 3000}
+                          </Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={Math.min(100, (((emailStats?.monthlyCount || 0) / (emailStats?.monthlyLimit || 3000)) * 100))}
+                          sx={{
+                            height: 7,
+                            borderRadius: 4,
+                            bgcolor: '#e2e8f0',
+                            '& .MuiLinearProgress-bar': {
+                              bgcolor: (emailStats?.monthlyCount || 0) >= 2700 ? '#ef4444' : (emailStats?.monthlyCount || 0) >= 2100 ? '#f59e0b' : '#6366f1',
+                              borderRadius: 4,
+                            },
+                          }}
+                        />
+                        <Typography sx={{ fontSize: '0.7rem', color: 'var(--text-secondary)', mt: 0.5 }}>
+                          {emailStats?.monthlyRemaining ?? 3000} remaining this month
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {/* Resend Domain Active Status Card */}
+                  <Box sx={{
+                    p: 2,
+                    mb: 2.5,
+                    borderRadius: '12px',
+                    bgcolor: 'rgba(16, 185, 129, 0.06)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justify: 'space-between',
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '10px',
+                        bgcolor: 'rgba(16, 185, 129, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'center',
+                        color: '#10b981',
+                      }}>
+                        <Mail size={18} />
+                      </Box>
+                      <Box>
+                        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          Verified Domain: <span style={{ color: '#10b981' }}>trishulindustries.online</span>
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.73rem', color: 'var(--text-secondary)', mt: 0.2 }}>
+                          Sending via Resend API (`no-reply@trishulindustries.online`)
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Chip
+                      label="ACTIVE & VERIFIED"
+                      size="small"
+                      sx={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        bgcolor: '#d1fae5',
+                        color: '#047857',
+                        border: '1px solid #a7f3d0',
+                      }}
+                    />
+                  </Box>
+
                   <FormControl fullWidth size="small" sx={{ mb: 2, ...inputStyle }}>
                     <InputLabel id="email-template-label">Select Predefined Email Template (Optional)</InputLabel>
                     <Select
@@ -673,12 +828,12 @@ export default function MessagesBroadcast() {
 
                   <TextField
                     label="Sender Email (From)"
-                    placeholder="noreply@yourdomain.com or onboarding@resend.dev"
+                    placeholder="e.g. StudyFlow <no-reply@trishulindustries.online>"
                     fullWidth size="small"
                     value={fromEmail}
                     onChange={(e) => setFromEmail(e.target.value)}
                     sx={{ mb: 2, ...inputStyle }}
-                    helperText="Must be a verified Resend domain or use onboarding@resend.dev for testing."
+                    helperText="Active Verified Resend Domain: trishulindustries.online"
                   />
                   <TextField
                     label="Email Subject"
@@ -811,7 +966,7 @@ export default function MessagesBroadcast() {
                     border: '1px solid var(--border-color)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)',
                   }}>
                     <Box sx={{ bgcolor: 'var(--bg-surface-hover)', px: 2, py: 1.5, borderBottom: '1px solid var(--border-color)' }}>
-                      <Typography variant="caption" sx={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>From: {fromEmail || 'sender@domain.com'}</Typography>
+                      <Typography variant="caption" sx={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>From: {fromEmail || 'StudyFlow <no-reply@trishulindustries.online>'}</Typography>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--text-primary)', mt: 0.5 }}>
                         {emailSubject || 'Email Subject'}
                       </Typography>

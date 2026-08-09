@@ -54,6 +54,8 @@ export const api = createApi({
     'SuperAdminMetrics',
     'SmsLogs',
     'EmailLogs',
+    'EmailStats',
+    'EmailDomain',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -579,11 +581,35 @@ export const api = createApi({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: ['EmailLogs'],
+      invalidatesTags: ['EmailLogs', 'EmailStats'],
     }),
     getEmailLogs: builder.query({
       query: () => 'email/logs',
       providesTags: ['EmailLogs'],
+    }),
+    getEmailStats: builder.query({
+      query: () => 'email/stats',
+      providesTags: ['EmailStats'],
+    }),
+    getEmailDomain: builder.query({
+      query: (name = 'trishulindustries.online') => `email/domain?name=${encodeURIComponent(name)}`,
+      providesTags: ['EmailDomain'],
+    }),
+    verifyEmailDomain: builder.mutation({
+      query: (id) => ({
+        url: 'email/domain/verify',
+        method: 'POST',
+        body: { id },
+      }),
+      invalidatesTags: ['EmailDomain'],
+    }),
+    updateEmailDomain: builder.mutation({
+      query: (data) => ({
+        url: 'email/domain/update',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['EmailDomain'],
     }),
   }),
 });
@@ -664,5 +690,9 @@ export const {
   useGetSmsLogsQuery,
   useSendEmailBroadcastMutation,
   useGetEmailLogsQuery,
+  useGetEmailStatsQuery,
+  useGetEmailDomainQuery,
+  useVerifyEmailDomainMutation,
+  useUpdateEmailDomainMutation,
 } = api;
 
