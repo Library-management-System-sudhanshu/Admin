@@ -126,7 +126,7 @@ const parseTime = (timeStr: string) => {
   const [hhStr, mmStr] = timeStr.split(':');
   let hh = parseInt(hhStr, 10);
   const mm = mmStr || '00';
-  
+
   let period = 'AM';
   if (hh >= 12) {
     period = 'PM';
@@ -134,7 +134,7 @@ const parseTime = (timeStr: string) => {
   } else if (hh === 0) {
     hh = 12;
   }
-  
+
   return {
     hour: hh.toString(),
     minute: mm,
@@ -292,10 +292,10 @@ export default function Billing() {
       showToast('No payment records found to export', 'info');
       return;
     }
-    
+
     // Define headers
     const headers = ['Invoice ID', 'Student Name', 'Amount (₹)', 'Payment Method', 'Date', 'Status'];
-    
+
     // Map rows
     const rows = filteredPayments.map((payment: any) => [
       `INV-${payment.id.substring(0, 8).toUpperCase()}`,
@@ -305,13 +305,13 @@ export default function Billing() {
       new Date(payment.createdAt).toLocaleDateString(),
       payment.status
     ]);
-    
+
     // Combine to CSV format
     const csvContent = [
       headers.join(','),
       ...rows.map((row: any[]) => row.map((val: any) => `"${val}"`).join(','))
     ].join('\n');
-    
+
     // Create download link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -605,8 +605,8 @@ export default function Billing() {
           <Tab label="Collection ledger" />
           <Tab label="Shifts & pricing" />
         </Tabs>
-        <Button 
-          variant="primary" 
+        <Button
+          variant="primary"
           onClick={() => setOpenCollect(true)}
           style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', fontSize: '0.82rem', borderRadius: '8px', fontWeight: 600, marginBottom: '6px' }}
         >
@@ -675,32 +675,32 @@ export default function Billing() {
               <Box className="billing-filter-field">
                 <Typography component="label" className="billing-filter-label">Status</Typography>
                 <FormControl size="small" fullWidth>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  displayEmpty
-                >
-                  <MenuItem value="ALL">All Statuses</MenuItem>
-                  <MenuItem value="PAID">Paid</MenuItem>
-                  <MenuItem value="PARTIAL">Partial</MenuItem>
-                  <MenuItem value="UNPAID">Unpaid</MenuItem>
-                  <MenuItem value="NEEDS_ATTENTION">Needs Attention</MenuItem>
-                </Select>
+                  <Select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    displayEmpty
+                  >
+                    <MenuItem value="ALL">All Statuses</MenuItem>
+                    <MenuItem value="PAID">Paid</MenuItem>
+                    <MenuItem value="PARTIAL">Partial</MenuItem>
+                    <MenuItem value="UNPAID">Unpaid</MenuItem>
+                    <MenuItem value="NEEDS_ATTENTION">Needs Attention</MenuItem>
+                  </Select>
                 </FormControl>
               </Box>
               <Box className="billing-filter-field">
                 <Typography component="label" className="billing-filter-label">Method</Typography>
                 <FormControl size="small" fullWidth>
-                <Select
-                  value={methodFilter}
-                  onChange={(e) => setMethodFilter(e.target.value)}
-                  displayEmpty
-                >
-                  <MenuItem value="ALL">All Channels</MenuItem>
-                  <MenuItem value="CASH">Cash</MenuItem>
-                  <MenuItem value="UPI">UPI</MenuItem>
-                  <MenuItem value="RAZORPAY">Razorpay</MenuItem>
-                </Select>
+                  <Select
+                    value={methodFilter}
+                    onChange={(e) => setMethodFilter(e.target.value)}
+                    displayEmpty
+                  >
+                    <MenuItem value="ALL">All Channels</MenuItem>
+                    <MenuItem value="CASH">Cash</MenuItem>
+                    <MenuItem value="UPI">UPI</MenuItem>
+                    <MenuItem value="RAZORPAY">Razorpay</MenuItem>
+                  </Select>
                 </FormControl>
               </Box>
               <DatePicker
@@ -817,8 +817,8 @@ export default function Billing() {
         <Card sx={{ p: 3, border: '1px solid #E2E8F0', boxShadow: 'none', borderRadius: 2.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>Shift Plans & Pricing Cards</Typography>
-            <Button 
-              variant="primary" 
+            <Button
+              variant="primary"
               onClick={handleOpenCreateShift}
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '10px' }}
             >
@@ -902,12 +902,12 @@ export default function Billing() {
                           let rawTiers: { label: string; price: number }[] = Array.isArray(shift.customPricing) && shift.customPricing.length > 0
                             ? shift.customPricing
                             : [
-                                ...(shift.price7Days ? [{ label: '7 Days', price: Number(shift.price7Days) }] : []),
-                                ...(shift.price15Days ? [{ label: '15 Days', price: Number(shift.price15Days) }] : []),
-                                ...(shift.price ? [{ label: '1 Month', price: Number(shift.price) }] : []),
-                                ...(shift.price3Months ? [{ label: '3 Months', price: Number(shift.price3Months) }] : []),
-                                ...(shift.price6Months ? [{ label: '6 Months', price: Number(shift.price6Months) }] : []),
-                              ];
+                              ...(shift.price7Days ? [{ label: '7 Days', price: Number(shift.price7Days) }] : []),
+                              ...(shift.price15Days ? [{ label: '15 Days', price: Number(shift.price15Days) }] : []),
+                              ...(shift.price ? [{ label: '1 Month', price: Number(shift.price) }] : []),
+                              ...(shift.price3Months ? [{ label: '3 Months', price: Number(shift.price3Months) }] : []),
+                              ...(shift.price6Months ? [{ label: '6 Months', price: Number(shift.price6Months) }] : []),
+                            ];
 
                           if (rawTiers.length === 0) {
                             return (
@@ -1177,8 +1177,8 @@ export default function Billing() {
               </Typography>
             </Box>
           </Box>
-          <IconButton 
-            onClick={() => setOpenShiftModal(false)} 
+          <IconButton
+            onClick={() => setOpenShiftModal(false)}
             sx={{ color: '#94a3b8', '&:hover': { color: '#ffffff', background: 'rgba(255,255,255,0.1)' } }}
           >
             <X size={18} />
@@ -1187,7 +1187,7 @@ export default function Billing() {
 
         <form onSubmit={handleSaveShift} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5, overflowY: 'auto', flex: 1 }}>
-            
+
             {/* Quick Presets Selection */}
             <Box>
               <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.06em', mb: 1.25, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1289,20 +1289,10 @@ export default function Billing() {
 
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                 <Box>
-                  <Typography
-                    component="label"
-                    htmlFor="shift-start-time"
-                    onClick={() => {
-                      try {
-                        (document.getElementById('shift-start-time') as HTMLInputElement)?.showPicker?.();
-                      } catch {}
-                    }}
-                    sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5, display: 'block', cursor: 'pointer' }}
-                  >
+                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5 }}>
                     Start Time *
                   </Typography>
                   <input
-                    id="shift-start-time"
                     type="time"
                     required
                     value={shiftFormData.startTime}
@@ -1310,11 +1300,6 @@ export default function Billing() {
                       setShiftFormData(prev => ({ ...prev, startTime: e.target.value }));
                       setSelectedPreset('custom');
                     }}
-                    onClick={(e) => {
-                      try {
-                        e.currentTarget.showPicker?.();
-                      } catch {}
-                    }}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -1325,27 +1310,16 @@ export default function Billing() {
                       fontWeight: 600,
                       color: '#0f172a',
                       outline: 'none',
-                      boxSizing: 'border-box',
-                      cursor: 'pointer'
+                      boxSizing: 'border-box'
                     }}
                   />
                 </Box>
 
                 <Box>
-                  <Typography
-                    component="label"
-                    htmlFor="shift-end-time"
-                    onClick={() => {
-                      try {
-                        (document.getElementById('shift-end-time') as HTMLInputElement)?.showPicker?.();
-                      } catch {}
-                    }}
-                    sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5, display: 'block', cursor: 'pointer' }}
-                  >
+                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5 }}>
                     End Time *
                   </Typography>
                   <input
-                    id="shift-end-time"
                     type="time"
                     required
                     value={shiftFormData.endTime}
@@ -1353,11 +1327,6 @@ export default function Billing() {
                       setShiftFormData(prev => ({ ...prev, endTime: e.target.value }));
                       setSelectedPreset('custom');
                     }}
-                    onClick={(e) => {
-                      try {
-                        e.currentTarget.showPicker?.();
-                      } catch {}
-                    }}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -1368,8 +1337,7 @@ export default function Billing() {
                       fontWeight: 600,
                       color: '#0f172a',
                       outline: 'none',
-                      boxSizing: 'border-box',
-                      cursor: 'pointer'
+                      boxSizing: 'border-box'
                     }}
                   />
                 </Box>
@@ -1500,7 +1468,7 @@ export default function Billing() {
       </Drawer>
 
       {/* LEDGER RECORD DETAIL DRAWER */}
-      <div 
+      <div
         className={`drawer-backdrop ${isDrawerOpen ? 'open' : ''}`}
         onClick={() => setIsDrawerOpen(false)}
       />
@@ -1515,7 +1483,7 @@ export default function Billing() {
               Detailed invoice metrics & lifetime student records
             </span>
           </div>
-          <button 
+          <button
             onClick={() => setIsDrawerOpen(false)}
             style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-slate)', padding: '4px' }}
           >
@@ -1526,12 +1494,12 @@ export default function Billing() {
         {/* Drawer Body */}
         {selectedPayment && (
           <div className="drawer-body" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
+
             {/* Status & Amount Card */}
             <div style={{
               background: selectedPayment.status === 'PAID' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
-                          selectedPayment.status === 'PARTIAL' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' :
-                          'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                selectedPayment.status === 'PARTIAL' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' :
+                  'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
               color: '#ffffff',
               padding: '20px',
               borderRadius: '16px',
@@ -1568,7 +1536,7 @@ export default function Billing() {
               <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Student Information
               </h5>
-              <div 
+              <div
                 onClick={() => {
                   if (selectedPayment?.studentProfile?.id) {
                     navigate('/students', { state: { selectedStudentId: selectedPayment.studentProfile.id } });
@@ -1701,8 +1669,8 @@ export default function Billing() {
                     ?.map((p: any, idx: number) => {
                       const totalList = payments.filter((x: any) => x.studentProfile?.id === selectedPayment.studentProfile?.id);
                       return (
-                        <div 
-                          key={p.id} 
+                        <div
+                          key={p.id}
                           style={{
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -1723,8 +1691,8 @@ export default function Billing() {
                           </div>
                           <span style={{
                             color: p.status === 'PAID' ? 'var(--status-emerald)' :
-                                   p.status === 'PARTIAL' ? 'var(--status-gold)' :
-                                   'var(--status-red)',
+                              p.status === 'PARTIAL' ? 'var(--status-gold)' :
+                                'var(--status-red)',
                             fontWeight: 700,
                             fontSize: '0.725rem',
                             textTransform: 'uppercase'
