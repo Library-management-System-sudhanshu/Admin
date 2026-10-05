@@ -47,3 +47,10 @@
 @media (max-width:900px) { .billing-stats-grid { grid-template-columns:1fr 1fr; }.billing-hero-card { grid-column:1/-1; }.billing-table-card .MuiTable-root { min-width:850px; } }
 @media (max-width:600px) { .billing-page { margin:0 -4px; }.billing-page-header { align-items:stretch; flex-direction:column; gap:16px; }.billing-title { font-size:28px !important; }.billing-subtitle { font-size:13px !important; }.billing-primary-action { width:100%; justify-content:center; }.billing-stats-grid,.billing-filter-grid { grid-template-columns:1fr; }.billing-search-field { grid-column:auto; }.billing-hero-card { grid-column:auto; }.billing-hero-card,.billing-stat-card,.billing-filter-card { border-radius:15px !important; padding:18px !important; }.billing-filter-actions { width:100%; justify-content:flex-end; }.billing-export-button { flex:1; justify-content:center; }.billing-tabs .MuiTab-root { flex:1; font-size:13px; padding-inline:10px; }.billing-stat-value { font-size:27px !important; } }
 @media (prefers-reduced-motion:reduce) { .billing-page * { scroll-behavior:auto !important; animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+
+input[type="time"] {
+  cursor: pointer;
+}
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}

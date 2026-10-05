@@ -1289,10 +1289,20 @@ export default function Billing() {
 
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                 <Box>
-                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5 }}>
+                  <Typography
+                    component="label"
+                    htmlFor="shift-start-time"
+                    onClick={() => {
+                      try {
+                        (document.getElementById('shift-start-time') as HTMLInputElement)?.showPicker?.();
+                      } catch {}
+                    }}
+                    sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5, display: 'block', cursor: 'pointer' }}
+                  >
                     Start Time *
                   </Typography>
                   <input
+                    id="shift-start-time"
                     type="time"
                     required
                     value={shiftFormData.startTime}
@@ -1300,6 +1310,11 @@ export default function Billing() {
                       setShiftFormData(prev => ({ ...prev, startTime: e.target.value }));
                       setSelectedPreset('custom');
                     }}
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker?.();
+                      } catch {}
+                    }}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -1310,16 +1325,27 @@ export default function Billing() {
                       fontWeight: 600,
                       color: '#0f172a',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
+                      cursor: 'pointer'
                     }}
                   />
                 </Box>
 
                 <Box>
-                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5 }}>
+                  <Typography
+                    component="label"
+                    htmlFor="shift-end-time"
+                    onClick={() => {
+                      try {
+                        (document.getElementById('shift-end-time') as HTMLInputElement)?.showPicker?.();
+                      } catch {}
+                    }}
+                    sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5, display: 'block', cursor: 'pointer' }}
+                  >
                     End Time *
                   </Typography>
                   <input
+                    id="shift-end-time"
                     type="time"
                     required
                     value={shiftFormData.endTime}
@@ -1327,6 +1353,11 @@ export default function Billing() {
                       setShiftFormData(prev => ({ ...prev, endTime: e.target.value }));
                       setSelectedPreset('custom');
                     }}
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker?.();
+                      } catch {}
+                    }}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -1337,7 +1368,8 @@ export default function Billing() {
                       fontWeight: 600,
                       color: '#0f172a',
                       outline: 'none',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
+                      cursor: 'pointer'
                     }}
                   />
                 </Box>
