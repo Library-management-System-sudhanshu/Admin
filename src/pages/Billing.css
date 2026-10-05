@@ -406,3 +406,10 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+input[type="time"] {
+  cursor: pointer;
+}
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}

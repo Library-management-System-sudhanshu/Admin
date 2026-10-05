@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
@@ -136,8 +136,8 @@ const parseTime = (timeStr: string) => {
   }
 
   return {
-    hour: hh.toString(),
-    minute: mm,
+    hour: hh.toString().padStart(2, '0'),
+    minute: mm.padStart(2, '0'),
     period,
   };
 };
@@ -167,6 +167,155 @@ const calculateShiftDuration = (start24: string, end24: string) => {
   if (mins === 0) return `${hours} Hours`;
   return `${hours}h ${mins}m`;
 };
+
+const TIME_HOURS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+const TIME_MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+function ShiftTimeInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const parsed = parseTime(value);
+  const hour = parsed.hour;
+  const minute = parsed.minute;
+  const period = parsed.period;
+
+  const update = (h: string, m: string, p: string) => {
+    onChange(formatTo24h(h, m, p));
+  };
+
+  const minuteOptions = Array.from(new Set([...TIME_MINUTES, minute])).sort();
+
+  return (
+    <Box>
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.75 }}>
+        {label}
+      </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: '44px',
+          px: 1.5,
+          borderRadius: '12px',
+          border: '1px solid #cbd5e1',
+          background: '#ffffff',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+          transition: 'all 0.15s ease',
+          '&:hover': {
+            borderColor: '#94a3b8',
+          },
+          '&:focus-within': {
+            borderColor: '#2563eb',
+            boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.12)',
+          },
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Clock size={16} style={{ color: '#2563eb', marginRight: '6px', flexShrink: 0 }} />
+          
+          <select
+            value={hour}
+            onChange={(e) => update(e.target.value, minute, period)}
+            style={{
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              fontSize: '0.95rem',
+              fontWeight: 700,
+              color: '#0f172a',
+              cursor: 'pointer',
+              padding: '4px 0',
+              fontFamily: 'inherit',
+            }}
+          >
+            {TIME_HOURS.map((h) => (
+              <option key={h} value={h}>{h}</option>
+            ))}
+          </select>
+
+          <Typography sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.95rem', userSelect: 'none', px: 0.2 }}>
+            :
+          </Typography>
+
+          <select
+            value={minute}
+            onChange={(e) => update(hour, e.target.value, period)}
+            style={{
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              fontSize: '0.95rem',
+              fontWeight: 700,
+              color: '#0f172a',
+              cursor: 'pointer',
+              padding: '4px 0',
+              fontFamily: 'inherit',
+            }}
+          >
+            {minuteOptions.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </Box>
+
+        {/* AM / PM Segmented Control */}
+        <Box
+          sx={{
+            display: 'flex',
+            background: '#f1f5f9',
+            borderRadius: '8px',
+            p: '2px',
+            gap: '2px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => update(hour, minute, 'AM')}
+            style={{
+              border: 'none',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              background: period === 'AM' ? '#2563eb' : 'transparent',
+              color: period === 'AM' ? '#ffffff' : '#64748b',
+              boxShadow: period === 'AM' ? '0 1px 3px rgba(37, 99, 235, 0.25)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            AM
+          </button>
+          <button
+            type="button"
+            onClick={() => update(hour, minute, 'PM')}
+            style={{
+              border: 'none',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              background: period === 'PM' ? '#2563eb' : 'transparent',
+              color: period === 'PM' ? '#ffffff' : '#64748b',
+              boxShadow: period === 'PM' ? '0 1px 3px rgba(37, 99, 235, 0.25)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            PM
+          </button>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
 
 const PRESET_SHIFTS = [
   { id: 'morning', label: 'Morning', subText: '8 AM - 2 PM', name: 'Morning Shift', startTime: '08:00', endTime: '14:00', icon: Sun },
@@ -335,9 +484,11 @@ export default function Billing() {
 
   // Shifts API
   const { data: shifts, isLoading: shiftsLoading } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
-  const [createShift] = useCreateShiftMutation();
-  const [updateShift] = useUpdateShiftMutation();
+  const [createShift, { isLoading: isCreatingShift }] = useCreateShiftMutation();
+  const [updateShift, { isLoading: isUpdatingShift }] = useUpdateShiftMutation();
   const [deleteShift] = useDeleteShiftMutation();
+
+  const isSavingShift = isCreatingShift || isUpdatingShift;
 
   const [openShiftModal, setOpenShiftModal] = useState(false);
   const [editShiftMode, setEditShiftMode] = useState(false);
@@ -420,6 +571,8 @@ export default function Billing() {
     setOpenShiftModal(true);
   };
 
+  const hasAutoOpenedRef = useRef(false);
+
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const tabParam = searchParams.get('tab');
@@ -430,31 +583,29 @@ export default function Billing() {
       setTab(targetTab);
     }
 
-    if (location.state?.openCreateShift || actionParam === 'add-shift') {
-      handleOpenCreateShift();
+    if (shiftsLoading) return;
+
+    const hasNoPlans = !shifts || shifts.length === 0;
+    const requestedAddShift = Boolean(location.state?.openCreateShift || actionParam === 'add-shift');
+
+    // Only auto-open the drawer if there are NO shift plans
+    if (hasNoPlans && !hasAutoOpenedRef.current) {
+      if (requestedAddShift || tabParam === 'shifts' || location.state?.tab === 1 || tab === 1) {
+        handleOpenCreateShift();
+        hasAutoOpenedRef.current = true;
+      }
     }
-  }, [location]);
 
-  const shiftStartParsed = parseTime(shiftFormData.startTime);
-  const shiftEndParsed = parseTime(shiftFormData.endTime);
-
-  const handleShiftStartChange = (field: 'hour' | 'minute' | 'period', value: string) => {
-    const newTime = { ...shiftStartParsed, [field]: value };
-    setShiftFormData(prev => ({
-      ...prev,
-      startTime: formatTo24h(newTime.hour, newTime.minute, newTime.period),
-    }));
-    setSelectedPreset('custom');
-  };
-
-  const handleShiftEndChange = (field: 'hour' | 'minute' | 'period', value: string) => {
-    const newTime = { ...shiftEndParsed, [field]: value };
-    setShiftFormData(prev => ({
-      ...prev,
-      endTime: formatTo24h(newTime.hour, newTime.minute, newTime.period),
-    }));
-    setSelectedPreset('custom');
-  };
+    // Clean up temporary navigation flags so the drawer does not reopen repeatedly
+    if (requestedAddShift) {
+      searchParams.delete('action');
+      const newQuery = searchParams.toString() ? `?${searchParams.toString()}` : '';
+      navigate(`${location.pathname}${newQuery}`, {
+        replace: true,
+        state: { ...location.state, openCreateShift: false }
+      });
+    }
+  }, [location, shifts, shiftsLoading, tab, navigate]);
 
   const handleOpenEditShift = (shift: any) => {
     setEditShiftMode(true);
@@ -1178,7 +1329,8 @@ export default function Billing() {
             </Box>
           </Box>
           <IconButton
-            onClick={() => setOpenShiftModal(false)}
+            onClick={() => !isSavingShift && setOpenShiftModal(false)}
+            disabled={isSavingShift}
             sx={{ color: '#94a3b8', '&:hover': { color: '#ffffff', background: 'rgba(255,255,255,0.1)' } }}
           >
             <X size={18} />
@@ -1288,59 +1440,22 @@ export default function Billing() {
               </Box>
 
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <Box>
-                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5 }}>
-                    Start Time *
-                  </Typography>
-                  <input
-                    type="time"
-                    required
-                    value={shiftFormData.startTime}
-                    onChange={(e) => {
-                      setShiftFormData(prev => ({ ...prev, startTime: e.target.value }));
-                      setSelectedPreset('custom');
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: '1px solid #cbd5e1',
-                      backgroundColor: '#ffffff',
-                      fontSize: '0.88rem',
-                      fontWeight: 600,
-                      color: '#0f172a',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </Box>
-
-                <Box>
-                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', mb: 0.5 }}>
-                    End Time *
-                  </Typography>
-                  <input
-                    type="time"
-                    required
-                    value={shiftFormData.endTime}
-                    onChange={(e) => {
-                      setShiftFormData(prev => ({ ...prev, endTime: e.target.value }));
-                      setSelectedPreset('custom');
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: '1px solid #cbd5e1',
-                      backgroundColor: '#ffffff',
-                      fontSize: '0.88rem',
-                      fontWeight: 600,
-                      color: '#0f172a',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </Box>
+                <ShiftTimeInput
+                  label="Start Time *"
+                  value={shiftFormData.startTime}
+                  onChange={(val) => {
+                    setShiftFormData(prev => ({ ...prev, startTime: val }));
+                    setSelectedPreset('custom');
+                  }}
+                />
+                <ShiftTimeInput
+                  label="End Time *"
+                  value={shiftFormData.endTime}
+                  onChange={(val) => {
+                    setShiftFormData(prev => ({ ...prev, endTime: val }));
+                    setSelectedPreset('custom');
+                  }}
+                />
               </Box>
             </Box>
 
@@ -1443,6 +1558,7 @@ export default function Billing() {
             <Button
               type="button"
               variant="outline"
+              disabled={isSavingShift}
               onClick={() => setOpenShiftModal(false)}
               style={{ borderRadius: '10px', padding: '8px 20px', color: 'var(--text-secondary)' }}
             >
@@ -1450,6 +1566,8 @@ export default function Billing() {
             </Button>
             <Button
               type="submit"
+              isLoading={isSavingShift}
+              disabled={isSavingShift}
               style={{
                 background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                 color: '#ffffff',
@@ -1458,7 +1576,8 @@ export default function Billing() {
                 fontWeight: 700,
                 fontSize: '0.88rem',
                 boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
-                border: 'none'
+                border: 'none',
+                minWidth: '155px'
               }}
             >
               {editShiftMode ? 'Update Shift Plan' : 'Save Shift Plan'}

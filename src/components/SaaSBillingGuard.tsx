@@ -142,10 +142,6 @@ export default function SaaSBillingGuard({ children }: SaaSBillingGuardProps) {
     return <>{children}</>;
   }
 
-  if (isSubLoading) {
-    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading Workspace Data...</div>;
-  }
-
   // If there's no subscription OR it's expired, we MUST show a full screen takeover to prevent access.
   const isLocked = showWelcomeModal || showExpiredModal;
 
