@@ -45,6 +45,7 @@ import {
   Tab,
   Autocomplete,
   Drawer,
+  OutlinedInput,
 } from '@mui/material';
 import {
   Check as PaidIcon,
@@ -57,7 +58,7 @@ import { Plus, X, CreditCard, Calendar, User, History, Clock, Sun, SunMedium, Su
 import { styled, keyframes } from '@mui/material/styles';
 import { Search, Download, TrendingUp, WalletCards, SlidersHorizontal, RotateCcw, ArrowUpRight, Info } from 'lucide-react';
 import './Billing.css';
-
+import { formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
 // Fade‑in animation for table rows
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
@@ -149,23 +150,6 @@ const formatTo24h = (hour: string, minute: string, period: string) => {
   const hhStr = hh.toString().padStart(2, '0');
   const mmStr = minute.padStart(2, '0');
   return `${hhStr}:${mmStr}`;
-};
-
-const calculateShiftDuration = (start24: string, end24: string) => {
-  if (!start24 || !end24) return '';
-  const [sH, sM] = start24.split(':').map(Number);
-  const [eH, eM] = end24.split(':').map(Number);
-  if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return '';
-  let startMinutes = sH * 60 + sM;
-  let endMinutes = eH * 60 + eM;
-  if (endMinutes <= startMinutes) {
-    endMinutes += 24 * 60;
-  }
-  const diffMinutes = endMinutes - startMinutes;
-  const hours = Math.floor(diffMinutes / 60);
-  const mins = diffMinutes % 60;
-  if (mins === 0) return `${hours} Hours`;
-  return `${hours}h ${mins}m`;
 };
 
 const TIME_HOURS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
@@ -321,9 +305,7 @@ const PRESET_SHIFTS = [
   { id: 'morning', label: 'Morning', subText: '8 AM - 2 PM', name: 'Morning Shift', startTime: '08:00', endTime: '14:00', icon: Sun },
   { id: 'afternoon', label: 'Afternoon', subText: '2 PM - 8 PM', name: 'Afternoon Shift', startTime: '14:00', endTime: '20:00', icon: SunMedium },
   { id: 'evening', label: 'Evening', subText: '6 PM - 11 PM', name: 'Evening Shift', startTime: '18:00', endTime: '23:00', icon: Sunset },
-  { id: 'night', label: 'Night', subText: '11 PM - 6 AM', name: 'Night Shift', startTime: '23:00', endTime: '06:00', icon: Moon },
-  { id: 'fullday', label: 'Full Day', subText: '8 AM - 8 PM', name: 'Full Day Shift', startTime: '08:00', endTime: '20:00', icon: Clock },
-  { id: 'custom', label: 'Custom', subText: 'Manual hours', name: '', startTime: '09:00', endTime: '17:00', icon: Clock }
+  { id: 'night', label: 'Night', subText: '11 PM - 6 AM', name: 'Night Shift', startTime: '23:00', endTime: '06:00', icon: Moon }
 ];
 
 export default function Billing() {
@@ -497,6 +479,8 @@ export default function Billing() {
     name: '',
     startTime: '09:00',
     endTime: '17:00',
+    type: 'BASE' as 'BASE' | 'CLUBBED',
+    baseShiftIds: [] as string[],
     capacity: '' as any,
     price: '' as any,
     price7Days: '' as any,
@@ -546,13 +530,15 @@ export default function Billing() {
     }
   };
 
-  const handleOpenCreateShift = () => {
+  const handleOpenCreateShift = (type: 'BASE' | 'CLUBBED' = 'BASE') => {
     setEditShiftMode(false);
     setShiftFormData({
       id: '',
       name: '',
-      startTime: '09:00',
-      endTime: '17:00',
+      startTime: type === 'BASE' ? '09:00' : '',
+      endTime: type === 'BASE' ? '17:00' : '',
+      type,
+      baseShiftIds: [],
       capacity: '',
       price: '',
       price7Days: '',
@@ -611,6 +597,8 @@ export default function Billing() {
     setEditShiftMode(true);
     setShiftFormData({
       ...shift,
+      type: shift.type || 'BASE',
+      baseShiftIds: shift.baseShiftIds || [],
       capacity: shift.capacity ?? '',
       price7Days: shift.price7Days ?? '',
       price15Days: shift.price15Days ?? '',
@@ -665,8 +653,23 @@ export default function Billing() {
       const p3m = getTierPrice('3 month') || (shiftFormData.price3Months ? parseFloat(shiftFormData.price3Months as any) : null);
       const p6m = getTierPrice('6 month') || (shiftFormData.price6Months ? parseFloat(shiftFormData.price6Months as any) : null);
 
+      let computedStartTime = shiftFormData.startTime;
+      let computedEndTime = shiftFormData.endTime;
+
+      if (shiftFormData.type === 'CLUBBED' && shiftFormData.baseShiftIds && shiftFormData.baseShiftIds.length > 0) {
+        const selectedBaseShifts = shifts?.filter((s: any) => shiftFormData.baseShiftIds.includes(s.id)) || [];
+        if (selectedBaseShifts.length > 0) {
+          const sortedStarts = [...selectedBaseShifts].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+          const sortedEnds = [...selectedBaseShifts].sort((a, b) => (a.endTime || '').localeCompare(b.endTime || ''));
+          computedStartTime = sortedStarts[0].startTime;
+          computedEndTime = sortedEnds[sortedEnds.length - 1].endTime;
+        }
+      }
+
       const dataToSave = {
         ...shiftFormData,
+        startTime: computedStartTime,
+        endTime: computedEndTime,
         capacity: shiftFormData.capacity === '' || shiftFormData.capacity === null || shiftFormData.capacity === undefined ? null : parseInt(shiftFormData.capacity as any),
         price: base1m,
         price7Days: p7d,
@@ -754,7 +757,8 @@ export default function Billing() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2, borderBottom: '1px solid #e2e8f0' }}>
         <Tabs value={tab} onChange={(_, val) => setTab(val)} className="billing-tabs" variant="scrollable" scrollButtons={false} sx={{ mb: 0, borderBottom: 'none' }}>
           <Tab label="Collection ledger" />
-          <Tab label="Shifts & pricing" />
+          <Tab label="Base Shifts" />
+          <Tab label="Clubbed Packages" />
         </Tabs>
         <Button
           variant="primary"
@@ -964,16 +968,18 @@ export default function Billing() {
         </Box>
       )}
 
-      {tab === 1 && (
+      {(tab === 1 || tab === 2) && (
         <Card sx={{ p: 3, border: '1px solid #E2E8F0', boxShadow: 'none', borderRadius: 2.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>Shift Plans & Pricing Cards</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              {tab === 1 ? 'Base Shifts & Timings' : 'Clubbed / Full-Day Packages'}
+            </Typography>
             <Button
               variant="primary"
-              onClick={handleOpenCreateShift}
+              onClick={() => handleOpenCreateShift(tab === 1 ? 'BASE' : 'CLUBBED')}
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '10px' }}
             >
-              <Plus size={16} /> Create New Shift
+              <Plus size={16} /> Create New {tab === 1 ? 'Base Shift' : 'Package'}
             </Button>
           </Box>
 
@@ -987,7 +993,7 @@ export default function Billing() {
             </Paper>
           ) : (
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(310px, 1fr))' }, gap: 2.5 }}>
-              {shifts.map((shift: any) => {
+              {shifts.filter((s: any) => tab === 1 ? (s.type === 'BASE' || !s.type) : s.type === 'CLUBBED').map((shift: any) => {
                 const timeLower = (shift.startTime || '').toLowerCase() + (shift.name || '').toLowerCase();
                 let icon = <Sun size={20} style={{ color: '#f59e0b' }} />;
                 let badgeBg = '#fef3c7';
@@ -1029,10 +1035,10 @@ export default function Billing() {
                           </Box>
                           <Box>
                             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'var(--text-navy)', lineHeight: 1.2 }}>
-                              {shift.name}
+                              {shift.name} ({calculateShiftDuration(shift.startTime, shift.endTime)})
                             </Typography>
                             <Typography variant="caption" sx={{ color: 'var(--text-slate)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', mt: 0.5 }}>
-                              <Clock size={12} /> {shift.startTime} — {shift.endTime}
+                              <Clock size={12} /> {formatTo12hString(shift.startTime)} — {formatTo12hString(shift.endTime)}
                             </Typography>
                           </Box>
                         </Box>
@@ -1313,7 +1319,7 @@ export default function Billing() {
               border: '1px solid rgba(255, 255, 255, 0.15)',
               display: 'flex',
               alignItems: 'center',
-              justify: 'center',
+              justifyContent: 'center',
               color: '#60a5fa',
               boxShadow: '0 8px 16px rgba(0, 0, 0, 0.2)'
             }}>
@@ -1321,7 +1327,7 @@ export default function Billing() {
             </Box>
             <Box>
               <Typography sx={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-                {editShiftMode ? 'Edit Shift Settings' : 'Create New Shift Plan'}
+                {editShiftMode ? 'Edit Shift Settings' : (shiftFormData.type === 'CLUBBED' ? 'Create New Clubbed Package' : 'Create New Base Shift')}
               </Typography>
               <Typography sx={{ fontSize: '0.78rem', color: '#94a3b8', mt: 0.5 }}>
                 Configure shift timings, seating capacity, and dynamic pricing tiers
@@ -1331,7 +1337,13 @@ export default function Billing() {
           <IconButton
             onClick={() => !isSavingShift && setOpenShiftModal(false)}
             disabled={isSavingShift}
-            sx={{ color: '#94a3b8', '&:hover': { color: '#ffffff', background: 'rgba(255,255,255,0.1)' } }}
+            sx={{ 
+              color: '#94a3b8', 
+              '&:hover': { color: '#ffffff', background: 'rgba(255,255,255,0.1)' },
+              mt: -1,
+              mr: -1,
+              alignSelf: 'flex-start'
+            }}
           >
             <X size={18} />
           </IconButton>
@@ -1341,7 +1353,7 @@ export default function Billing() {
           <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5, overflowY: 'auto', flex: 1 }}>
 
             {/* Quick Presets Selection */}
-            <Box>
+            {shiftFormData.type === 'BASE' && <Box>
               <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.06em', mb: 1.25, display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Clock size={14} style={{ color: 'var(--accent-blue)' }} /> Quick Presets
               </Typography>
@@ -1384,7 +1396,7 @@ export default function Billing() {
                   );
                 })}
               </Box>
-            </Box>
+            </Box>}
 
             {/* Shift Name */}
             <Box>
@@ -1393,6 +1405,7 @@ export default function Billing() {
               </Typography>
               <TextField
                 fullWidth
+                size="small"
                 placeholder="e.g. Morning Shift"
                 required
                 value={shiftFormData.name}
@@ -1439,23 +1452,56 @@ export default function Billing() {
                 )}
               </Box>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <ShiftTimeInput
-                  label="Start Time *"
-                  value={shiftFormData.startTime}
-                  onChange={(val) => {
-                    setShiftFormData(prev => ({ ...prev, startTime: val }));
-                    setSelectedPreset('custom');
-                  }}
-                />
-                <ShiftTimeInput
-                  label="End Time *"
-                  value={shiftFormData.endTime}
-                  onChange={(val) => {
-                    setShiftFormData(prev => ({ ...prev, endTime: val }));
-                    setSelectedPreset('custom');
-                  }}
-                />
+              <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: shiftFormData.type === 'BASE' ? '1fr 1fr' : '1fr' }}>
+                {shiftFormData.type === 'BASE' ? (
+                  <>
+                    <ShiftTimeInput
+                      label="Start Time *"
+                      value={shiftFormData.startTime}
+                      onChange={(val) => {
+                        setShiftFormData(prev => ({ ...prev, startTime: val }));
+                        setSelectedPreset('custom');
+                      }}
+                    />
+                    <ShiftTimeInput
+                      label="End Time *"
+                      value={shiftFormData.endTime}
+                      onChange={(val) => {
+                        setShiftFormData(prev => ({ ...prev, endTime: val }));
+                        setSelectedPreset('custom');
+                      }}
+                    />
+                  </>
+                ) : (
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Select Base Shifts to Combine</InputLabel>
+                    <Select
+                      multiple
+                      value={shiftFormData.baseShiftIds || []}
+                      onChange={(e) => {
+                        const val = e.target.value as string[];
+                        setShiftFormData(prev => ({ ...prev, baseShiftIds: val }));
+                        setSelectedPreset('custom');
+                      }}
+                      input={<OutlinedInput label="Select Base Shifts to Combine" />}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {selected.map((value) => {
+                            const shift = shifts?.find((s: any) => s.id === value);
+                            return <Chip key={value} label={shift ? shift.name : value} size="small" />;
+                          })}
+                        </Box>
+                      )}
+                      MenuProps={menuProps}
+                    >
+                      {(shifts || [])?.filter((s: any) => s.type === 'BASE' || !s.type).map((shift: any) => (
+                        <MenuItem key={shift.id} value={shift.id}>
+                          {shift.name} ({calculateShiftDuration(shift.startTime, shift.endTime)}) ({formatTo12hString(shift.startTime)} - {formatTo12hString(shift.endTime)})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
               </Box>
             </Box>
 
@@ -1479,6 +1525,7 @@ export default function Billing() {
               <Box sx={{ mb: 2.5 }}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Max Capacity (Optional)"
                   type="number"
                   placeholder="Leave blank for unlimited capacity"

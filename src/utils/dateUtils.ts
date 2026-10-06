@@ -81,3 +81,50 @@ export const addDaysToDate = (baseDate: string | Date, days: number = 1): string
   d.setDate(d.getDate() + days);
   return formatYYYYMMDD(d);
 };
+
+/**
+ * Formats a 24-hour time string (HH:mm) into a 12-hour format string (hh:mm AM/PM).
+ * @param timeStr 24-hour time string (e.g., '14:00')
+ * @returns 12-hour time string (e.g., '02:00 PM')
+ */
+export const formatTo12hString = (timeStr?: string | null): string => {
+  if (!timeStr) return '';
+  const [hhStr, mmStr] = timeStr.split(':');
+  if (!hhStr || !mmStr) return timeStr;
+  
+  let hh = parseInt(hhStr, 10);
+  const mm = mmStr || '00';
+
+  let period = 'AM';
+  if (hh >= 12) {
+    period = 'PM';
+    if (hh > 12) hh -= 12;
+  } else if (hh === 0) {
+    hh = 12;
+  }
+
+  return `${hh.toString().padStart(2, '0')}:${mm.padStart(2, '0')} ${period}`;
+};
+
+/**
+ * Calculates the duration between two 24-hour time strings.
+ * @param start24 24-hour start time (e.g., '14:00')
+ * @param end24 24-hour end time (e.g., '20:00')
+ * @returns Duration string (e.g., '6 Hours' or '6h 30m')
+ */
+export const calculateShiftDuration = (start24?: string, end24?: string): string => {
+  if (!start24 || !end24) return '';
+  const [sH, sM] = start24.split(':').map(Number);
+  const [eH, eM] = end24.split(':').map(Number);
+  if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return '';
+  let startMinutes = sH * 60 + sM;
+  let endMinutes = eH * 60 + eM;
+  if (endMinutes <= startMinutes) {
+    endMinutes += 24 * 60;
+  }
+  const diffMinutes = endMinutes - startMinutes;
+  const hours = Math.floor(diffMinutes / 60);
+  const mins = diffMinutes % 60;
+  if (mins === 0) return `${hours} hr`;
+  return `${hours} hr ${mins}m`;
+};

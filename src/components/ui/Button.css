@@ -88,6 +88,14 @@
   visibility: hidden;
 }
 
+.custom-button > span:not(.spinner) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
 @keyframes rotate {
   100% { transform: translate(-50%, -50%) rotate(360deg); }
 }

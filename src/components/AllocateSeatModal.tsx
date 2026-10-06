@@ -9,7 +9,7 @@ import { Switch } from './ui/Switch';
 import { DatePicker } from './ui/DatePicker';
 import { useToast } from './ui/ToastContext';
 import { Search } from 'lucide-react';
-import { formatYYYYMMDD, addMonthsToDate, addDaysToDate } from '../utils/dateUtils';
+import { formatYYYYMMDD, addMonthsToDate, addDaysToDate, formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
 interface AllocateSeatModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -473,7 +473,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                   placeholder="Select schedule shift"
                   options={availableShifts.map((s: any) => ({
                     value: s.id,
-                    label: `${s.name} (${s.startTime} - ${s.endTime})`,
+                    label: `${s.name} (${calculateShiftDuration(s.startTime, s.endTime)}) (${formatTo12hString(s.startTime)} - ${formatTo12hString(s.endTime)})`,
                   }))}
                 />
               ) : (

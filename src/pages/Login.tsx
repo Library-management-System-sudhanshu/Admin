@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useLoginMutation, useRegisterTenantMutation, useGoogleLoginMutation } from '../store/api';
 import { setCredentials } from '../store/authSlice';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/ToastContext';
 import { 
-  Mail, Lock, User, Building, MapPin, TrendingUp, Users, Wallet, Clock, 
-  ArrowRight, Eye, EyeOff, Check, HelpCircle, Activity, Globe, Shield, RefreshCw, AlertCircle
+  Mail, Lock, User, Building, MapPin, Users, Armchair, BookOpen, ArrowUpRight,
+  ArrowRight, Eye, EyeOff, Check, Globe, Shield, AlertCircle
 } from 'lucide-react';
 import './Login.css';
 
@@ -298,162 +298,48 @@ export default function Login() {
     }
   };
 
-  // Live seat map sample grids
-  const seatRows = 5;
-  const seatCols = 8;
-  const occupiedSeeds = [2, 5, 9, 11, 14, 18, 21, 23, 27, 30, 33, 36, 38];
-
   return (
-    <div className="login-page-container">
-      
-      {/* ============ LEFT: BRAND / GLASSMORPHISM PANEL (60%) ============ */}
-      <div className="login-brand-side">
-        {/* Glow Effects */}
-        <div className="glow-blob-1" />
-        <div className="glow-blob-2" />
+    <div className="login-page-container login-home-theme">
+      <header className="login-topbar">
+        <Link to="/" className="login-wordmark" aria-label="Trishul home">
+          <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect width="40" height="40" rx="12" fill="currentColor" /><path d="M12 12v8c0 5 3.5 7 8 7s8-2 8-7v-8M20 10v22" stroke="white" strokeWidth="2.7" strokeLinecap="round" /><path d="m9 15 3-3 3 3m10 0 3-3 3 3m-14-2 3-3 3 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span>trishul<span className="login-brand-dot">.</span></span>
+        </Link>
+        <Link to="/" className="login-back-link">Back to home <ArrowUpRight size={15} /></Link>
+      </header>
 
-        {/* Brand header */}
-        <div className="brand-header">
-          <div className="brand-logo-container">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="brand-logo-icon">
-              <path d="M12 2v19" />
-              <path d="M5 6v4c0 3.87 3.13 7 7 7s7-3.13 7-7V6" />
-              <path d="M9 11h6" />
-            </svg>
-          </div>
-          <span className="brand-title">TRISHUL</span>
-        </div>
-
-        {/* Brand Hero Content */}
+      <aside className="login-brand-side">
         <div className="brand-hero-content">
-          <h1 className="brand-headline">
-            Manage your Study Hall from a single dashboard.
-          </h1>
-          <p className="brand-description">
-            The complete operating system for modern libraries. Streamline seat booking, active memberships, invoicing, and real-time occupancy.
-          </p>
+          <span className="login-eyebrow"><span /> A LITTLE MORE ORGANISED.</span>
+          <h1 className="brand-headline">Your space.<br />Your people.<br /><span>All together.</span></h1>
+          <p className="brand-description">A calmer way to run your study hall. Bring your students, seats and everyday tasks into one thoughtful workspace.</p>
         </div>
 
-        {/* Layered Floating Widgets */}
-        <div className="brand-widgets-container">
-          
-          {/* Widget 1: Live Seat Map */}
-          <div className="glass-widget widget-seatmap">
-            <div className="widget-title-row">
-              <span className="widget-label">Live Seat Map</span>
-              <span className="widget-value-badge">
-                <span className="live-dot" /> 27 / 40 Free
-              </span>
-            </div>
-            <div className="seatmap-grid">
-              {Array.from({ length: seatRows * seatCols }).map((_, i) => {
-                const isOccupied = occupiedSeeds.includes(i);
-                return (
-                  <div
-                    key={i}
-                    className={`seat-cell ${isOccupied ? 'occupied' : 'available'}`}
-                  />
-                );
-              })}
-            </div>
+        <div className="login-preview" aria-label="Illustrative workspace preview with sample seat data">
+          <div className="login-preview-heading"><span><BookOpen size={16} /> The reading room</span><span className="login-demo-label">SAMPLE PREVIEW</span></div>
+          <div className="login-preview-meta"><span>Room 01 <span> / Morning shift</span></span><span><i /> 12 seats available</span></div>
+          <div className="login-room-grid" aria-hidden="true">
+            {Array.from({ length: 24 }, (_, i) => <div key={i} className={`login-room-seat ${i % 4 < 2 ? 'is-taken' : ''}`}><Armchair size={21} strokeWidth={1.5} /><span>A{String(i + 1).padStart(2, '0')}</span></div>)}
           </div>
-
-          {/* Widget 2: Revenue Sparkline */}
-          <div className="glass-widget widget-analytics">
-            <div className="widget-title-row">
-              <span className="widget-label">Monthly Revenue</span>
-              <span className="revenue-trend">
-                <TrendingUp size={12} style={{ marginRight: '3px' }} /> +12.4%
-              </span>
-            </div>
-            <div className="revenue-value">
-              ₹1,84,500
-              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-secondary)' }}>this month</span>
-            </div>
-            <svg className="sparkline-svg" viewBox="0 0 300 70">
-              <defs>
-                <linearGradient id="sparkline-gradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.45" />
-                  <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
-                </linearGradient>
-                <linearGradient id="sparkline-line" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#3B82F6" />
-                  <stop offset="50%" stopColor="#60A5FA" />
-                  <stop offset="100%" stopColor="#2563EB" />
-                </linearGradient>
-              </defs>
-              <path
-                className="sparkline-path"
-                d="M 0 50 C 30 45, 60 25, 90 35 C 120 45, 150 15, 180 20 C 210 25, 240 5, 270 10 L 300 5"
-                stroke="url(#sparkline-line)"
-              />
-              <path
-                d="M 0 50 C 30 45, 60 25, 90 35 C 120 45, 150 15, 180 20 C 210 25, 240 5, 270 10 L 300 5 L 300 70 L 0 70 Z"
-                fill="url(#sparkline-gradient)"
-              />
-            </svg>
-          </div>
-
-          {/* Widget 3: Live Stats Grid */}
-          <div className="glass-widget widget-metrics">
-            <div className="widget-title-row">
-              <span className="widget-label">Hall Metrics</span>
-              <span className="widget-value-badge" style={{ color: 'var(--color-secondary)', background: 'rgba(59, 130, 246, 0.1)' }}>
-                Active
-              </span>
-            </div>
-            <div className="metrics-list">
-              <div className="metric-row">
-                <span className="metric-name">
-                  <Activity size={13} className="metric-icon" /> Occupancy
-                </span>
-                <span className="metric-value">82.5%</span>
-              </div>
-              <div className="metric-row">
-                <span className="metric-name">
-                  <Users size={13} className="metric-icon" /> Members
-                </span>
-                <span className="metric-value">342 active</span>
-              </div>
-              <div className="metric-row">
-                <span className="metric-name">
-                  <Clock size={13} className="metric-icon" /> Live Checkins
-                </span>
-                <span className="metric-value">48 present</span>
-              </div>
-            </div>
-          </div>
-
+          <div className="login-preview-bottom"><span><i /> Available <i /> Occupied</span><span>24 seats · One clear view</span></div>
+          <div className="login-member-note"><span className="login-member-icon"><Users size={19} /></span><div><strong>Everything in its place.</strong><span>Students. Seats. A calmer day.</span></div><span className="login-note-check"><Check size={15} /></span></div>
         </div>
 
-        {/* Bottom Trust stats */}
-        <div className="brand-trust-strip">
-          <div className="trust-stat-item">
-            <span className="trust-stat-number">500+</span>
-            <span className="trust-stat-label">Study Halls</span>
-          </div>
-          <div className="trust-stat-item">
-            <span className="trust-stat-number">24/7</span>
-            <span className="trust-stat-label">Live Monitoring</span>
-          </div>
-          <div className="trust-stat-item">
-            <span className="trust-stat-number">99.9%</span>
-            <span className="trust-stat-label">System Uptime</span>
-          </div>
-        </div>
-      </div>
+        <div className="login-feature-note"><span><Check size={14} /> Seat planning</span><span><Check size={14} /> Fee tracking</span><span><Check size={14} /> Student records</span></div>
+      </aside>
 
       {/* ============ RIGHT: AUTHENTICATION PANEL (40%) ============ */}
-      <div className="login-auth-side"> 
-        <div className="auth-card-glow" />
+      <div className="login-auth-side">
+
         
         <div className="auth-card">
           <div className="auth-header">
+            <span className="login-eyebrow">YOUR TRISHUL WORKSPACE</span>
             <h2 className="auth-title">
-              {tab === 0 ? 'Welcome Back' : 'Register Hall'}
+              {tab === 0 ? 'Welcome back.' : 'Make room for more.'}
             </h2>
             <p className="auth-subtitle">
-              {tab === 0 ? 'Sign in to manage your study hall.' : 'Get your workspace ready in a minute.'}
+              {tab === 0 ? 'Good to see you. Let’s get your day organised.' : 'Create an account to bring your study hall together.'}
             </p>
           </div>
 
@@ -466,6 +352,7 @@ export default function Login() {
             <button
               type="button"
               className={`segmented-tab-btn ${tab === 0 ? 'active' : ''}`}
+              aria-pressed={tab === 0}
               onClick={() => { setTab(0); setError(''); }}
             >
               Sign In
@@ -473,6 +360,7 @@ export default function Login() {
             <button
               type="button"
               className={`segmented-tab-btn ${tab === 1 ? 'active' : ''}`}
+              aria-pressed={tab === 1}
               onClick={() => { setTab(1); setError(''); }}
             >
               Register Hall
@@ -481,7 +369,7 @@ export default function Login() {
 
           {/* Alert error banner */}
           {error && (
-            <div className="alert-banner-danger">
+            <div className="alert-banner-danger" role="alert">
               <AlertCircle size={16} />
               <span>{error}</span>
             </div>
@@ -492,11 +380,13 @@ export default function Login() {
             /* ================= SIGN IN FORM ================= */
             <form onSubmit={handleLogin} className="auth-form">
               <div className="premium-input-group">
-                <label className="premium-label">Email Address</label>
+                <label className="premium-label" htmlFor="login-email">Email Address</label>
                 <div className="premium-input-wrapper">
                   <Mail size={16} className="premium-input-icon" />
                   <input
                     type="email"
+                    id="login-email"
+                    autoComplete="username"
                     required
                     className="premium-input"
                     placeholder="admin@yourhall.com"
@@ -507,11 +397,13 @@ export default function Login() {
               </div>
 
               <div className="premium-input-group">
-                <label className="premium-label">Password</label>
+                <label className="premium-label" htmlFor="login-password">Password</label>
                 <div className="premium-input-wrapper">
                   <Lock size={16} className="premium-input-icon" />
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    id="login-password"
+                    autoComplete="current-password"
                     required
                     className="premium-input has-toggle"
                     placeholder="••••••••"
@@ -522,7 +414,8 @@ export default function Login() {
                     type="button"
                     className="input-password-toggle"
                     onClick={() => setShowPassword(!showPassword)}
-                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -719,7 +612,8 @@ export default function Login() {
                         type="button"
                         className="input-password-toggle"
                         onClick={() => setShowPassword(!showPassword)}
-                        tabIndex={-1}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
                       >
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
@@ -736,6 +630,7 @@ export default function Login() {
                 <button
                   type="button"
                   className="optional-accordion-trigger"
+                  aria-expanded={showOptional}
                   onClick={() => setShowOptional(!showOptional)}
                 >
                   <span>Additional Details (Optional)</span>
@@ -837,9 +732,9 @@ export default function Login() {
               Contact Support
             </a>
             <div className="footer-legal-links">
-              <a href="#" onClick={(e) => e.preventDefault()} className="legal-link">Privacy Policy</a>
+              <Link to="/privacy" className="legal-link">Privacy Policy</Link>
               <span>•</span>
-              <a href="#" onClick={(e) => e.preventDefault()} className="legal-link">Terms of Service</a>
+              <Link to="/terms" className="legal-link">Terms of Service</Link>
             </div>
           </div>
         </div>

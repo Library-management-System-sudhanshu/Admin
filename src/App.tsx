@@ -53,9 +53,11 @@ export default function App() {
       <ToastProvider>
         <BrowserRouter>
           <Routes>
+            {/* The homepage owns its light navigation and footer. */}
+            <Route path="/" element={<Home />} />
+
             {/* Public Landing Routes */}
             <Route element={<LandingLayout />}>
-              <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/pricing" element={<Pricing />} />

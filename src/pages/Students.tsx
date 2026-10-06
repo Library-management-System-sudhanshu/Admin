@@ -50,6 +50,7 @@ import {
   AlertCircle,
   RotateCcw
 } from 'lucide-react';
+import { formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
 
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
   return new Promise((resolve) => {
@@ -624,7 +625,7 @@ export default function Students() {
               { value: '', label: 'All Shifts' },
               ...(shifts?.map((s: any) => ({
                 value: s.id,
-                label: `${s.name} (${s.startTime}-${s.endTime})`,
+                label: `${s.name} (${calculateShiftDuration(s.startTime, s.endTime)}) (${formatTo12hString(s.startTime)} - ${formatTo12hString(s.endTime)})`,
               })) || [])
             ]}
           />
@@ -800,7 +801,7 @@ export default function Students() {
                                           </span>
                                         </div>
                                         <div style={{ fontSize: '0.725rem', color: '#334155', fontWeight: 600, marginTop: '2px' }}>
-                                          {alloc.shift?.name || 'N/A'} Shift ({alloc.shift?.startTime} - {alloc.shift?.endTime})
+                                          {alloc.shift?.name || 'N/A'} Shift ({formatTo12hString(alloc.shift?.startTime)} - {formatTo12hString(alloc.shift?.endTime)})
                                         </div>
                                         <div style={{ fontSize: '0.675rem', color: '#64748B', marginTop: '2px' }}>
                                           {new Date(alloc.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} - {new Date(alloc.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -853,7 +854,7 @@ export default function Students() {
                                     No Seat Allocated
                                   </span>
                                   <span style={{ color: 'var(--text-secondary)', fontSize: '0.725rem', fontStyle: 'italic' }}>
-                                    Paid: {matchingShift.name} ({matchingShift.startTime} - {matchingShift.endTime})
+                                    Paid: {matchingShift.name} ({formatTo12hString(matchingShift.startTime)} - {formatTo12hString(matchingShift.endTime)})
                                   </span>
                                 </div>
                               );
@@ -1495,7 +1496,7 @@ export default function Students() {
                             {matchingShift && (
                               <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '8px 12px', fontSize: '0.75rem', color: '#1e3a8a', fontWeight: 600, width: '100%', boxSizing: 'border-box', textAlign: 'left' }}>
                                 <div><strong>Paid Shift:</strong> {matchingShift.name}</div>
-                                <div style={{ marginTop: '2px', color: '#2563eb' }}><strong>Time:</strong> {matchingShift.startTime} - {matchingShift.endTime}</div>
+                                <div style={{ marginTop: '2px', color: '#2563eb' }}><strong>Time:</strong> {formatTo12hString(matchingShift.startTime)} - {formatTo12hString(matchingShift.endTime)}</div>
                               </div>
                             )}
                             <button
@@ -1540,7 +1541,7 @@ export default function Students() {
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                             <span style={{ color: 'var(--text-slate)' }}>Shift Batch:</span>
-                            <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{activeAllocation.shift?.name} ({activeAllocation.shift?.startTime} - {activeAllocation.shift?.endTime})</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{activeAllocation.shift?.name} ({formatTo12hString(activeAllocation.shift?.startTime)} - {formatTo12hString(activeAllocation.shift?.endTime)})</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                             <span style={{ color: 'var(--text-slate)' }}>Subscription Start:</span>

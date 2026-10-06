@@ -69,6 +69,11 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.2;
 }
 
+svg.lucide {
+  vertical-align: middle;
+  margin-top: -0.1em;
+}
+
 a {
   color: var(--primary);
   text-decoration: none;

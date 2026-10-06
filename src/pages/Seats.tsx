@@ -70,6 +70,7 @@ import {
   EyeOff,
   Link2
 } from 'lucide-react';
+import { formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
 
 const getDaysRemainingText = (endDateStr: string) => {
   if (!endDateStr) return 'No end date';
@@ -2894,7 +2895,7 @@ export default function Seats() {
               placeholder="Select schedule shift"
               options={shifts.map((s: any) => ({
                 value: s.id,
-                label: `${s.name} (${s.startTime} - ${s.endTime})`,
+                label: `${s.name} (${calculateShiftDuration(s.startTime, s.endTime)}) (${formatTo12hString(s.startTime)} - ${formatTo12hString(s.endTime)})`,
               }))}
             />
           )}

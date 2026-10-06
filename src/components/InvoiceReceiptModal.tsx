@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
+import { formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
 
 interface InvoiceReceiptModalProps {
   isOpen: boolean;
@@ -112,7 +113,7 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
                 Seat {createdInvoiceData.seatNumber || 'N/A'}
               </div>
               <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px' }}>
-                <strong>Shift:</strong> {createdInvoiceData.shift?.name || 'N/A'} ({createdInvoiceData.shift?.startTime || ''} - {createdInvoiceData.shift?.endTime || ''})
+                <strong>Shift:</strong> {createdInvoiceData.shift?.name || 'N/A'} ({calculateShiftDuration(createdInvoiceData.shift?.startTime, createdInvoiceData.shift?.endTime)}) ({formatTo12hString(createdInvoiceData.shift?.startTime) || ''} - {formatTo12hString(createdInvoiceData.shift?.endTime) || ''})
               </div>
               <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '2px' }}>
                 <strong>Duration:</strong> {new Date(createdInvoiceData.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - {new Date(createdInvoiceData.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}

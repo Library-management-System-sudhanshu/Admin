@@ -1,1119 +1,134 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useToast } from '../../components/ui/ToastContext';
-import { 
-  Armchair, Users, ReceiptText, Clock, Building2, LayoutDashboard, 
-  SlidersHorizontal, LineChart, Bell, Database, CheckCircle, XCircle, 
-  HelpCircle, Mail, Phone, MapPin, TrendingUp, UserCheck, ChevronDown, Check,
-  ArrowRight, ShieldCheck, Zap, Smile, Star
+import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties, PointerEvent } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  ArrowDown, ArrowRight, ArrowUpRight, Armchair, Bell, BookOpen, Building2,
+  Check, ChevronDown, FileSpreadsheet, Layers3, LayoutDashboard,
+  Menu, MessageCircle, ReceiptText, ScanLine, ShieldCheck, Sparkles,
+  TrendingUp, Users, X,
 } from 'lucide-react';
-import './Landing.css';
+import './Home.css';
+
+const features = [
+  { icon: Armchair, title: 'A place for every student.', text: 'Build room layouts, allocate seats by shift, and manage seat transfers from a visual workspace.', tag: 'Seats & shifts', tone: 'mint' },
+  { icon: Users, title: 'Know your members.', text: 'Manage admissions, student profiles, guardian details, approvals, memberships and renewal dates.', tag: 'Student management', tone: 'lilac' },
+  { icon: ReceiptText, title: 'Keep every fee in view.', text: 'Track paid, partial and outstanding fees. Record cash or UPI payments, create receipts and use Razorpay checkout where enabled.', tag: 'Billing & payments', tone: 'peach' },
+  { icon: ScanLine, title: 'Make attendance simple.', text: 'Keep check-in and check-out records with manual, QR-code and app check-in workflows.', tag: 'Attendance', tone: 'blue' },
+  { icon: BookOpen, title: 'Books, beautifully organised.', text: 'Maintain your catalogue, issue books, track returns and keep borrowing records connected to students.', tag: 'Library management', tone: 'peach' },
+  { icon: Building2, title: 'More branches. One workspace.', text: 'Organise branches, floors and rooms, with owner, manager and staff roles for your team.', tag: 'Multi-branch operations', tone: 'mint' },
+  { icon: Bell, title: 'Keep everyone in the loop.', text: 'Publish notices and send push notifications or WhatsApp broadcasts and fee reminders where integrations are configured.', tag: 'Notices & messaging', tone: 'lilac' },
+  { icon: MessageCircle, title: 'Turn feedback into action.', text: 'Track student complaints from open to resolved, so facility, internet and seat issues have a clear next step.', tag: 'Complaint management', tone: 'blue' },
+  { icon: LayoutDashboard, title: 'See the bigger picture.', text: 'Review collections, dues, memberships and occupancy in your dashboard. Manage plans and workspace settings in one place.', tag: 'Reports & administration', tone: 'mint' },
+];
+const previews = [
+  { label: 'Seat planning', icon: Armchair, title: 'See your space. Find their place.', text: 'Know which seats are occupied and which are available. Organise allocations around your rooms and shifts, with fewer registers to juggle.', bullets: ['Visual room layouts', 'Shift-based allocations', 'Seat transfers and availability'] },
+  { label: 'Fee tracking', icon: ReceiptText, title: 'A clearer picture of every payment.', text: 'Keep receipts, payment status and outstanding balances together. Spend less time searching through separate payment notes.', bullets: ['Paid, partial and unpaid records', 'Cash, UPI and online payment records', 'Invoices, receipts and renewal dates'] },
+  { label: 'Student records', icon: Users, title: 'The details that keep your hall moving.', text: 'Bring student information and memberships into one organised view, from a new admission to their next renewal.', bullets: ['Admissions and profile management', 'Branch and membership information', 'Approval and renewal tracking'] },
+];
+const faqs = [
+  ['Who is Trishul built for?', 'Trishul is built for study hall owners, reading rooms and lending libraries. It brings the daily work of managing students, seats, memberships, payments and books into one workspace.'],
+  ['Can I manage more than one branch?', 'Yes. The platform supports workspaces with branches, floors and rooms, along with owner, manager and staff roles. Feature availability and limits depend on your plan.'],
+  ['Does it support online payments and reminders?', 'Razorpay checkout is supported where enabled. You can also record cash and UPI payments. WhatsApp messages and push notifications depend on the relevant integrations, configuration and recipient permissions.'],
+  ['Are the numbers in the preview real?', 'The seat map, student names and payment amounts on this page are illustrative demo data. They let you explore the experience without accessing any real student or business records.'],
+  ['How do I get started or choose a plan?', 'Create an account to set up your workspace, or contact us to discuss your library and the available plans. Check the features, price and billing period shown for your plan before purchasing.'],
+  ['When will the future features be available?', 'The roadmap shows ideas we are exploring, not features included in a current subscription. Scope and timing may change. Tell us which would help your library most.'],
+];
+
+function Brand() {
+  return <span className="th-brand"><svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect width="40" height="40" rx="12" fill="currentColor" /><path d="M12 12v8c0 5 3.5 7 8 7s8-2 8-7v-8M20 10v22" stroke="white" strokeWidth="2.7" strokeLinecap="round" /><path d="m9 15 3-3 3 3m10 0 3-3 3 3m-14-2 3-3 3 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg><span>trishul<span className="th-brand-dot">.</span></span></span>;
+}
+
+function StudyRoom() {
+  const scene = useRef<HTMLDivElement>(null);
+  const [selected, setSelected] = useState(6);
+  const occupied = [1, 2, 4, 7, 8, 10, 13, 14, 16, 19, 20, 23];
+  function move(event: PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== 'mouse' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    scene.current?.style.setProperty('--tilt-x', `${(event.clientX - bounds.left - bounds.width / 2) / 60}deg`);
+    scene.current?.style.setProperty('--tilt-y', `${-(event.clientY - bounds.top - bounds.height / 2) / 75}deg`);
+  }
+  function reset() {
+    scene.current?.style.setProperty('--tilt-x', '0deg');
+    scene.current?.style.setProperty('--tilt-y', '0deg');
+  }
+  return <div className="th-scene" ref={scene} onPointerMove={move} onPointerLeave={reset}>
+    <div className="th-scene-grid" aria-hidden="true" />
+    <div className="th-scene-top"><span><span className="th-status-dot" /> A little more organised.</span><span>INTERACTIVE PREVIEW</span></div>
+    <div className="th-room-stage">
+      <div className="th-room">
+        <div className="th-room-wall th-wall-back" aria-hidden="true"><span /><span /><span /></div>
+        <div className="th-room-wall th-wall-side" aria-hidden="true" />
+        <div className="th-room-floor"><span className="th-floor-label">THE READING ROOM</span><div className="th-desks">
+          {Array.from({ length: 24 }, (_, i) => i + 1).map(n => <button type="button" key={n} onClick={() => setSelected(n)} aria-pressed={selected === n} aria-label={`Preview seat A${String(n).padStart(2, '0')}, ${occupied.includes(n) ? 'occupied' : 'available'}`} className={`th-desk ${occupied.includes(n) ? 'is-occupied' : ''} ${selected === n ? 'is-selected' : ''}`}><span className="th-desk-top"><span className="th-desk-book" /></span><span className="th-chair" /><span className="th-desk-number">{String(n).padStart(2, '0')}</span></button>)}
+        </div><div className="th-plant th-plant-one" aria-hidden="true"><i /><i /><i /></div><div className="th-plant th-plant-two" aria-hidden="true"><i /><i /><i /></div></div>
+      </div>
+    </div>
+    <div className="th-float th-float-member"><span className="th-icon-bubble"><Users size={18} /></span><div><strong>Everything in its place.</strong><small>Students. Seats. A calmer day.</small></div><Check size={16} /></div>
+    <div className="th-float th-float-seat" aria-live="polite"><span className="th-icon-bubble"><Armchair size={20} /></span><div><small>SEAT A{String(selected).padStart(2, '0')}</small><strong>{occupied.includes(selected) ? 'Currently occupied' : 'Ready for a new member'}</strong></div><span className={`th-seat-status ${occupied.includes(selected) ? 'occupied' : ''}`} /></div>
+    <div className="th-scene-bottom"><span><i /> Available <i /> Occupied</span><span>Tap a desk to explore <ArrowUpRight size={14} /></span></div>
+  </div>;
+}
+
+function ProductPreview({ active }: { active: number }) {
+  return <div className="th-product-window">
+    <div className="th-window-top"><Brand /><span>Demo workspace <span className="th-demo-pill">SAMPLE DATA</span></span></div>
+    <div className="th-product-body"><aside aria-hidden="true"><LayoutDashboard /><Armchair className={active === 0 ? 'selected' : ''} /><ReceiptText className={active === 1 ? 'selected' : ''} /><Users className={active === 2 ? 'selected' : ''} /><Bell /></aside>
+      <div className="th-product-content">
+        <div className="th-product-heading"><div><small>YOUR WORKSPACE, AT A GLANCE</small><h3>{['Room overview', 'Fee overview', 'Your students'][active]}</h3></div><span className="th-demo-pill">Main branch</span></div>
+        {active === 0 ? <><div className="th-mini-stats"><div><small>Total seats</small><strong>24</strong></div><div><small>Occupied</small><strong>12</strong></div><div><small>Available</small><strong>12</strong></div></div><div className="th-flat-seats">{Array.from({ length: 24 }, (_, i) => <span key={i} className={i % 4 < 2 ? 'taken' : ''}><Armchair size={18} /><small>A{String(i + 1).padStart(2, '0')}</small></span>)}</div><div className="th-preview-note"><span className="th-status-dot" /> Morning shift <span>Room 01 · Sample layout</span></div></> : active === 1 ? <><div className="th-mini-stats"><div><small>Collected</small><strong>₹18,000</strong></div><div><small>Outstanding</small><strong>₹4,500</strong></div></div><div className="th-demo-table"><div><span>Student</span><span>Amount</span><span>Status</span></div>{[['Aarav S.', '₹1,500', 'Paid'], ['Priya M.', '₹1,500', 'Paid'], ['Rohan K.', '₹750', 'Partial'], ['Ananya R.', '₹1,500', 'Unpaid']].map(row => <div key={row[0]}><strong>{row[0]}</strong><span>{row[1]}</span><span className={`th-payment-status ${row[2].toLowerCase()}`}>{row[2]}</span></div>)}</div></> : <><div className="th-mini-stats"><div><small>Members</small><strong>24</strong></div><div><small>Renewing soon</small><strong>03</strong></div></div><div className="th-student-list">{[['AS', 'Aarav Sharma', 'Morning shift', 'mint'], ['PM', 'Priya Mishra', 'Full day', 'lilac'], ['RK', 'Rohan Kumar', 'Evening shift', 'peach']].map(row => <div key={row[0]}><span className={`th-avatar ${row[3]}`}>{row[0]}</span><span><strong>{row[1]}</strong><small>{row[2]}</small></span><span className="th-demo-pill">Active</span></div>)}</div></>}
+      </div>
+    </div>
+  </div>;
+}
 
 export default function Home() {
-  const navigate = useNavigate();
-  const { showToast } = useToast();
-
-  // FAQ states
-  const [activeFaq, setActiveFaq] = useState<number | null>(null);
-
-  // Pricing Toggle (false = monthly, true = yearly with 20% discount)
-  const [isYearly, setIsYearly] = useState(false);
-
-  // Live product preview tab state
-  const [activeTab, setActiveTab] = useState(0);
-
-  // Contact Form state
-  const [contactName, setContactName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [contactMessage, setContactMessage] = useState('');
-  const [isContactSubmitting, setIsContactSubmitting] = useState(false);
-
-  const toggleFaq = (index: number) => {
-    setActiveFaq(activeFaq === index ? null : index);
-  };
-
-  const handleContactSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contactName.trim() || !contactEmail.trim() || !contactMessage.trim()) {
-      showToast('Please fill out all required fields.', 'error');
-      return;
-    }
-    setIsContactSubmitting(true);
-    setTimeout(() => {
-      showToast('Thank you! Your message has been sent successfully. Our team will get back to you shortly.', 'success');
-      setContactName('');
-      setContactEmail('');
-      setContactPhone('');
-      setContactMessage('');
-      setIsContactSubmitting(false);
-    }, 1500);
-  };
-
-  // 1. Seat Grid Sample data
-  const seatCols = 8;
-  const seatRows = 4;
-  const occupiedSeeds = [1, 4, 7, 9, 11, 14, 18, 22, 23, 27, 30];
-
-  // 2. Product preview tab data
-  const previewTabsData = [
-    {
-      title: 'Seat Management',
-      badge: 'Real-Time Layout',
-      headline: 'Visual layout control for zero seat conflicts.',
-      desc: 'Customize your library or study hall room floor plan in minutes. Assign seats, manage shifts (Morning, Evening, Night, Full Day), block specific seats for maintenance, and let students book visually.',
-      bullets: [
-        'Interactive drag-and-drop floor plan designer',
-        'Shift-wise seat allocation and multi-session booking',
-        'Real-time seat occupancy heatmaps'
-      ],
-      graphicType: 'seatmap'
-    },
-    {
-      title: 'Analytics & Insights',
-      badge: 'Business Growth',
-      headline: 'Understand occupancy patterns and revenue leakage.',
-      desc: 'Get deep insights into which shifts are most popular, branch-wise performance comparisons, revenue metrics, expense logs, and student retention percentages from one aggregated dashboard.',
-      bullets: [
-        'Occupancy forecasting based on historical check-ins',
-        'Detailed payment collections and invoice tracking',
-        'Branch-wise profit and loss comparison reports'
-      ],
-      graphicType: 'analytics'
-    },
-    {
-      title: 'Billing & Invoicing',
-      badge: 'Automated Payments',
-      headline: 'GST-ready invoicing and automated fee reminders.',
-      desc: 'Set up custom subscription plans. Accept fees online, generate professional invoice receipts automatically, configure pending fee reminders over SMS/WhatsApp, and track cash, UPI, and bank transfers.',
-      bullets: [
-        '1-click GST invoices and digital receipts sharing',
-        'Automatic WhatsApp fee alerts before membership expiry',
-        'Comprehensive cashbook and expense management'
-      ],
-      graphicType: 'billing'
-    },
-    {
-      title: 'Attendance & Staff',
-      badge: 'Operations Control',
-      headline: 'Track student check-ins and staff check-outs.',
-      desc: 'Implement automatic QR code scanning, RFID check-ins, or manual attendance portals. Log staff hours, manage login permissions for branch managers, and verify member credentials instantly.',
-      bullets: [
-        'Secure QR code check-ins for students',
-        'Detailed daily attendance logs with shift overrides',
-        'Staff logins with branch-level security controls'
-      ],
-      graphicType: 'attendance'
-    }
-  ];
-
-  // 3. Pricing plans definition
-  const plans = [
-    {
-      name: 'Starter',
-      desc: 'Perfect for small reading rooms or single branch study halls.',
-      priceMonthly: 1200,
-      priceYearly: 960,
-      features: [
-        'Up to 50 Seats configuration',
-        'Standard Membership management',
-        'Cash & Manual billing log',
-        'Daily Attendance tracking',
-        'Email Support',
-        'No GST Billing',
-        'No WhatsApp Integration'
-      ]
-    },
-    {
-      name: 'Professional',
-      desc: 'Best for growing study halls requiring automated collections & billing.',
-      priceMonthly: 2400,
-      priceYearly: 1920,
-      popular: true,
-      features: [
-        'Up to 150 Seats configuration',
-        'Advanced Membership shift management',
-        'Automated Invoice generation (GST-ready)',
-        'Automatic WhatsApp fee alerts',
-        'UPI & Online fee collection links',
-        'Expense tracker & Cashbook',
-        'Priority 24/7 Chat Support'
-      ]
-    },
-    {
-      name: 'Enterprise',
-      desc: 'Built for multi-branch networks and large coaching reading rooms.',
-      priceMonthly: 4500,
-      priceYearly: 3600,
-      features: [
-        'Unlimited Seats & Rooms',
-        'Multi-Branch Consolidated analytics',
-        'Staff Roles & Permission management',
-        'Consolidated Revenue audits',
-        'API & Custom Integration access',
-        'Dedicated Account Manager',
-        'Custom SMS & Sender ID configuration'
-      ]
-    }
-  ];
-
-  // 4. FAQ list
-  const faqs = [
-    {
-      q: 'How does Trishul simplify study hall management?',
-      a: 'Trishul centralizes your entire business operation in a single portal. It replaces manual registers, Excel spreadsheets, and scattered WhatsApp chats with automated seat maps, real-time check-in logs, GST-ready invoicing, and automated SMS reminders for pending fees.'
-    },
-    {
-      q: 'Can I manage multiple branches under a single login?',
-      a: 'Absolutely. Trishul has native multi-branch support. As an owner, you can view combined revenues and branch-wise occupancy stats, while assigning specific branch managers access restricted solely to their branch.'
-    },
-    {
-      q: 'Can students select and book seats online?',
-      a: 'Yes. Trishul provides interactive seat maps that let you allocate specific seats for specific shifts (e.g. 8 AM - 2 PM, 2 PM - 8 PM, or Full Day). You can easily share payment links and automatically assign seats once payment is verified.'
-    },
-    {
-      q: 'Is my database secure and backed up?',
-      a: 'We prioritize data security above all else. Your study hall records are encrypted and hosted on premium cloud servers with daily automated backups, ensuring 99.9% uptime and zero risk of data loss.'
-    },
-    {
-      q: 'Can I migrate my existing student data from Excel sheets?',
-      a: 'Yes, we provide instant Excel import tools. You can download our standard format template, paste your current student lists with contact details, upload it, and get started in less than 5 minutes.'
-    },
-    {
-      q: 'Do you provide training and support?',
-      a: 'Yes. We offer free online onboarding, training videos, and dedicated chat/phone support. Professional and Enterprise plan subscribers receive priority support with custom response guarantees.'
-    }
-  ];
-
-  return (
-    <div className="landing-scope">
-      
-      {/* Glow ambient blobs */}
-      <div className="landing-glow-blob landing-glow-1" />
-      <div className="landing-glow-blob landing-glow-2" />
-      <div className="landing-glow-blob landing-glow-3" />
-
-      {/* ================= HERO SECTION ================= */}
-      <section className="lp-hero">
-        <div className="landing-container lp-hero-grid">
-          
-          {/* Text Info */}
-          <div className="lp-hero-text-side">
-            <div className="lp-hero-tag">
-              <Zap size={13} style={{ marginRight: '4px' }} />
-              <span>TRISHUL OS v2.0</span>
-            </div>
-            
-            <h1 className="lp-hero-headline">
-              The Complete Operating System for Modern Study Halls.
-            </h1>
-            
-            <p className="lp-hero-subheadline">
-              Run your library like a professional SaaS business. Automate shift bookings, track student check-ins, collect payments, and manage multiple branches from one unified dashboard.
-            </p>
-            
-            <div className="lp-hero-ctas">
-              <button 
-                type="button" 
-                className="lp-btn-primary" 
-                onClick={() => navigate('/login')}
-                style={{ padding: '0.8rem 1.75rem', fontSize: '0.95rem' }}
-              >
-                <span>Start Free Trial</span>
-                <ArrowRight size={16} />
-              </button>
-              <button 
-                type="button" 
-                className="lp-btn-secondary"
-                onClick={() => {
-                  window.location.href = '#contact';
-                }}
-                style={{ padding: '0.8rem 1.75rem', fontSize: '0.95rem' }}
-              >
-                Book Demo
-              </button>
-            </div>
-          </div>
-
-          {/* Interactive Graphics (Right Side) */}
-          <div className="lp-hero-preview-side">
-            <div className="lp-dashboard-preview">
-              
-              {/* Widget 1: Seat Map */}
-              <div className="lp-preview-card lp-preview-seatmap">
-                <div className="widget-title-row">
-                  <span className="widget-label" style={{ fontSize: '0.65rem' }}>Live Seat map</span>
-                  <span className="widget-value-badge">
-                    <span className="live-dot" /> 29 / 40 Available
-                  </span>
-                </div>
-                <div className="seat-grid-lp">
-                  {Array.from({ length: seatRows * seatCols }).map((_, i) => {
-                    const isOcc = occupiedSeeds.includes(i);
-                    return (
-                      <div
-                        key={i}
-                        className={`seat-lp-cell ${isOcc ? 'occ' : 'avail'}`}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Widget 2: Occupancy Gauge */}
-              <div className="lp-preview-card lp-preview-occupancy">
-                <span className="widget-label" style={{ fontSize: '0.65rem' }}>Live Occupancy</span>
-                <div className="occupancy-circle-container">
-                  <svg className="circle-progress-svg">
-                    <defs>
-                      <linearGradient id="circle-gradient" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stopColor="#3B82F6" />
-                        <stop offset="100%" stopColor="#2563EB" />
-                      </linearGradient>
-                    </defs>
-                    <circle className="circle-bg" cx="45" cy="45" r="40" />
-                    <circle className="circle-fill" cx="45" cy="45" r="40" />
-                  </svg>
-                  <div style={{ position: 'absolute', top: '56px', fontSize: '1.15rem', fontWeight: 800 }}>
-                    82%
-                  </div>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--lp-text-secondary)', marginTop: '4px' }}>Active Shifts</span>
-                </div>
-              </div>
-
-              {/* Widget 3: Monthly Collection Sparkline */}
-              <div className="lp-preview-card lp-preview-analytics">
-                <div className="widget-title-row">
-                  <span className="widget-label" style={{ fontSize: '0.65rem' }}>Monthly Revenue</span>
-                  <span className="revenue-trend">
-                    <TrendingUp size={12} style={{ marginRight: '3px' }} /> +12.4%
-                  </span>
-                </div>
-                <div className="revenue-value" style={{ fontSize: '1.35rem', margin: '0.1rem 0' }}>
-                  ₹1,84,500
-                </div>
-                <svg className="sparkline-svg-lp" viewBox="0 0 300 60">
-                  <path
-                    className="sparkline-line-lp"
-                    d="M 0 50 Q 50 35 100 45 T 200 15 T 300 5"
-                  />
-                </svg>
-              </div>
-
-              {/* Widget 4: Quick Metrics */}
-              <div className="lp-preview-card lp-preview-collection">
-                <div className="metrics-list" style={{ gap: '0.4rem' }}>
-                  <div className="metric-row">
-                    <span className="metric-name" style={{ fontSize: '0.72rem' }}>
-                      <Users size={12} style={{ color: 'var(--lp-secondary)', marginRight: '4px' }} /> Active Members
-                    </span>
-                    <span className="metric-value" style={{ fontSize: '0.78rem' }}>342</span>
-                  </div>
-                  <div className="metric-row">
-                    <span className="metric-name" style={{ fontSize: '0.72rem' }}>
-                      <ReceiptText size={12} style={{ color: 'var(--lp-success)', marginRight: '4px' }} /> Today Fee
-                    </span>
-                    <span className="metric-value" style={{ fontSize: '0.78rem' }}>₹12,400</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-        </div>
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activePreview, setActivePreview] = useState(0);
+  const home = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const previousTitle = document.title;
+    document.title = 'Trishul — A better day for your library';
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) { entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }
+    }), { threshold: 0.08 });
+    home.current?.querySelectorAll('.th-reveal').forEach(element => observer.observe(element));
+    return () => { observer.disconnect(); document.title = previousTitle; };
+  }, []);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') { setMenuOpen(false); document.getElementById('th-menu-button')?.focus(); } };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [menuOpen]);
+  const preview = previews[activePreview];
+  return <div className="trishul-home" ref={home}>
+    <a className="th-skip" href="#main-content">Skip to content</a>
+    <header className="th-header"><div className="th-container th-nav">
+      <Link to="/" aria-label="Trishul home"><Brand /></Link>
+      <nav className={`th-nav-links ${menuOpen ? 'is-open' : ''}`} id="th-navigation" aria-label="Main navigation">
+        {[['Features', '#features'], ['How it works', '#how-it-works'], ['What’s next', '#roadmap'], ['FAQs', '#faqs']].map(([label, url]) => <a key={url} href={url} onClick={() => setMenuOpen(false)}>{label}</a>)}
+        <Link className="th-mobile-login" to="/login">Log in <ArrowUpRight size={16} /></Link>
+      </nav>
+      <div className="th-nav-actions"><Link className="th-login" to="/login">Log in</Link><Link className="th-button th-button-dark th-button-small" to="/login">Get started <ArrowUpRight size={15} /></Link><button className="th-menu-toggle" id="th-menu-button" type="button" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="th-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button></div>
+    </div></header>
+    <main id="main-content">
+      <section className="th-hero th-container">
+        <div className="th-hero-copy"><div className="th-eyebrow"><span className="th-status-dot" /> LESS ADMIN. MORE POSSIBILITY.</div><h1>A better day<br />for your <span>library.</span></h1><p>From the first check-in to the last seat filled. Bring students, seats, fees and everyday operations together with Trishul.</p><div className="th-hero-actions"><Link className="th-button th-button-dark" to="/login">Organise your workspace <ArrowUpRight size={18} /></Link><a className="th-text-link" href="#explore">Take a closer look <ArrowDown size={17} /></a></div><div className="th-hero-footnote"><span><Check size={14} /> Built for study halls</span><span><Check size={14} /> Made for libraries</span></div></div>
+        <StudyRoom />
+        <div className="th-hero-caption"><span>YOUR SPACE. BEAUTIFULLY CONNECTED.</span><span>A little less paperwork. A lot more clarity.</span><span>01 — EXPLORE TRISHUL</span></div>
       </section>
-
-      {/* ================= TRUST SECTION ================= */}
-      <section className="lp-trust">
-        <div className="landing-container lp-trust-grid">
-          <div className="lp-trust-title-col">
-            Trusted by the most professional Study Hall businesses
-          </div>
-          <div className="lp-trust-stats">
-            <div className="lp-trust-item">
-              <span className="lp-trust-number">500+</span>
-              <span className="lp-trust-label">Study Halls</span>
-            </div>
-            <div className="lp-trust-item">
-              <span className="lp-trust-number">10k+</span>
-              <span className="lp-trust-label">Students Managed</span>
-            </div>
-            <div className="lp-trust-item">
-              <span className="lp-trust-number">99.9%</span>
-              <span className="lp-trust-label">System Uptime</span>
-            </div>
-          </div>
-        </div>
+      <div className="th-capability-strip"><div className="th-container"><span>One workspace.<br /><strong>Every part of your day.</strong></span>{[[Armchair, 'Seats & shifts'], [Users, 'Students'], [ReceiptText, 'Payments'], [BookOpen, 'Books'], [Building2, 'Branches']].map(([Icon, label]) => { const ItemIcon = Icon as typeof Armchair; return <span key={String(label)}><ItemIcon size={21} />{String(label)}</span>; })}</div></div>
+      <section className="th-section th-container" id="explore">
+        <div className="th-section-heading th-reveal"><div><span className="th-eyebrow">A CLEARER WAY TO WORK</span><h2>Your whole day.<br />One shared picture.</h2></div><p>Less switching between notebooks and spreadsheets. More time for the people who come to your space to learn.</p></div>
+        <div className="th-explore th-reveal"><div className="th-explore-copy"><div className="th-preview-tabs" aria-label="Explore product features">{previews.map((item, i) => <button type="button" key={item.label} aria-pressed={activePreview === i} aria-controls="th-preview-panel" onClick={() => setActivePreview(i)}><item.icon size={16} />{item.label}</button>)}</div><div id="th-preview-panel" aria-live="polite"><span className="th-step-number">0{activePreview + 1} / THE EVERYDAY, SIMPLIFIED</span><h3>{preview.title}</h3><p>{preview.text}</p><ul>{preview.bullets.map(text => <li key={text}><Check size={16} />{text}</li>)}</ul></div><Link to="/login" className="th-text-link">Explore your workspace <ArrowRight size={17} /></Link></div><ProductPreview active={activePreview} /></div>
       </section>
-
-      {/* ================= FEATURES SECTION ================= */}
-      <section id="features" className="landing-section-py">
-        <div className="landing-container">
-          
-          <div className="lp-section-header">
-            <span className="lp-section-tag">Core Features</span>
-            <h2 className="lp-section-title">Everything you need to run your Study Hall.</h2>
-            <p className="lp-section-desc">
-              Ditch manual registers and paper billing. Trishul automates your day-to-day operations so you can focus on expansion.
-            </p>
-          </div>
-
-          <div className="lp-features-grid">
-            
-            <div className="lp-feature-card">
-              <div className="lp-feature-icon-wrapper">
-                <Armchair size={20} />
-              </div>
-              <h3>Seat Management</h3>
-              <p>Visual floor plan layout configurations. Avoid double bookings and allocate specific seats shift-wise.</p>
-            </div>
-
-            <div className="lp-feature-card">
-              <div className="lp-feature-icon-wrapper">
-                <Users size={20} />
-              </div>
-              <h3>Member Management</h3>
-              <p>Store student profiles, contact info, shift allocations, ID cards, and history in a centralized database.</p>
-            </div>
-
-            <div className="lp-feature-card">
-              <div className="lp-feature-icon-wrapper">
-                <ReceiptText size={20} />
-              </div>
-              <h3>Online Fee Collection</h3>
-              <p>Accept payments via UPI, NetBanking, and cards. Track cash collections and generate automated receipts.</p>
-            </div>
-
-            <div className="lp-feature-card">
-              <div className="lp-feature-icon-wrapper">
-                <Clock size={20} />
-              </div>
-              <h3>Attendance Tracking</h3>
-              <p>Implement secure check-ins via QR codes or custom RFID logs to track live presence and shift violations.</p>
-            </div>
-
-            <div className="lp-feature-card">
-              <div className="lp-feature-icon-wrapper">
-                <Building2 size={20} />
-              </div>
-              <h3>Branch Management</h3>
-              <p>Manage multiple reading rooms and physical branches under a single dashboard with location filters.</p>
-            </div>
-
-            <div className="lp-feature-card">
-              <div className="lp-feature-icon-wrapper">
-                <LayoutDashboard size={20} />
-              </div>
-              <h3>Real-Time Dashboard</h3>
-              <p>Instantly check live occupancy rates, collections, checking queues, and branch stats at a glance.</p>
-            </div>
-
-            <div className="lp-feature-card">
-              <div className="lp-feature-icon-wrapper">
-                <SlidersHorizontal size={20} />
-              </div>
-              <h3>Staff Management</h3>
-              <p>Assign specific permissions to managers and accountants, logging their workspace edits and log-in times.</p>
-            </div>
-
-            <div className="lp-feature-card">
-              <div className="lp-feature-icon-wrapper">
-                <LineChart size={20} />
-              </div>
-              <h3>Reports & Analytics</h3>
-              <p>Understand P&L, identify popular slots, download payment summaries, and track monthly growth.</p>
-            </div>
-
-            <div className="lp-feature-card">
-              <div className="lp-feature-icon-wrapper">
-                <Bell size={20} />
-              </div>
-              <h3>Automatic Alerts</h3>
-              <p>Auto-send fee reminders, membership expirations, and notices over SMS and WhatsApp directly.</p>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= WHY CHOOSE TRISHUL (COMPARISON) ================= */}
-      <section className="landing-section-py" style={{ background: 'rgba(15, 23, 42, 0.1)' }}>
-        <div className="landing-container">
-          
-          <div className="lp-section-header">
-            <span className="lp-section-tag">Comparison</span>
-            <h2 className="lp-section-title">Upgrade from registers to an automated OS.</h2>
-            <p className="lp-section-desc">
-              See how Trishul completely modernizes your operations compared to traditional management methods.
-            </p>
-          </div>
-
-          <div className="lp-comparison-grid">
-            
-            {/* Traditional Card */}
-            <div className="lp-compare-card traditional">
-              <div className="lp-compare-header">
-                <span className="lp-compare-title">Traditional Management</span>
-                <span className="lp-compare-badge">Outdated</span>
-              </div>
-              <div className="lp-compare-list">
-                <div className="lp-compare-item">
-                  <XCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-danger)' }} />
-                  <span>Manual attendance sheets that students can easily manipulate.</span>
-                </div>
-                <div className="lp-compare-item">
-                  <XCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-danger)' }} />
-                  <span>Messy Excel files that get outdated or deleted accidentally.</span>
-                </div>
-                <div className="lp-compare-item">
-                  <XCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-danger)' }} />
-                  <span>Double seat booking confusion and verbal argument headaches.</span>
-                </div>
-                <div className="lp-compare-item">
-                  <XCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-danger)' }} />
-                  <span>Tracking pending fee dues via notebooks and manual reminders.</span>
-                </div>
-                <div className="lp-compare-item">
-                  <XCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-danger)' }} />
-                  <span>No analytics on slot occupancy, retention, or branch comparisons.</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Trishul Card */}
-            <div className="lp-compare-card trishul-core">
-              <div className="lp-compare-header">
-                <span className="lp-compare-title">TRISHUL Cloud Platform</span>
-                <span className="lp-compare-badge">Modern OS</span>
-              </div>
-              <div className="lp-compare-list">
-                <div className="lp-compare-item">
-                  <CheckCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-success)' }} />
-                  <span>Secure QR Code/RFID check-ins to monitor exact presence.</span>
-                </div>
-                <div className="lp-compare-item">
-                  <CheckCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-success)' }} />
-                  <span>Secure cloud storage with automated daily backups.</span>
-                </div>
-                <div className="lp-compare-item">
-                  <CheckCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-success)' }} />
-                  <span>Real-time visual seat map showing precise shift allocations.</span>
-                </div>
-                <div className="lp-compare-item">
-                  <CheckCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-success)' }} />
-                  <span>Automatic fee reminders sent directly via SMS and WhatsApp.</span>
-                </div>
-                <div className="lp-compare-item">
-                  <CheckCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-success)' }} />
-                  <span>Rich dashboards for revenue analysis, check-ins, and shift popularities.</span>
-                </div>
-                <div className="lp-compare-item">
-                  <CheckCircle size={18} className="lp-compare-item-icon" style={{ color: 'var(--lp-success)' }} />
-                  <span>Multi-branch management under one consolidated dashboard.</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= LIVE PRODUCT PREVIEW ================= */}
-      <section className="landing-section-py">
-        <div className="landing-container">
-          
-          <div className="lp-section-header">
-            <span className="lp-section-tag">Interactive Preview</span>
-            <h2 className="lp-section-title">Take a tour of the dashboard.</h2>
-            <p className="lp-section-desc">
-              Explore how Trishul looks and handles different key operations. Click the tabs below to inspect screenshots and features.
-            </p>
-          </div>
-
-          {/* Tabs */}
-          <div className="lp-preview-tabs">
-            {previewTabsData.map((tab, idx) => (
-              <button
-                key={tab.title}
-                className={`lp-preview-tab-btn ${activeTab === idx ? 'active' : ''}`}
-                onClick={() => setActiveTab(idx)}
-              >
-                {tab.title}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab Showcase Card */}
-          <div className="lp-preview-showcase">
-            <div className="preview-showcase-grid">
-              
-              <div className="showcase-text">
-                <span className="lp-compare-badge" style={{ color: 'var(--lp-secondary)', background: 'rgba(59, 130, 246, 0.1)', marginBottom: '0.75rem', display: 'inline-block' }}>
-                  {previewTabsData[activeTab].badge}
-                </span>
-                <h3>{previewTabsData[activeTab].headline}</h3>
-                <p>{previewTabsData[activeTab].desc}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  {previewTabsData[activeTab].bullets.map((bullet, i) => (
-                    <div key={i} className="showcase-bullet">
-                      <Check size={14} className="showcase-bullet-icon" />
-                      <span>{bullet}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="showcase-graphic">
-                {previewTabsData[activeTab].graphicType === 'seatmap' && (
-                  <div>
-                    <div className="widget-title-row" style={{ borderBottom: '1px solid var(--lp-border)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Interactive Layout Panel (Room A)</span>
-                      <span className="widget-value-badge">Edit mode</span>
-                    </div>
-                    <div className="seat-grid-lp" style={{ gridTemplateColumns: 'repeat(10, 1fr)' }}>
-                      {Array.from({ length: 30 }).map((_, i) => {
-                        const occupied = [3, 8, 12, 15, 19, 21, 27].includes(i);
-                        return (
-                          <div
-                            key={i}
-                            className={`seat-lp-cell ${occupied ? 'occ' : 'avail'}`}
-                            style={{ padding: '2px' }}
-                          />
-                        );
-                      })}
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.72rem', color: 'var(--lp-text-secondary)' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)' }} /> Available
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: 'rgba(239, 68, 68, 0.35)', border: '1px solid rgba(239, 68, 68, 0.5)' }} /> Occupied
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {previewTabsData[activeTab].graphicType === 'analytics' && (
-                  <div>
-                    <div className="widget-title-row" style={{ marginBottom: '0.75rem' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Occupancy Trend (Morning vs Evening Shift)</span>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--lp-success)' }}>+18% Peak slots</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', height: '110px', gap: '1.25rem', padding: '0.5rem 0', borderBottom: '1px solid var(--lp-border)' }}>
-                      {[40, 65, 80, 85, 70, 95, 88].map((h, i) => (
-                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                          <div style={{ width: '100%', height: `${h}px`, background: i === 5 ? 'var(--lp-primary)' : 'rgba(255, 255, 255, 0.08)', borderRadius: '4px 4px 0 0', position: 'relative' }} />
-                          <span style={{ fontSize: '0.62rem', color: 'var(--lp-text-secondary)' }}>Day {i + 1}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {previewTabsData[activeTab].graphicType === 'billing' && (
-                  <div>
-                    <div className="widget-title-row" style={{ borderBottom: '1px solid var(--lp-border)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Invoices & Cashbook</span>
-                      <span className="widget-value-badge" style={{ color: 'var(--lp-primary)', background: 'rgba(37,99,235,0.1)' }}>UPI Active</span>
-                    </div>
-                    <div className="metrics-list" style={{ gap: '0.5rem' }}>
-                      {[
-                        { title: 'Inv #1092 - Rajesh Kumar', price: '₹1,500', status: 'Paid', statusColor: '#22c55e' },
-                        { title: 'Inv #1091 - Priya Sharma', price: '₹2,400', status: 'Paid', statusColor: '#22c55e' },
-                        { title: 'Inv #1090 - Amit Verma', price: '₹1,500', status: 'Pending', statusColor: '#f59e0b' }
-                      ].map((item, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', padding: '4px 0' }}>
-                          <span style={{ fontWeight: 500 }}>{item.title}</span>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--lp-text-secondary)' }}>{item.price}</span>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: item.statusColor, background: `${item.statusColor}15`, padding: '1px 6px', borderRadius: '4px' }}>
-                              {item.status}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {previewTabsData[activeTab].graphicType === 'attendance' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div className="widget-title-row" style={{ borderBottom: '1px solid var(--lp-border)', paddingBottom: '0.5rem' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Live Check-in Feed</span>
-                      <span className="live-dot" />
-                    </div>
-                    <div className="metrics-list" style={{ gap: '0.55rem' }}>
-                      {[
-                        { name: 'Karan Malhotra', time: '12:34 PM', action: 'Checked In', iconColor: '#22c55e' },
-                        { name: 'Sneha Patel', time: '12:31 PM', action: 'Checked In', iconColor: '#22c55e' },
-                        { name: 'Rahul Joshi', time: '12:15 PM', action: 'Checked Out', iconColor: '#ef4444' }
-                      ].map((log, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: log.iconColor }} />
-                            <span style={{ fontWeight: 500 }}>{log.name}</span>
-                          </div>
-                          <span style={{ color: 'var(--lp-text-secondary)', fontSize: '0.72rem' }}>{log.action} • {log.time}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= HOW IT WORKS ================= */}
-      <section className="landing-section-py" style={{ background: 'rgba(15, 23, 42, 0.1)' }}>
-        <div className="landing-container">
-          
-          <div className="lp-section-header">
-            <span className="lp-section-tag">Process</span>
-            <h2 className="lp-section-title">Get set up in 5 simple steps.</h2>
-            <p className="lp-section-desc">
-              Onboarding your study hall or library has never been simpler. Follow this progression to start managing members.
-            </p>
-          </div>
-
-          <div className="lp-steps-container">
-            
-            <div className="lp-step-item">
-              <div className="lp-step-num">1</div>
-              <span className="lp-step-title">Register Hall</span>
-              <p className="lp-step-desc">Create your admin account and define details for all active physical branches.</p>
-            </div>
-
-            <div className="lp-step-item">
-              <div className="lp-step-num">2</div>
-              <span className="lp-step-title">Configure Seats</span>
-              <p className="lp-step-desc">Design your floor layout, create different rooms, and assign seat capacities shift-wise.</p>
-            </div>
-
-            <div className="lp-step-item">
-              <div className="lp-step-num">3</div>
-              <span className="lp-step-title">Add Members</span>
-              <p className="lp-step-desc">Import existing student details from Excel sheets or add new registrations manually.</p>
-            </div>
-
-            <div className="lp-step-item">
-              <div className="lp-step-num">4</div>
-              <span className="lp-step-title">Collect Fees</span>
-              <p className="lp-step-desc">Allocate slots, generate invoices, share secure UPI/card links, and log fee payments.</p>
-            </div>
-
-            <div className="lp-step-item">
-              <div className="lp-step-num">5</div>
-              <span className="lp-step-title">Track Everything</span>
-              <p className="lp-step-desc">Monitor live occupancy rates, collect logs, manage daily attendance, and track growth.</p>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= BENEFITS SECTION ================= */}
-      <section className="landing-section-py">
-        <div className="landing-container">
-          
-          <div className="lp-section-header">
-            <span className="lp-section-tag">Value Proposition</span>
-            <h2 className="lp-section-title">Designed to boost your business efficiency.</h2>
-            <p className="lp-section-desc">
-              Trishul helps study hall owners save time and generate higher revenue through complete operational visibility.
-            </p>
-          </div>
-
-          <div className="lp-benefits-grid">
-            
-            <div className="lp-benefit-item">
-              <div className="lp-benefit-num">01</div>
-              <div>
-                <h3 className="lp-benefit-title">Save Hours Weekly</h3>
-                <p className="lp-benefit-desc">Automate admissions, fee alerts, and receipts. Our users save an average of 20+ hours of manual administrative work every single week.</p>
-              </div>
-            </div>
-
-            <div className="lp-benefit-item">
-              <div className="lp-benefit-num">02</div>
-              <div>
-                <h3 className="lp-benefit-title">Increase Monthly Revenue</h3>
-                <p className="lp-benefit-desc">Say goodbye to fee leakages. Automate renewal notifications over SMS/WhatsApp so students renew their membership on time.</p>
-              </div>
-            </div>
-
-            <div className="lp-benefit-item">
-              <div className="lp-benefit-num">03</div>
-              <div>
-                <h3 className="lp-benefit-title">Eliminate Management Headaches</h3>
-                <p className="lp-benefit-desc">Centralize your shifts, seat layouts, billing registers, check-in histories, and branch databases under a single cloud system.</p>
-              </div>
-            </div>
-
-            <div className="lp-benefit-item">
-              <div className="lp-benefit-num">04</div>
-              <div>
-                <h3 className="lp-benefit-title">Premium Student Experience</h3>
-                <p className="lp-benefit-desc">Give students a high-fidelity visual layout map to choose their favorite slots, check live occupancy, and receive instant digital receipts.</p>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= PRICING SECTION ================= */}
-      <section id="pricing" className="landing-section-py" style={{ background: 'rgba(15, 23, 42, 0.1)' }}>
-        <div className="landing-container">
-          
-          <div className="lp-section-header">
-            <span className="lp-section-tag">Simple Pricing</span>
-            <h2 className="lp-section-title">Choose the plan that fits your business.</h2>
-            <p className="lp-section-desc">
-              All plans include free onboarding training. Save 20% by switching to yearly billing.
-            </p>
-          </div>
-
-          {/* Monthly/Yearly toggle */}
-          <div className="pricing-toggle-container">
-            <span className={`pricing-toggle-label ${!isYearly ? 'active' : ''}`}>Monthly</span>
-            <div 
-              className={`pricing-toggle-switch ${isYearly ? 'yearly' : ''}`}
-              onClick={() => setIsYearly(!isYearly)}
-            />
-            <span className={`pricing-toggle-label ${isYearly ? 'active' : ''}`}>Yearly Billing</span>
-            <span className="pricing-toggle-discount">Save 20%</span>
-          </div>
-
-          <div className="lp-pricing-grid">
-            {plans.map((plan) => {
-              const price = isYearly ? plan.priceYearly : plan.priceMonthly;
-              return (
-                <div key={plan.name} className={`lp-pricing-card ${plan.popular ? 'popular' : ''}`}>
-                  {plan.popular && <div className="popular-badge">Most Popular</div>}
-                  
-                  <span className="pricing-plan-name">{plan.name}</span>
-                  <p className="pricing-plan-desc">{plan.desc}</p>
-                  
-                  <div className="pricing-price-row">
-                    <span className="pricing-amount">₹{price}</span>
-                    <span className="pricing-period">/ month</span>
-                  </div>
-
-                  <div className="pricing-features-list">
-                    {plan.features.map((feature, i) => (
-                      <div key={i} className="pricing-feature-item">
-                        <Check size={14} className="pricing-feature-icon" />
-                        <span>{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    className={`lp-btn-primary`}
-                    onClick={() => navigate('/login')}
-                    style={{ width: '100%', justifyContent: 'center', marginTop: 'auto', padding: '0.75rem' }}
-                  >
-                    <span>Get Started</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= TESTIMONIALS SECTION ================= */}
-      <section className="landing-section-py">
-        <div className="landing-container">
-          
-          <div className="lp-section-header">
-            <span className="lp-section-tag">Testimonials</span>
-            <h2 className="lp-section-title">What other Library owners are saying.</h2>
-            <p className="lp-section-desc">
-              Hear from library and reading room business owners who upgraded their daily management workflow.
-            </p>
-          </div>
-
-          <div className="lp-testimonials-grid">
-            
-            <div className="lp-testimonial-card">
-              <div className="testimonial-stars">
-                {Array.from({ length: 5 }).map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
-              </div>
-              <p className="testimonial-quote">
-                "Moving from paper registers to Trishul has been a game-changer. I save at least 3 hours daily on manual billing and seat assignments. The automatic WhatsApp reminders are brilliant."
-              </p>
-              <div className="testimonial-user">
-                <div className="testimonial-avatar">RM</div>
-                <div className="testimonial-meta">
-                  <span className="testimonial-name">Rajesh Mishra</span>
-                  <span className="testimonial-business">Royal Library, Lucknow</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="lp-testimonial-card">
-              <div className="testimonial-stars">
-                {Array.from({ length: 5 }).map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
-              </div>
-              <p className="testimonial-quote">
-                "Managing 3 branches was a logistical nightmare. Trishul consolidated my entire revenue, occupancy, and manager logs in one single login. I can audit my business from anywhere."
-              </p>
-              <div className="testimonial-user">
-                <div className="testimonial-avatar">AS</div>
-                <div className="testimonial-meta">
-                  <span className="testimonial-name">Abhishek Singh</span>
-                  <span className="testimonial-business">Apex Study Spaces, Patna</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="lp-testimonial-card">
-              <div className="testimonial-stars">
-                {Array.from({ length: 5 }).map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
-              </div>
-              <p className="testimonial-quote">
-                "Our students absolutely love the visual seat booking flow. It gives them the premium feel of a coworking space, and billing disputes have completely dropped to zero."
-              </p>
-              <div className="testimonial-user">
-                <div className="testimonial-avatar">PD</div>
-                <div className="testimonial-meta">
-                  <span className="testimonial-name">Priya Deshmukh</span>
-                  <span className="testimonial-business">Prerna Reading Rooms, Pune</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= FAQ SECTION ================= */}
-      <section className="landing-section-py" style={{ background: 'rgba(15, 23, 42, 0.1)' }}>
-        <div className="landing-container">
-          
-          <div className="lp-section-header">
-            <span className="lp-section-tag">Questions</span>
-            <h2 className="lp-section-title">Frequently Asked Questions.</h2>
-            <p className="lp-section-desc">
-              Have questions about Trishul? Find quick answers to the most common inquiries.
-            </p>
-          </div>
-
-          <div className="lp-faq-container">
-            {faqs.map((faq, idx) => (
-              <div key={idx} className={`lp-faq-item ${activeFaq === idx ? 'active' : ''}`}>
-                <button
-                  type="button"
-                  className="lp-faq-question"
-                  onClick={() => toggleFaq(idx)}
-                >
-                  <span>{faq.q}</span>
-                  <ChevronDown size={18} className="lp-faq-chevron" />
-                </button>
-                <div className="lp-faq-answer">
-                  <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--lp-text-secondary)', lineHeight: 1.6 }}>
-                    {faq.a}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= ABOUT US SUMMARY ================= */}
-      <section className="landing-section-py">
-        <div className="landing-container lp-about-grid">
-          
-          <div className="lp-about-text">
-            <span className="lp-section-tag">About Us</span>
-            <h2 className="lp-section-title" style={{ fontSize: '2.1rem' }}>Modernizing Reading Rooms for the Next Generation.</h2>
-            <p style={{ fontSize: '0.95rem', color: 'var(--lp-text-secondary)', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-              Study halls and libraries are critical hubs for students preparing for competitive exams, civil services, and academic degrees. Yet, the technology supporting these owners has been stuck in the past.
-            </p>
-            <p style={{ fontSize: '0.95rem', color: 'var(--lp-text-secondary)', lineHeight: 1.6 }}>
-              We built Trishul to empower small library and study hall entrepreneurs with the same high-fidelity cloud tools enjoyed by modern enterprise coworking spaces. We are committed to helping you scale your business seamlessly.
-            </p>
-          </div>
-
-          <div className="lp-about-blocks">
-            <div className="lp-about-card">
-              <h4>
-                <ShieldCheck size={16} className="lp-feature-icon-wrapper" style={{ width: '24px', height: '24px', borderRadius: '4px', padding: 0 }} /> Our Mission
-              </h4>
-              <p>To eliminate operational complexities for reading room owners across the country.</p>
-            </div>
-            <div className="lp-about-card">
-              <h4>
-                <Zap size={16} className="lp-feature-icon-wrapper" style={{ width: '24px', height: '24px', borderRadius: '4px', padding: 0 }} /> Our Vision
-              </h4>
-              <p>To build the default cloud operating system powering community spaces and libraries.</p>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= CONTACT SECTION ================= */}
-      <section id="contact" className="landing-section-py" style={{ background: 'rgba(15, 23, 42, 0.1)' }}>
-        <div className="landing-container lp-contact-grid">
-          
-          <div className="lp-contact-info-col">
-            <div className="lp-contact-header">
-              <span className="lp-section-tag">Get in Touch</span>
-              <h3>Need a custom quote or a live demo walkthrough?</h3>
-              <p>Our study hall operations specialists will reach out within 2 hours to answer your questions.</p>
-            </div>
-
-            <div className="lp-contact-details">
-              <div className="lp-contact-detail-item">
-                <Mail size={18} className="lp-contact-icon" />
-                <div className="lp-contact-text-block">
-                  <span className="lp-contact-label">EMAIL US</span>
-                  <span className="lp-contact-val">contact@trishulsaas.com</span>
-                </div>
-              </div>
-              <div className="lp-contact-detail-item">
-                <Phone size={18} className="lp-contact-icon" />
-                <div className="lp-contact-text-block">
-                  <span className="lp-contact-label">CALL US</span>
-                  <span className="lp-contact-val">+91 98765 43210</span>
-                </div>
-              </div>
-              <div className="lp-contact-detail-item">
-                <MapPin size={18} className="lp-contact-icon" />
-                <div className="lp-contact-text-block">
-                  <span className="lp-contact-label">OFFICE LOCATION</span>
-                  <span className="lp-contact-val">Sector 62, Noida, Uttar Pradesh, 201301</span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="whatsapp-button"
-              onClick={() => {
-                window.open('https://api.whatsapp.com/send?phone=919876543210&text=Hello,%20I%20am%20interested%20in%20Trishul%20Study%20Hall%20OS.', '_blank');
-              }}
-            >
-              <span>Chat on WhatsApp</span>
-            </button>
-          </div>
-
-          {/* Form */}
-          <div className="lp-contact-form-card">
-            <form onSubmit={handleContactSubmit}>
-              <div className="lp-form-row">
-                <div className="lp-form-group">
-                  <label className="lp-form-label">Your Name</label>
-                  <input
-                    type="text"
-                    required
-                    className="lp-form-input"
-                    placeholder="Full Name"
-                    value={contactName}
-                    onChange={(e) => setContactName(e.target.value)}
-                  />
-                </div>
-                <div className="lp-form-group">
-                  <label className="lp-form-label">Phone Number</label>
-                  <input
-                    type="tel"
-                    className="lp-form-input"
-                    placeholder="e.g. +91 9999999999"
-                    value={contactPhone}
-                    onChange={(e) => setContactPhone(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="lp-form-group">
-                <label className="lp-form-label">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  className="lp-form-input"
-                  placeholder="name@business.com"
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value.toLowerCase())}
-                />
-              </div>
-
-              <div className="lp-form-group" style={{ marginBottom: '1.5rem' }}>
-                <label className="lp-form-label">How can we help?</label>
-                <textarea
-                  required
-                  className="lp-form-input"
-                  style={{ minHeight: '110px', resize: 'vertical', fontFamily: 'inherit' }}
-                  placeholder="Tell us about your study hall slots or capacity size..."
-                  value={contactMessage}
-                  onChange={(e) => setContactMessage(e.target.value)}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isContactSubmitting}
-                className="lp-btn-primary lp-form-submit-btn"
-              >
-                {isContactSubmitting ? 'Sending Request...' : 'Send Message'}
-              </button>
-            </form>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ================= FINAL CALL TO ACTION ================= */}
-      <section className="landing-section-py">
-        <div className="landing-container">
-          
-          <div className="lp-cta-banner">
-            <h2 className="lp-cta-title">Ready to modernize your Study Hall?</h2>
-            <p className="lp-cta-desc">
-              Join hundreds of library owners nationwide who use Trishul to eliminate admin overhead and increase collections.
-            </p>
-            <div className="lp-cta-actions">
-              <button
-                type="button"
-                className="lp-btn-primary"
-                onClick={() => navigate('/login')}
-                style={{ padding: '0.8rem 2rem', fontSize: '0.95rem' }}
-              >
-                <span>Get Started Now</span>
-                <ArrowRight size={16} />
-              </button>
-              <button
-                type="button"
-                className="lp-btn-secondary"
-                onClick={() => {
-                  window.location.href = '#contact';
-                }}
-                style={{ padding: '0.8rem 2rem', fontSize: '0.95rem' }}
-              >
-                Request Custom Demo
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-    </div>
-  );
+      <section className="th-features-section" id="features"><div className="th-container th-section"><div className="th-section-heading th-reveal"><div><span className="th-eyebrow">SMALL DETAILS. BIG DIFFERENCE.</span><h2>Built around the way<br />your library works.</h2></div><p>The essentials for running your space, thoughtfully brought together. Available features depend on your plan and configuration.</p></div><div className="th-feature-grid">{features.map((feature, i) => <article key={feature.tag} className="th-feature th-reveal" style={{ '--delay': `${i % 3 * 60}ms` } as CSSProperties}><div className={`th-feature-icon ${feature.tone}`}><feature.icon size={23} strokeWidth={1.7} /></div><span className="th-feature-tag">{feature.tag}</span><h3>{feature.title}</h3><p>{feature.text}</p><span className="th-feature-number">0{i + 1}</span></article>)}</div><div className="th-safety-note"><ShieldCheck size={22} /><p><strong>A more connected team.</strong> Role-based access helps organise responsibilities. In-app safety alerts provide an additional communication channel alongside your on-site emergency procedures.</p></div></div></section>
+      <section className="th-section th-container" id="how-it-works"><div className="th-section-heading th-reveal"><div><span className="th-eyebrow">FROM SETUP TO EVERYDAY</span><h2>Make room for<br />a simpler routine.</h2></div><a href="mailto:mauryasudhanshu930@gmail.com?subject=Help%20getting%20started%20with%20Trishul" className="th-text-link">Let’s talk about your library <ArrowUpRight size={17} /></a></div><div className="th-steps">{[{ icon: Building2, title: 'Make it your space', text: 'Create your workspace. Add branches, rooms, shifts and membership plans.' }, { icon: Users, title: 'Bring your people in', text: 'Add your students, assign seats and give your team the right access.' }, { icon: Layers3, title: 'Find your daily rhythm', text: 'Manage attendance, record fees, share notices and keep an eye on what needs attention.' }].map((step, i) => <article className="th-step th-reveal" key={step.title}><div><span>0{i + 1}</span><step.icon size={24} /></div><h3>{step.title}</h3><p>{step.text}</p></article>)}</div></section>
+      <section className="th-roadmap-section" id="roadmap"><div className="th-container th-section"><div className="th-section-heading th-reveal"><div><span className="th-eyebrow"><Sparkles size={14} /> ROOM TO GROW</span><h2>A thoughtful look<br />at what comes next.</h2></div><p>We’re exploring ways to make your day even easier. These are proposed additions, not currently available features or release commitments.</p></div><div className="th-roadmap-grid">{[{ icon: FileSpreadsheet, title: 'An easier move from Excel', text: 'Guided spreadsheet imports to help bring existing student records into your workspace.' }, { icon: TrendingUp, title: 'Insights that look ahead', text: 'Occupancy trends and renewal insights to help you plan the next chapter of your business.' }, { icon: ScanLine, title: 'More ways to check in', text: 'Explore compatible RFID and biometric attendance integrations for your space.' }].map((item, i) => <article className="th-roadmap-card th-reveal" key={item.title}><div><item.icon size={25} strokeWidth={1.5} /><span>EXPLORING</span></div><span className="th-roadmap-index">0{i + 1}</span><h3>{item.title}</h3><p>{item.text}</p></article>)}</div><a className="th-text-link" href="mailto:mauryasudhanshu930@gmail.com?subject=My%20feature%20idea%20for%20Trishul">What would help your library? Tell us <ArrowUpRight size={17} /></a></div></section>
+      <section className="th-section th-container th-faq-section" id="faqs"><div className="th-reveal"><span className="th-eyebrow">GOOD QUESTIONS.</span><h2>A little more<br />clarity.</h2><p>Have something else in mind?</p><a className="th-text-link" href="mailto:mauryasudhanshu930@gmail.com">Talk to us <ArrowUpRight size={16} /></a></div><div className="th-faq-list">{faqs.map(([question, answer]) => <details key={question} className="th-reveal"><summary>{question}<ChevronDown size={18} /></summary><p>{answer}</p></details>)}</div></section>
+      <section className="th-container th-cta-wrap"><div className="th-cta th-reveal"><div className="th-cta-orbit" aria-hidden="true"><span /><span /><span /><BookOpen size={55} strokeWidth={1} /></div><div><span className="th-eyebrow">YOUR NEXT CHAPTER STARTS HERE.</span><h2>A well-run space.<br />A better place to learn.</h2><p>Bring a little more clarity to your everyday with Trishul.</p><div className="th-hero-actions"><Link className="th-button th-button-dark" to="/login">Get started <ArrowUpRight size={18} /></Link><a className="th-text-link" href="tel:+918840839079">Let’s have a conversation <ArrowRight size={17} /></a></div></div></div></section>
+    </main>
+    <footer className="th-footer th-container"><div className="th-footer-top"><div><Link to="/" aria-label="Trishul home"><Brand /></Link><p>Thoughtful tools for<br />spaces that inspire learning.</p></div><div><h3>Explore</h3><a href="#features">Features</a><a href="#how-it-works">How it works</a><a href="#roadmap">What’s next</a></div><div><h3>The details</h3><Link to="/privacy">Privacy Policy</Link><Link to="/terms">Terms & Conditions</Link><Link to="/login">Log in to Trishul</Link></div><div><h3>Let’s connect</h3><a href="mailto:mauryasudhanshu930@gmail.com">mauryasudhanshu930@gmail.com</a><a href="tel:+918840839079">+91 88408 39079</a><span>Varanasi, Uttar Pradesh, India</span></div></div><div className="th-footer-bottom"><span>© {new Date().getFullYear()} Trishul. All rights reserved.</span><span>Made for the spaces where futures take shape. <ArrowUpRight size={14} /></span></div></footer>
+  </div>;
 }
