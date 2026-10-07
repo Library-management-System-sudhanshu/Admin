@@ -111,6 +111,7 @@ export default function Students() {
   const debouncedSearch = useDebouncedValue(search);
   const [branchId, setBranchId] = useState('');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [filterShiftId, setFilterShiftId] = useState('');
   const [filterExpiration, setFilterExpiration] = useState(() => {
     return (location.state as any)?.filterExpiration || '';
@@ -187,7 +188,7 @@ export default function Students() {
     filterShiftId: filterShiftId || undefined,
     filterExpiration: filterExpiration || undefined,
     page,
-    limit: 10,
+    limit,
   });
 
   const isLoading = isFetching && !data;
@@ -1009,12 +1010,36 @@ export default function Students() {
               borderBottomLeftRadius: '0.75rem',
               borderBottomRightRadius: '0.75rem'
             }}>
-              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 500 }}>
-                Showing <span style={{ color: '#0F172A', fontWeight: 700 }}>{((page - 1) * 10) + 1}</span> to{' '}
-                <span style={{ color: '#0F172A', fontWeight: 700 }}>
-                  {Math.min(page * 10, data.total)}
-                </span> of{' '}
-                <span style={{ color: '#0F172A', fontWeight: 700 }}>{data.total}</span> students
+              <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>
+                  Showing <span style={{ color: '#0F172A', fontWeight: 700 }}>{((page - 1) * limit) + 1}</span> to{' '}
+                  <span style={{ color: '#0F172A', fontWeight: 700 }}>
+                    {Math.min(page * limit, data.total)}
+                  </span> of{' '}
+                  <span style={{ color: '#0F172A', fontWeight: 700 }}>{data.total}</span> students
+                </span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border-card)',
+                    fontSize: '0.75rem',
+                    color: '#0F172A',
+                    fontWeight: 600,
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
               </span>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <button
@@ -1043,8 +1068,8 @@ export default function Students() {
                 </span>
 
                 <button
-                  disabled={page >= Math.ceil(data.total / 10)}
-                  onClick={() => setPage(prev => Math.min(prev + 1, Math.ceil(data.total / 10)))}
+                  disabled={page >= Math.ceil(data.total / limit)}
+                  onClick={() => setPage(prev => Math.min(prev + 1, Math.ceil(data.total / limit)))}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

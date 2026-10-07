@@ -103,6 +103,7 @@ export default function NewAdmission() {
   const [shiftId, setShiftId] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [avatar, setAvatar] = useState('');
+  const [isDiscounted, setIsDiscounted] = useState(false);
   const [joiningDate, setJoiningDate] = useState(() => getTodayYYYYMMDD());
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [openDirection, setOpenDirection] = useState<'bottom' | 'top'>('bottom');
@@ -163,8 +164,8 @@ export default function NewAdmission() {
 
   const dueAmount = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
-    return Math.max(0, selectedShiftPrice - paid);
-  }, [selectedShiftPrice, amountPaid]);
+    return isDiscounted ? 0 : Math.max(0, selectedShiftPrice - paid);
+  }, [selectedShiftPrice, amountPaid, isDiscounted]);
 
   // Validation Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -303,6 +304,7 @@ export default function NewAdmission() {
         branchId,
         shiftId: shiftId || undefined,
         amountPaid: amountPaid === '' ? 0 : Number(amountPaid),
+        isDiscounted,
         workspaceId: user?.workspaceId,
         avatar: avatar || undefined,
       }).unwrap();
@@ -618,8 +620,21 @@ export default function NewAdmission() {
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
                   <label className="custom-input-label">Due Amount</label>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: dueAmount > 0 ? 'var(--status-red)' : 'var(--status-emerald)' }}>
-                    ₹{dueAmount}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: dueAmount > 0 ? 'var(--status-red)' : 'var(--status-emerald)' }}>
+                      ₹{dueAmount}
+                    </div>
+                    {selectedShiftPrice - (parseFloat(amountPaid) || 0) > 0 && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-slate)', cursor: 'pointer', backgroundColor: '#f8fafc', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-card)' }}>
+                        <input
+                          type="checkbox"
+                          checked={isDiscounted}
+                          onChange={(e) => setIsDiscounted(e.target.checked)}
+                          style={{ cursor: 'pointer', accentColor: 'var(--accent-blue)' }}
+                        />
+                        Mark as Discount
+                      </label>
+                    )}
                   </div>
                 </div>
               </>
