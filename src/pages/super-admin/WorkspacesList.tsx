@@ -1,3 +1,4 @@
+import { LoadingState } from '../../components/feedback/LoadingState';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
@@ -95,9 +96,7 @@ export default function WorkspacesList() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: '#64748b' }}>
-        Loading workspaces...
-      </div>
+      <LoadingState label="Loading workspaces..." />
     );
   }
 

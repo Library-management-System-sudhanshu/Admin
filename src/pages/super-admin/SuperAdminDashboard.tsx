@@ -1,3 +1,4 @@
+import { LoadingState } from '../../components/feedback/LoadingState';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Users, IndianRupee, TrendingUp } from 'lucide-react';
@@ -9,9 +10,7 @@ export default function SuperAdminDashboard() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', color: '#64748b' }}>
-        Loading platform metrics...
-      </div>
+      <LoadingState label="Loading platform metrics..." />
     );
   }
 

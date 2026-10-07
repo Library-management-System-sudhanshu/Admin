@@ -1,3 +1,4 @@
+import { LoadingState } from '../../components/feedback/LoadingState';
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -47,9 +48,7 @@ export default function WorkspaceDetail() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', color: '#64748b' }}>
-        Loading workspace details...
-      </div>
+      <LoadingState label="Loading workspace details..." />
     );
   }
 

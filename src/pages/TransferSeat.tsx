@@ -1,3 +1,5 @@
+import { LoadingState } from '../components/feedback/LoadingState';
+import { QueryFeedback } from '../components/feedback/QueryFeedback';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
@@ -20,11 +22,11 @@ export default function TransferSeat() {
   const studentId = searchParams.get('studentId') || '';
 
   // Get student details
-  const { data: student, isLoading: isStudentLoading } = useGetStudentByIdQuery(studentId, { skip: !studentId });
+  const { currentData: student, isFetching: isStudentLoading, error: studentError, refetch: retryStudent } = useGetStudentByIdQuery(studentId, { skip: !studentId });
 
   // Get seat map for student's branch
   const branchId = student?.branchId || '';
-  const { data: seatMap, isLoading: isSeatMapLoading } = useGetSeatMapQuery(branchId, { skip: !branchId });
+  const { currentData: seatMap, isFetching: isSeatMapLoading, error: seatError, refetch: retrySeats } = useGetSeatMapQuery(branchId, { skip: !branchId });
 
   // Transfer mutation
   const [transferSeat, { isLoading: isTransferring }] = useTransferSeatMutation();
@@ -94,13 +96,9 @@ export default function TransferSeat() {
     }
   };
 
-  if (isStudentLoading || isSeatMapLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh', color: 'var(--accent-blue)' }}>
-        <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid rgba(37, 99, 235, 0.1)', borderTopColor: 'var(--accent-blue)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-      </div>
-    );
-  }
+  if ((isStudentLoading && !student) || (isSeatMapLoading && !seatMap)) return <LoadingState label="Loading seat details…" />;
+  if (studentError) return <QueryFeedback error={studentError} fetching={isStudentLoading} onRetry={retryStudent} />;
+  if (seatError) return <QueryFeedback error={seatError} fetching={isSeatMapLoading} onRetry={retrySeats} />;
 
   if (!student || !activeAllocation) {
     return (

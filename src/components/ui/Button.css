@@ -68,8 +68,8 @@
 }
 
 /* Loading Spinner */
-.spinner {
-  animation: rotate 2s linear infinite;
+.custom-button .button-spinner {
+  animation: button-rotate 2s linear infinite;
   width: 1.25rem;
   height: 1.25rem;
   position: absolute;
@@ -78,17 +78,17 @@
   transform: translate(-50%, -50%);
 }
 
-.spinner .path {
+.button-spinner .path {
   stroke: currentColor;
   stroke-linecap: round;
-  animation: dash 1.5s ease-in-out infinite;
+  animation: button-dash 1.5s ease-in-out infinite;
 }
 
-.invisible {
-  visibility: hidden;
+.button-content-hidden {
+  opacity: 0;
 }
 
-.custom-button > span:not(.spinner) {
+.custom-button > span:not(.button-spinner) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -96,11 +96,11 @@
   width: 100%;
 }
 
-@keyframes rotate {
+@keyframes button-rotate {
   100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-@keyframes dash {
+@keyframes button-dash {
   0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; }
   50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
   100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
@@ -126,3 +126,6 @@
     min-height: 48px;
   }
 }
+
+.custom-button:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .custom-button, .button-spinner, .button-spinner .path { animation: none !important; transition: none; } }

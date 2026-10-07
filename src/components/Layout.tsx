@@ -1,3 +1,4 @@
+import { PageBoundary } from '../app/PageBoundary';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
@@ -50,7 +51,7 @@ export default function Layout() {
 
   // Fetch branches & metrics
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
-  const { data: metrics } = useGetMetricsQuery({});
+  const { data: metrics } = useGetMetricsQuery({ days: 7 });
   const { data: saasSub } = useGetSaaSSubscriptionQuery(user?.workspaceId, { 
     skip: !user?.workspaceId || user?.role === 'SUPER_ADMIN' 
   });
@@ -58,9 +59,9 @@ export default function Layout() {
   // Dynamic Greeting based on current time
   const greeting = useMemo(() => {
     const hours = new Date().getHours();
-    if (hours < 12) return 'Good Morning 👋';
-    if (hours < 17) return 'Goods Afternoon 👋';
-    return 'Good Evening 👋';
+    if (hours < 12) return 'Good morning';
+    if (hours < 17) return 'Good afternoon';
+    return 'Good evening';
   }, []);
 
   // Today's Date string
@@ -162,6 +163,7 @@ export default function Layout() {
 
   return (
     <div className="layout-container">
+      <a href="#main-content" className="skip-link">Skip to content</a>
       {/* 1. SOFT LIGHT SIDEBAR */}
       <aside className={`layout-sidebar ${isSidebarOpen ? 'open' : ''}`}>
         
@@ -178,7 +180,7 @@ export default function Layout() {
             </div>
           </div>
           {isSidebarOpen && (
-            <button className="mobile-menu-btn" onClick={toggleSidebar}>
+            <button className="mobile-menu-btn" aria-label={isSidebarOpen ? "Close navigation" : "Open navigation"} aria-expanded={isSidebarOpen} onClick={toggleSidebar}>
               <X size={20} />
             </button>
           )}
@@ -225,6 +227,7 @@ export default function Layout() {
               <Link
                 key={item.text}
                 to={item.path}
+                aria-current={active ? 'page' : undefined}
                 className={`sidebar-link ${active ? 'active' : ''}`}
               >
                 {item.icon}
@@ -283,7 +286,7 @@ export default function Layout() {
         {/* Header Appbar (72px) */}
         <header className="layout-topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button className="mobile-menu-btn" onClick={toggleSidebar}>
+            <button className="mobile-menu-btn" aria-label={isSidebarOpen ? "Close navigation" : "Open navigation"} aria-expanded={isSidebarOpen} onClick={toggleSidebar}>
               <Menu size={20} />
             </button>
             {location.pathname === '/dashboard' ? (
@@ -360,7 +363,7 @@ export default function Layout() {
 
             {/* Notifications Popover */}
             <div className="notifications-container" ref={notificationsRef} style={{ position: 'relative', zIndex: 1001 }}>
-              <button className="topbar-btn" onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} style={{ position: 'relative' }}>
+              <button className="topbar-btn" aria-label="Notifications" aria-expanded={isNotificationsOpen} onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} style={{ position: 'relative' }}>
                 <Bell size={18} />
                 {metrics && metrics.expiringSubscriptions > 0 && (
                   <span style={{ position: 'absolute', top: '4px', right: '4px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--status-red)' }} />
@@ -394,7 +397,7 @@ export default function Layout() {
             </div>
 
             {/* Profile Avatar Button */}
-            <button className="topbar-btn" style={{ padding: '2px' }} onClick={() => navigate('/profile')}>
+            <button className="topbar-btn" aria-label="My profile" style={{ padding: '2px' }} onClick={() => navigate('/profile')}>
               <div className="sidebar-avatar" style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}>
                 {user?.name?.charAt(0).toUpperCase() || 'U'}
               </div>
@@ -419,10 +422,10 @@ export default function Layout() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button className="topbar-btn" onClick={() => navigate('/students')} style={{ padding: '6px' }}>
+            <button className="topbar-btn" aria-label="Search students" onClick={() => navigate('/students')} style={{ padding: '6px' }}>
               <Search size={18} />
             </button>
-            <button className="topbar-btn" onClick={() => navigate('/profile')} style={{ padding: '2px' }}>
+            <button className="topbar-btn" aria-label="My profile" onClick={() => navigate('/profile')} style={{ padding: '2px' }}>
               <div className="sidebar-avatar" style={{ width: '32px', height: '32px', fontSize: '0.75rem' }}>
                 {user?.name?.charAt(0).toUpperCase() || 'U'}
               </div>
@@ -431,8 +434,8 @@ export default function Layout() {
         </div>
 
         {/* Page Content Panel */}
-        <main className="layout-content">
-          <Outlet />
+        <main id="main-content" tabIndex={-1} className="layout-content">
+          <PageBoundary><Outlet /></PageBoundary>
         </main>
       </div>
 

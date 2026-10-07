@@ -1,3 +1,5 @@
+import { LoadingState } from '../components/feedback/LoadingState';
+import { QueryFeedback } from '../components/feedback/QueryFeedback';
 import {
   useGetWhatsAppTemplatesQuery,
   useCreateWhatsAppTemplateMutation,
@@ -275,7 +277,7 @@ function StudentFilterPanel({
 
 /* ─── Dispatch Logs Table ─── */
 function LogsTable({ logs, isLoading, showSubject }: { logs: any[]; isLoading: boolean; showSubject?: boolean }) {
-  if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}><CircularProgress /></Box>;
+  if (isLoading) return <LoadingState label="Loading delivery logs…" />;
   if (!logs || logs.length === 0) return (
     <Box sx={{ textAlign: 'center', py: 6, color: 'var(--text-secondary)' }}>
       <Typography variant="body2">No broadcast logs yet. Send your first message!</Typography>
@@ -323,11 +325,11 @@ export default function MessagesBroadcast() {
   const [subTab, setSubTab] = useState<'compose' | 'logs' | 'automation'>('compose');
 
   /* ─── Data Queries ─── */
-  const { data: templates, isLoading: templatesLoading } = useGetWhatsAppTemplatesQuery({});
-  const { data: whatsappLogs, isLoading: waLogsLoading } = useGetWhatsAppLogsQuery({});
-  const { data: smsLogs, isLoading: smsLogsLoading } = useGetSmsLogsQuery({});
-  const { data: emailLogs, isLoading: emailLogsLoading } = useGetEmailLogsQuery({});
-  const { data: emailStats } = useGetEmailStatsQuery({});
+  const { data: templates, isLoading: templatesLoading } = useGetWhatsAppTemplatesQuery({}, { skip: activeChannel !== 'whatsapp' });
+  const { data: whatsappLogs, isLoading: waLogsLoading, isFetching: waFetching, error: waError, refetch: waRetry } = useGetWhatsAppLogsQuery({}, { skip: activeChannel !== 'whatsapp' || subTab !== 'logs' });
+  const { data: smsLogs, isLoading: smsLogsLoading, isFetching: smsFetching, error: smsError, refetch: smsRetry } = useGetSmsLogsQuery({}, { skip: activeChannel !== 'sms' || subTab !== 'logs' });
+  const { data: emailLogs, isLoading: emailLogsLoading, isFetching: emailFetching, error: emailError, refetch: emailRetry } = useGetEmailLogsQuery({}, { skip: activeChannel !== 'email' || subTab !== 'logs' });
+  const { data: emailStats } = useGetEmailStatsQuery({}, { skip: activeChannel !== 'email' });
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
 
@@ -989,9 +991,12 @@ export default function MessagesBroadcast() {
          ════════════════════════════════════════════════════════ */}
       {subTab === 'logs' && (
         <Box>
-          {activeChannel === 'whatsapp' && <LogsTable logs={whatsappLogs || []} isLoading={waLogsLoading} />}
-          {activeChannel === 'sms' && <LogsTable logs={smsLogs || []} isLoading={smsLogsLoading} />}
-          {activeChannel === 'email' && <LogsTable logs={emailLogs || []} isLoading={emailLogsLoading} showSubject />}
+          {activeChannel === 'whatsapp' && <QueryFeedback error={waError} fetching={waFetching && !!whatsappLogs} onRetry={waRetry} />}
+          {activeChannel === 'whatsapp' && (!waError || !!whatsappLogs) && <LogsTable logs={whatsappLogs || []} isLoading={waLogsLoading} />}
+          {activeChannel === 'sms' && <QueryFeedback error={smsError} fetching={smsFetching && !!smsLogs} onRetry={smsRetry} />}
+          {activeChannel === 'sms' && (!smsError || !!smsLogs) && <LogsTable logs={smsLogs || []} isLoading={smsLogsLoading} />}
+          {activeChannel === 'email' && <QueryFeedback error={emailError} fetching={emailFetching && !!emailLogs} onRetry={emailRetry} />}
+          {activeChannel === 'email' && (!emailError || !!emailLogs) && <LogsTable logs={emailLogs || []} isLoading={emailLogsLoading} showSubject />}
         </Box>
       )}
 

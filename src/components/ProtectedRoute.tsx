@@ -7,14 +7,15 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const { user, token } = useSelector((state: RootState) => state.auth);
+  const { user, token, logoutReason } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
 
   if (!token) {
+    const reason = logoutReason ? `?${logoutReason}=true` : '';
     if (location.pathname.startsWith('/super-admin')) {
-      return <Navigate to="/super-admin/login" replace />;
+      return <Navigate to={`/super-admin/login${reason}`} replace />;
     }
-    return <Navigate to="/login" replace />;
+    return <Navigate to={`/login${reason}`} replace />;
   }
 
   // If the owner has not initialized their workspace yet, restrict them to the setup-workspace screen

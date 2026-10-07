@@ -1,6 +1,6 @@
 /**
  * Single Source of Truth for Application Theme Colors & Tokens.
- * Synchronized with CSS variables defined in Globals.css.
+ * Synchronized with CSS variables defined in theme/tokens.css.
  */
 export const themeColors = {
   // Core Brand Colors

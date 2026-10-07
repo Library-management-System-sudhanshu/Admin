@@ -1,3 +1,4 @@
+import { LoadingState } from '../../components/feedback/LoadingState';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -81,9 +82,7 @@ export default function SaaSPlanForm() {
 
   if (isEditMode && isPlansLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', color: '#64748b' }}>
-        Loading plan parameters...
-      </div>
+      <LoadingState label="Loading plan parameters..." />
     );
   }
 

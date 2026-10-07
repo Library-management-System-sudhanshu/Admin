@@ -1,3 +1,5 @@
+import { LoadingState } from '../components/feedback/LoadingState';
+import { QueryFeedback } from '../components/feedback/QueryFeedback';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -41,7 +43,6 @@ import {
   Layers,
   DoorOpen,
   Trash2,
-  Loader2,
   Search,
   ChevronDown,
   ChevronUp,
@@ -140,10 +141,11 @@ export default function Seats() {
   const [selectedBranch, setSelectedBranch] = useState('');
 
   // Seat Map API
-  const { data: seatMap, isLoading: isMapLoading, refetch: refetchSeatMap } = useGetSeatMapQuery(selectedBranch, {
+  const { currentData: seatMap, isFetching: isMapFetching, error: mapError, refetch: refetchSeatMap } = useGetSeatMapQuery(selectedBranch, {
     skip: !selectedBranch,
   });
   
+  const isMapLoading = isMapFetching && !seatMap;
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: studentsData } = useGetStudentsQuery({ status: 'APPROVED' });
 
@@ -3426,12 +3428,11 @@ export default function Seats() {
         </div>
       )}
 
+      {selectedBranch && <QueryFeedback error={mapError} fetching={isMapFetching && !!seatMap} onRetry={refetchSeatMap} />}
       {/* 3. MAIN CONTENT WORKSPACE (Accordion System) */}
       {isMapLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '64px', color: 'var(--accent-blue)' }}>
-          <Loader2 className="spinner" size={40} />
-        </div>
-      ) : !seatMap || seatMap.length === 0 ? (
+        <LoadingState />
+      ) : mapError && !seatMap ? null : !seatMap || seatMap.length === 0 ? (
         <div className="empty-state-container">
           <HelpCircle size={48} style={{ color: '#94a3b8', marginBottom: '16px' }} />
           <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-navy)' }}>No floors configured</h3>

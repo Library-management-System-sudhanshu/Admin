@@ -1,0 +1,52 @@
+/* Signed-in surfaces only. Public and login styles remain independently owned. */
+body[data-theme="admin"] {
+  --bg-app: #f3f6fc;
+  --bg-main: var(--bg-app);
+  --bg-hover: #eef3fc;
+  --text-muted: #64748b;
+  --border-card: #e2e8f3;
+  --border-subtle: var(--border-card);
+  --shadow-primary: 0 3px 8px rgb(37 99 235 / 16%);
+  --shadow-premium: 0 8px 28px rgb(25 51 91 / 5%);
+  --font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg-app);
+}
+body[data-theme="admin"] .layout-container {
+  height: 100dvh;
+  background: radial-gradient(ellipse at top right, #e9efff 0, transparent 45%), var(--bg-app);
+}
+body[data-theme="admin"] .layout-sidebar {
+  border-radius: 18px;
+  border-color: var(--border-card);
+  box-shadow: var(--shadow-premium);
+}
+body[data-theme="admin"] .layout-topbar {
+  background: rgb(255 255 255 / 90%);
+  border-bottom: 1px solid var(--border-card);
+  backdrop-filter: blur(12px);
+}
+body[data-theme="admin"] .sidebar-link.active {
+  background: #eaf0ff;
+  color: #1d4ed8;
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+body[data-theme="admin"] .custom-button { border-radius: 10px; font-weight: 600; }
+body[data-theme="admin"] .custom-input { border-radius: 10px; }
+body[data-theme="admin"] :where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+body[data-theme="admin"] .dashboard-kpi-card,
+body[data-theme="admin"] .glass-card { background: #fff; backdrop-filter: none; }
+.admin-page { min-width: 0; animation: admin-page-enter 180ms ease-out; }
+.skip-link { position: fixed; left: 18px; top: -80px; z-index: 1000000; padding: 12px 18px; background: #fff; border: 2px solid var(--primary); border-radius: 8px; }
+.skip-link:focus { top: 12px; }
+@keyframes admin-page-enter { from { opacity: .6; translate: 0 5px; } to { opacity: 1; translate: 0 0; } }
+@media (prefers-reduced-motion: reduce) {
+  body[data-theme="admin"] *, body[data-theme="admin"] *::before, body[data-theme="admin"] *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

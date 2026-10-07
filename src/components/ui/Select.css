@@ -127,3 +127,7 @@
     border-radius: 12px;
   }
 }
+
+.native-select-wrapper { position: relative; }
+.native-select-wrapper .custom-select-trigger { appearance: none; padding-right: 36px; }
+.native-select-wrapper .custom-select-arrow { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }

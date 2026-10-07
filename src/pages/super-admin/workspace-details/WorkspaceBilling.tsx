@@ -1,3 +1,4 @@
+import { LoadingState } from '../../../components/feedback/LoadingState';
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGetWorkspaceByIdQuery } from '../../../store/api';
@@ -14,9 +15,7 @@ export default function WorkspaceBilling() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', color: '#64748b' }}>
-        Loading transaction ledger...
-      </div>
+      <LoadingState label="Loading transaction ledger..." />
     );
   }
 

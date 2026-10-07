@@ -1,3 +1,5 @@
+import { LoadingState } from '../components/feedback/LoadingState';
+import { QueryFeedback } from '../components/feedback/QueryFeedback';
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
@@ -24,7 +26,6 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -48,8 +49,8 @@ export default function Library() {
   const { user } = useSelector((state: RootState) => state.auth);
   const [tab, setTab] = useState(0);
 
-  const { data: books, isLoading: booksLoading } = useGetBooksQuery({});
-  const { data: issuedBooks, isLoading: issuedLoading } = useGetIssuedBooksQuery({});
+  const { data: books, isLoading: booksLoading, isFetching: booksFetching, error: booksError, refetch: refetchBooks } = useGetBooksQuery({});
+  const { data: issuedBooks, isLoading: issuedLoading, isFetching: issuedFetching, error: issuedError, refetch: refetchIssued } = useGetIssuedBooksQuery({});
   const { data: studentsData } = useGetStudentsQuery({});
 
   const [openAddBook, setOpenAddBook] = useState(false);
@@ -65,8 +66,8 @@ export default function Library() {
   const [studentProfileId, setStudentProfileId] = useState('');
   const [selectedBookId, setSelectedBookId] = useState('');
 
-  const [createBook] = useCreateBookMutation();
-  const [issueBook] = useIssueBookMutation();
+  const [createBook, { isLoading: isCreatingBook }] = useCreateBookMutation();
+  const [issueBook, { isLoading: isIssuingBook }] = useIssueBookMutation();
   const [returnBook] = useReturnBookMutation();
 
   const handleAddBook = async (e: React.FormEvent) => {
@@ -147,11 +148,10 @@ export default function Library() {
 
       {tab === 0 && (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
+          <div style={{ gridColumn: '1 / -1' }}><QueryFeedback error={booksError} fetching={booksFetching && !!books} onRetry={refetchBooks} /></div>
           {booksLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5, width: '100%' }}>
-              <CircularProgress />
-            </Box>
-          ) : (
+            <div style={{ gridColumn: '1 / -1' }}><LoadingState label="Loading books…" /></div>
+          ) : booksError && !books ? null : (
             books?.map((book: any) => (
               <Card key={book.id} sx={{ borderRadius: 2.5, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
                 <CardContent sx={{ p: 3 }}>
@@ -176,11 +176,10 @@ export default function Library() {
 
       {tab === 1 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <QueryFeedback error={issuedError} fetching={issuedFetching && !!issuedBooks} onRetry={refetchIssued} />
           {issuedLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
+            <LoadingState />
+          ) : issuedError && !issuedBooks ? null : (
             <TableContainer component={Paper} sx={{ borderRadius: 2.5, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
               <Table>
                 <TableHead>
@@ -236,7 +235,7 @@ export default function Library() {
           </DialogContent>
           <DialogActions sx={{ p: 2.5, gap: '0.75rem' }}>
             <Button type="button" variant="text" onClick={() => setOpenAddBook(false)}>Cancel</Button>
-            <Button type="submit" variant="primary">Add Book</Button>
+            <Button type="submit" variant="primary" isLoading={isCreatingBook}>Add Book</Button>
           </DialogActions>
         </form>
       </Dialog>
@@ -276,7 +275,7 @@ export default function Library() {
           </DialogContent>
           <DialogActions sx={{ p: 2.5, gap: '0.75rem' }}>
             <Button type="button" variant="text" onClick={() => setOpenIssue(false)}>Cancel</Button>
-            <Button type="submit" variant="primary">Issue Book</Button>
+            <Button type="submit" variant="primary" isLoading={isIssuingBook}>Issue Book</Button>
           </DialogActions>
         </form>
       </Dialog>

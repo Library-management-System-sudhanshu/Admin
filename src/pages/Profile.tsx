@@ -63,7 +63,7 @@ export default function Profile() {
   const { user, token } = useSelector((state: RootState) => state.auth);
   const dispatch = useDispatch();
 
-  const { data: profile, refetch } = useGetProfileQuery(undefined, { skip: !token });
+  const { data: profile } = useGetProfileQuery(undefined, { skip: !token });
   const [updateProfile, { isLoading: isUpdating }] = useUpdateProfileMutation();
   const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
 
@@ -84,7 +84,7 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   // SaaS Subscription hooks & checkout logic
-  const { data: saasSubscription, refetch: refetchSub } = useGetSaaSSubscriptionQuery(user?.workspaceId, { 
+  const { data: saasSubscription } = useGetSaaSSubscriptionQuery(user?.workspaceId, { 
     skip: !user?.workspaceId || user?.role === 'SUPER_ADMIN' 
   });
   const { data: saasPlans = [] } = useGetSaaSPlansQuery({}, {
@@ -154,7 +154,7 @@ export default function Profile() {
               }
             }).unwrap();
             showToast('Subscription activated successfully!', 'success');
-            refetchSub();
+
           } catch (err) {
             console.error('Verification failed', err);
             showToast('Payment verification failed. Please contact support.', 'error');
@@ -250,7 +250,7 @@ export default function Profile() {
       const updatedUser = await updateProfile(payload).unwrap();
       dispatch(setCredentials({ user: updatedUser, accessToken: token || '' }));
       showToast('Account and Library details saved successfully!', 'success');
-      refetch();
+
     } catch (err: any) {
       showToast(err?.data?.message || 'Failed to update profile.', 'error');
     }

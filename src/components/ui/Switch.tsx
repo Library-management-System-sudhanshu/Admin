@@ -16,7 +16,8 @@ export const Switch: React.FC<SwitchProps> = ({
   id,
   disabled = false,
 }) => {
-  const switchId = id || React.useId();
+  const generatedId = React.useId();
+  const switchId = id || generatedId;
 
   return (
     <div className={`switch-container ${disabled ? 'disabled' : ''}`}>

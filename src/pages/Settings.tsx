@@ -27,7 +27,7 @@ export default function Settings() {
   const [triggerSafetyAlarm, { isLoading: isTriggeringAlarm }] = useTriggerSafetyAlarmMutation();
   const { showToast } = useToast();
 
-  const { data: saasSubscription, refetch: refetchSub } = useGetSaaSSubscriptionQuery(user?.workspaceId, { skip: !user?.workspaceId });
+  const { data: saasSubscription } = useGetSaaSSubscriptionQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: saasPlans = [] } = useGetSaaSPlansQuery({});
   const [createSaaSPayment, { isLoading: isCreatingSaaSPayment }] = useCreateSaaSPaymentMutation();
   const [verifySaaSPayment, { isLoading: isVerifyingSaaSPayment }] = useVerifySaaSPaymentMutation();
@@ -97,7 +97,7 @@ export default function Settings() {
               }
             }).unwrap();
             showToast('Subscription activated successfully!', 'success');
-            refetchSub();
+
           } catch (err) {
             console.error('Verification failed', err);
             showToast('Payment verification failed. Please contact support.', 'error');

@@ -1,3 +1,5 @@
+import { LoadingState } from '../components/feedback/LoadingState';
+import { QueryFeedback } from '../components/feedback/QueryFeedback';
 import { useState } from 'react';
 import { useGetMetricsQuery } from '../store/api';
 import { useNavigate } from 'react-router-dom';
@@ -18,17 +20,13 @@ import {
   Banknote,
   AlertCircle,
   CalendarClock,
-  Loader2,
   ArrowUpRight,
-  TrendingUp,
-  TrendingDown,
   UserPlus,
   Bookmark,
   Clock,
   CreditCard,
   MessageCircle,
   Library,
-  Frown,
   Activity,
   ChevronRight,
   AlertTriangle,
@@ -39,50 +37,19 @@ import './Dashboard.css';
 
 const COLORS = [themeColors.chartPrimary, themeColors.chartSecondary];
 
-// Mini Sparkline Component
-const Sparkline = ({ data, stroke }: { data: number[]; stroke: string }) => {
-  if (!data || data.length === 0) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const points = data
-    .map((val, idx) => {
-      const x = (idx / (data.length - 1)) * 60;
-      const y = 22 - ((val - min) / range) * 16;
-      return `${x},${y}`;
-    })
-    .join(' ');
-
-  return (
-    <svg width="60" height="24" style={{ overflow: 'visible' }}>
-      <polyline fill="none" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" points={points} />
-    </svg>
-  );
-};
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const [expiringDays, setExpiringDays] = useState<number>(7);
-  const { data: metrics, isLoading, error } = useGetMetricsQuery({ days: expiringDays });
+  const { data: metrics, isLoading, isFetching, error, refetch } = useGetMetricsQuery({ days: expiringDays });
   const [hoveredAction, setHoveredAction] = useState<number | null>(null);
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', color: 'var(--accent-blue)' }}>
-        <Loader2 className="spinner" size={48} />
-      </div>
+      <LoadingState />
     );
   }
 
-  if (error || !metrics) {
-    return (
-      <div style={{ padding: '24px', background: '#ffffff', borderRadius: '16px', border: '1px solid var(--border-card)', textAlign: 'center' }}>
-        <Frown size={40} style={{ color: 'var(--status-red)', marginBottom: '12px' }} />
-        <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-navy)' }}>Error Loading Dashboard</h3>
-        <p style={{ color: 'var(--text-slate)', fontSize: '0.875rem', margin: 0 }}>Failed to fetch system metrics. Please try reloading.</p>
-      </div>
-    );
-  }
+  if (!metrics) return <QueryFeedback error={error || true} fetching={isFetching} onRetry={refetch} />;
 
   // Premium Metric Cards configurations
   const kpis = [
@@ -92,9 +59,6 @@ export default function Dashboard() {
       icon: <Users size={20} />,
       gradient: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(37, 99, 235, 0.02))',
       iconColor: '#2563EB',
-      trend: '+4%',
-      trendUp: true,
-      sparkData: [50, 55, 52, 58, 62, 60, metrics.activeStudents],
       path: '/students',
       state: { filterExpiration: 'ACTIVE' },
     },
@@ -104,9 +68,6 @@ export default function Dashboard() {
       icon: <Armchair size={20} />,
       gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.02))',
       iconColor: '#10B981',
-      trend: '+8%',
-      trendUp: true,
-      sparkData: [30, 32, 35, 38, 41, 40, metrics.occupiedSeats],
       path: '/seats',
     },
     {
@@ -115,9 +76,6 @@ export default function Dashboard() {
       icon: <Armchair size={20} />,
       gradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.1), rgba(100, 116, 139, 0.02))',
       iconColor: '#64748B',
-      trend: '-5%',
-      trendUp: false,
-      sparkData: [45, 43, 40, 38, 35, 36, metrics.vacantSeats],
       path: '/seats',
     },
     {
@@ -126,9 +84,6 @@ export default function Dashboard() {
       icon: <AlertCircle size={20} />,
       gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.02))',
       iconColor: '#F59E0B',
-      trend: '-12%',
-      trendUp: true, // Decreasing dues is good
-      sparkData: [5000, 4800, 4200, 4600, 3900, 3200, metrics.duePayments],
       path: '/billing',
     },
     {
@@ -137,9 +92,6 @@ export default function Dashboard() {
       icon: <Banknote size={20} />,
       gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.02))',
       iconColor: '#10B981',
-      trend: '+15%',
-      trendUp: true,
-      sparkData: [22000, 24000, 23500, 25000, 27000, 26800, metrics.monthlyRevenue],
       path: '/billing',
     },
     {
@@ -149,7 +101,6 @@ export default function Dashboard() {
       gradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.02))',
       iconColor: '#EF4444',
       hasDropdown: true,
-      sparkData: [2, 4, 3, 5, 2, 6, metrics.expiringSubscriptions],
       path: '/students',
       state: { filterExpiration: 'EXPIRING_SOON', days: expiringDays },
     },
@@ -179,6 +130,7 @@ export default function Dashboard() {
 
       {/* LEFT COLUMN: Main dashboard space */}
       <div className="dashboard-main-col">
+        <QueryFeedback error={error} fetching={isFetching} onRetry={refetch} />
 
         {/* 2. KPI GRID */}
         <div className="dashboard-kpi-grid">
@@ -186,6 +138,10 @@ export default function Dashboard() {
             <div
               key={idx}
               className="dashboard-kpi-card"
+              role="link"
+              tabIndex={0}
+              aria-label={`View ${kpi.title.toLowerCase()}`}
+              onKeyDown={(event) => { if (event.target === event.currentTarget && event.key === 'Enter') navigate(kpi.path, { state: kpi.state }); }}
               onClick={() => navigate(kpi.path, { state: kpi.state })}
             >
               {/* Card Header: Icon & Trend or Dropdown */}
@@ -196,6 +152,7 @@ export default function Dashboard() {
 
                 {kpi.hasDropdown ? (
                   <select
+                    aria-label="Subscriptions expiring within"
                     value={expiringDays}
                     onChange={(e) => {
                       e.stopPropagation();
@@ -221,13 +178,8 @@ export default function Dashboard() {
                     <option value={15}>15 Days</option>
                     <option value={30}>30 Days</option>
                   </select>
-                ) : (
-                  /* Trend indicators */
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: kpi.trendUp ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: kpi.trendUp ? 'var(--status-emerald)' : 'var(--status-red)' }}>
-                    {kpi.trendUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                    <span>{kpi.trend}</span>
-                  </div>
-                )}
+                ) : <ArrowUpRight size={16} aria-hidden="true" style={{ color: 'var(--text-slate)' }} />}
+
               </div>
 
               {/* Number and Label */}
@@ -240,10 +192,6 @@ export default function Dashboard() {
                 </span>
               </div>
 
-              {/* Mini Sparkline graph */}
-              <div style={{ position: 'absolute', bottom: '16px', right: '20px' }}>
-                <Sparkline data={kpi.sparkData} stroke={kpi.iconColor} />
-              </div>
             </div>
           ))}
         </div>

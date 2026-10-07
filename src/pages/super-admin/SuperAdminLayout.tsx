@@ -1,3 +1,4 @@
+import { PageBoundary } from '../../app/PageBoundary';
 import { useState, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -224,7 +225,7 @@ export default function SuperAdminLayout() {
         </header>
         
         <div className="sa-content">
-          <Outlet />
+          <PageBoundary><Outlet /></PageBoundary>
         </div>
       </main>
 

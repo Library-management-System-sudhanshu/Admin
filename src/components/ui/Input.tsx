@@ -1,4 +1,4 @@
-import { type InputHTMLAttributes, forwardRef, useState } from 'react';
+import { type InputHTMLAttributes, forwardRef, useState, useId } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import './Input.css';
 
@@ -20,7 +20,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
 }, ref) => {
   const isPasswordType = props.type === 'password';
   const [showPassword, setShowPassword] = useState(false);
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+  const generatedId = useId();
+  const inputId = id || generatedId;
+  const helperId = `${inputId}-help`;
 
   const containerClasses = [
     'custom-input-container',
@@ -53,6 +55,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           ref={ref}
           className={`custom-input ${isPasswordType ? 'is-password' : ''}`}
           {...props}
+          aria-invalid={error ? true : props['aria-invalid']}
+          aria-describedby={[props['aria-describedby'], (error || helperText) ? helperId : undefined].filter(Boolean).join(' ') || undefined}
           onChange={handleChange}
           type={resolvedType}
         />
@@ -61,14 +65,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
             type="button"
             className="password-toggle-btn"
             onClick={() => setShowPassword(!showPassword)}
-            tabIndex={-1}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
+            disabled={props.disabled}
           >
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         )}
       </div>
       {(error || helperText) && (
-        <span className={`custom-input-helper ${error ? 'error-text' : ''}`}>
+        <span id={helperId} className={`custom-input-helper ${error ? 'error-text' : ''}`}>
           {error || helperText}
         </span>
       )}

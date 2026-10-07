@@ -1,3 +1,5 @@
+import { LoadingState } from '../components/feedback/LoadingState';
+import { QueryFeedback } from '../components/feedback/QueryFeedback';
 import { useState } from 'react';
 import {
   useGetNoticesQuery,
@@ -7,9 +9,6 @@ import {
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
-  TextField,
   Table,
   TableBody,
   TableCell,
@@ -17,18 +16,17 @@ import {
   TableHead,
   TableRow,
   Paper,
-  CircularProgress,
   IconButton,
   Tooltip,
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
-import { Button } from '../components/ui/Button';
+import { Button, Input, Textarea, FormSection } from '../components/ui';
 import { Send } from 'lucide-react';
 import { useAlert } from '../components/ui/AlertContext';
 import { useToast } from '../components/ui/ToastContext';
 
 export default function Notices() {
-  const { data: notices, isLoading } = useGetNoticesQuery({});
+  const { data: notices, isLoading, isFetching, error, refetch } = useGetNoticesQuery({});
   const [createNotice, { isLoading: isCreating }] = useCreateNoticeMutation();
   const [deleteNotice] = useDeleteNoticeMutation();
   const { showAlert } = useAlert();
@@ -76,32 +74,21 @@ export default function Notices() {
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, alignItems: 'start' }}>
         {/* Create Notice Column */}
         <Box sx={{ flex: { xs: 'none', md: 4 }, width: '100%', maxWidth: { xs: '100%', md: '360px' } }}>
-          <Card sx={{ borderRadius: 3, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 3, color: '#1E293B' }}>
-                New Announcement
-              </Typography>
+          <FormSection title="New announcement" description="Keep students informed with a clear, timely update.">
               <form onSubmit={handleSubmit}>
-                <TextField
-                  fullWidth
+                <Input
                   label="Notice Title"
                   placeholder="e.g. Center holiday notice"
-                  variant="outlined"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  sx={{ mb: 2 }}
                   required
                 />
-                <TextField
-                  fullWidth
+                <Textarea
                   label="Message Content"
                   placeholder="Write the notice details here..."
-                  variant="outlined"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  multiline
                   rows={6}
-                  sx={{ mb: 3 }}
                   required
                 />
                 <Button
@@ -124,17 +111,15 @@ export default function Notices() {
                   <Send size={16} /> Broadcast Notice
                 </Button>
               </form>
-            </CardContent>
-          </Card>
+            </FormSection>
         </Box>
 
         {/* Notices History Column */}
         <Box sx={{ flex: { xs: 'none', md: 8 }, width: '100%' }}>
+          <QueryFeedback error={error} fetching={isFetching && !!notices} onRetry={refetch} />
           {isLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-              <CircularProgress />
-            </Box>
-          ) : notices?.length === 0 ? (
+            <LoadingState />
+          ) : error && !notices ? null : notices?.length === 0 ? (
             <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, border: '1px solid #E2E8F0' }}>
               <Typography color="text.secondary">No broadcasted notices found.</Typography>
             </Paper>

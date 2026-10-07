@@ -1,3 +1,6 @@
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { LoadingState } from '../components/feedback/LoadingState';
+import { QueryFeedback } from '../components/feedback/QueryFeedback';
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -32,7 +35,6 @@ import {
   X,
   Trash2,
   IdCard,
-  Loader2,
   Edit2,
   Mail,
   Phone,
@@ -106,6 +108,7 @@ export default function Students() {
   };
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [branchId, setBranchId] = useState('');
   const [page, setPage] = useState(1);
   const [filterShiftId, setFilterShiftId] = useState('');
@@ -178,8 +181,8 @@ export default function Students() {
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [showPasswordInDrawer, setShowPasswordInDrawer] = useState(false);
 
-  const { data, isLoading } = useGetStudentsQuery({
-    search,
+  const { currentData: data, isFetching, error, refetch } = useGetStudentsQuery({
+    search: debouncedSearch,
     branchId: branchId || undefined,
     filterShiftId: filterShiftId || undefined,
     filterExpiration: filterExpiration || undefined,
@@ -187,7 +190,9 @@ export default function Students() {
     limit: 10,
   });
 
-  const { data: fullStudent, isLoading: isStudentLoading } = useGetStudentByIdQuery(
+  const isLoading = isFetching && !data;
+
+  const { currentData: fullStudent, isFetching: isStudentLoading } = useGetStudentByIdQuery(
     selectedStudentId || '',
     { skip: !selectedStudentId }
   );
@@ -673,12 +678,11 @@ export default function Students() {
         )}
       </div>
 
+      <QueryFeedback error={error} fetching={isFetching && !!data} onRetry={refetch} />
       {/* Roster Table Card */}
       {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem 0', color: 'var(--primary)' }}>
-          <Loader2 className="spinner" size={36} />
-        </div>
-      ) : (
+        <LoadingState />
+      ) : error && !data ? null : (
         <div className="custom-table-container" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: '#ffffff', borderRadius: '0.75rem', border: '1px solid var(--border-card)', boxShadow: 'var(--shadow-soft)' }}>
           <table className="custom-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -1267,9 +1271,7 @@ export default function Students() {
         {/* Drawer Body */}
         <div className="drawer-body" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {isStudentLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: 'var(--primary)' }}>
-              <Loader2 className="spinner" size={32} />
-            </div>
+            <LoadingState />
           ) : fullStudent ? (
             <>
               {/* Profile Card */}

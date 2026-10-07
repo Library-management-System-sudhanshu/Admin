@@ -1,3 +1,4 @@
+import { LoadingState } from '../../components/feedback/LoadingState';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
@@ -60,9 +61,7 @@ export default function SaaSPlans() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', color: '#64748b' }}>
-        Loading platform plans...
-      </div>
+      <LoadingState label="Loading platform plans..." />
     );
   }
 

@@ -18,15 +18,23 @@ interface User {
   };
 }
 
-interface AuthState {
+export interface AuthState {
+  logoutReason?: 'expired' | 'disabled';
   user: User | null;
   token: string | null;
 }
 
-const initialState: AuthState = {
-  user: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null,
-  token: localStorage.getItem('token'),
-};
+function readSession(): AuthState {
+  try {
+    const rawUser = localStorage.getItem('user');
+    const user = rawUser ? JSON.parse(rawUser) : null;
+    const token = localStorage.getItem('token');
+    return user && typeof user.id === 'string' && typeof user.role === 'string' && token ? { user, token } : { user: null, token: null };
+  } catch {
+    return { user: null, token: null };
+  }
+}
+const initialState = readSession();
 
 const authSlice = createSlice({
   name: 'auth',
@@ -36,12 +44,14 @@ const authSlice = createSlice({
       state,
       action: PayloadAction<{ user: User; accessToken: string }>
     ) => {
+      state.logoutReason = undefined;
       state.user = action.payload.user;
       state.token = action.payload.accessToken;
       localStorage.setItem('user', JSON.stringify(action.payload.user));
       localStorage.setItem('token', action.payload.accessToken);
     },
-    logout: (state) => {
+    logout: (state, action: PayloadAction<'expired' | 'disabled' | undefined>) => {
+      state.logoutReason = action.payload;
       state.user = null;
       state.token = null;
       localStorage.removeItem('user');

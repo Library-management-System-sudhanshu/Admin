@@ -1,3 +1,4 @@
+import { LoadingState } from '../../../components/feedback/LoadingState';
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGetWorkspaceByIdQuery, useGetStudentsQuery } from '../../../store/api';
@@ -15,9 +16,7 @@ export default function WorkspaceStudents() {
 
   if (isWorkspaceLoading || isStudentsLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', color: '#64748b' }}>
-        Loading student records...
-      </div>
+      <LoadingState label="Loading student records..." />
     );
   }
 

@@ -1,3 +1,5 @@
+import { LoadingState } from '../components/feedback/LoadingState';
+import { QueryFeedback } from '../components/feedback/QueryFeedback';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -31,7 +33,6 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -315,7 +316,7 @@ export default function Billing() {
   const { showAlert } = useAlert();
   const [tab, setTab] = useState(0);
 
-  const { data: payments, isLoading: paymentsLoading } = useGetPaymentsQuery({});
+  const { data: payments, isLoading: paymentsLoading, isFetching: paymentsFetching, error: paymentsError, refetch: refetchPayments } = useGetPaymentsQuery({});
   const { data: report } = useGetCollectionReportQuery('monthly');
   const { data: studentsData } = useGetStudentsQuery({});
 
@@ -465,7 +466,7 @@ export default function Billing() {
   const { showToast } = useToast();
 
   // Shifts API
-  const { data: shifts, isLoading: shiftsLoading } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
+  const { data: shifts, isLoading: shiftsLoading, isFetching: shiftsFetching, error: shiftsError, refetch: refetchShifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const [createShift, { isLoading: isCreatingShift }] = useCreateShiftMutation();
   const [updateShift, { isLoading: isUpdatingShift }] = useUpdateShiftMutation();
   const [deleteShift] = useDeleteShiftMutation();
@@ -659,10 +660,21 @@ export default function Billing() {
       if (shiftFormData.type === 'CLUBBED' && shiftFormData.baseShiftIds && shiftFormData.baseShiftIds.length > 0) {
         const selectedBaseShifts = shifts?.filter((s: any) => shiftFormData.baseShiftIds.includes(s.id)) || [];
         if (selectedBaseShifts.length > 0) {
-          const sortedStarts = [...selectedBaseShifts].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
-          const sortedEnds = [...selectedBaseShifts].sort((a, b) => (a.endTime || '').localeCompare(b.endTime || ''));
-          computedStartTime = sortedStarts[0].startTime;
-          computedEndTime = sortedEnds[sortedEnds.length - 1].endTime;
+          const starts: string[] = selectedBaseShifts.map((s: any) => s.startTime || '');
+          const ends: string[] = selectedBaseShifts.map((s: any) => s.endTime || '');
+          
+          const uniqueStart = starts.find(s => !ends.includes(s));
+          const uniqueEnd = ends.find(e => !starts.includes(e));
+
+          if (uniqueStart && uniqueEnd) {
+            computedStartTime = uniqueStart;
+            computedEndTime = uniqueEnd;
+          } else {
+            // Fallback for 24-hour full cycle or edge cases
+            const sortedStarts = [...selectedBaseShifts].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+            computedStartTime = sortedStarts[0].startTime;
+            computedEndTime = sortedStarts[0].startTime;
+          }
         }
       }
 
@@ -877,11 +889,10 @@ export default function Billing() {
 
           {/* Payments Table */}
           <Box>
-            {paymentsLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-                <CircularProgress />
-              </Box>
-            ) : (
+            <QueryFeedback error={paymentsError} fetching={paymentsFetching && !!payments} onRetry={refetchPayments} />
+          {paymentsLoading ? (
+              <LoadingState />
+            ) : paymentsError && !payments ? null : (
               <TableContainer component={Paper} className="billing-table-card">
                 <Table>
                   <TableHead>
@@ -983,11 +994,10 @@ export default function Billing() {
             </Button>
           </Box>
 
+          <QueryFeedback error={shiftsError} fetching={shiftsFetching && !!shifts} onRetry={refetchShifts} />
           {shiftsLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-              <CircularProgress />
-            </Box>
-          ) : !shifts || shifts.length === 0 ? (
+            <LoadingState label="Loading shift plans…" />
+          ) : shiftsError && !shifts ? null : !shifts || shifts.length === 0 ? (
             <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
               <Typography color="text.secondary">No shift plans found. Create your first shift plan to get started.</Typography>
             </Paper>
@@ -1331,6 +1341,19 @@ export default function Billing() {
               </Typography>
               <Typography sx={{ fontSize: '0.78rem', color: '#94a3b8', mt: 0.5 }}>
                 Configure shift timings, seating capacity, and dynamic pricing tiers
+                {shiftFormData.type === 'CLUBBED' && shiftFormData.baseShiftIds && shiftFormData.baseShiftIds.length > 0 && (
+                  <>
+                    <br />
+                    <span style={{ color: '#cbd5e1', fontWeight: 600, display: 'inline-block', marginTop: '4px' }}>
+                      Selected Base Shifts: {
+                        (shifts || [])
+                          .filter((s: any) => shiftFormData.baseShiftIds.includes(s.id))
+                          .map((s: any) => s.name)
+                          .join(' + ')
+                      }
+                    </span>
+                  </>
+                )}
               </Typography>
             </Box>
           </Box>
@@ -1563,12 +1586,18 @@ export default function Billing() {
                 {customPricingList.map((tier, idx) => (
                   <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'var(--bg-surface-hover)', p: 1.5, borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                     <TextField
-                      label="Duration (e.g. 7 Days, 2 Months)"
+                      select
+                      label="Duration"
                       size="small"
                       value={tier.label}
                       onChange={(e) => handleUpdatePricingTier(idx, 'label', e.target.value)}
                       sx={{ flex: 1.5, ...inputStyle }}
-                    />
+                    >
+                      <MenuItem value=""><em>Select Duration</em></MenuItem>
+                      {['7 Days', '15 Days', ...Array.from({ length: 24 }, (_, i) => `${i + 1} Month${i === 0 ? '' : 's'}`)].map(opt => (
+                        <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                      ))}
+                    </TextField>
                     <TextField
                       label="Price (₹)"
                       type="number"

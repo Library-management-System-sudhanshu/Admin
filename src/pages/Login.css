@@ -99,11 +99,11 @@
 /* Styles applied to login page scope */
 .login-page-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background-color: var(--color-bg);
   font-family: "Inter", sans-serif;
   color: var(--color-text-primary);
-  overflow-x: hidden;
+  overflow: hidden;
   position: relative;
   width: 100%;
 }
@@ -449,6 +449,7 @@
   position: relative;
   z-index: 10;
   background-color: var(--color-bg);
+  overflow-y: auto;
 }
 
 .auth-card-glow {

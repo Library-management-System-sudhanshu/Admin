@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { LoadingState } from '../components/feedback/LoadingState';
+import { QueryFeedback } from '../components/feedback/QueryFeedback';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import { useGetComplaintsQuery, useUpdateComplaintStatusMutation } from '../store/api';
@@ -12,17 +15,19 @@ import {
   TableRow,
   Paper,
   Chip,
-  CircularProgress,
 } from '@mui/material';
 import { Button } from '../components/ui/Button';
 import { Check } from 'lucide-react';
 
 export default function Complaints() {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { data: complaints, isLoading } = useGetComplaintsQuery({});
+  const { data: complaints, isLoading, isFetching, error, refetch } = useGetComplaintsQuery({});
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolveComplaint] = useUpdateComplaintStatusMutation();
 
   const handleResolve = async (id: string) => {
+    if (resolvingId) return;
+    setResolvingId(id);
     try {
       await resolveComplaint({
         id,
@@ -32,6 +37,8 @@ export default function Complaints() {
       alert('Complaint resolved successfully');
     } catch (err) {
       alert('Error updating complaint');
+    } finally {
+      setResolvingId(null);
     }
   };
 
@@ -51,11 +58,10 @@ export default function Complaints() {
   return (
     <Box>
 
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-          <CircularProgress />
-        </Box>
-      ) : complaints?.length === 0 ? (
+      <QueryFeedback error={error} fetching={isFetching && !!complaints} onRetry={refetch} />
+          {isLoading ? (
+        <LoadingState />
+      ) : error && !complaints ? null : complaints?.length === 0 ? (
         <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3 }}>
           <Typography color="text.secondary">No active complaints found.</Typography>
         </Paper>
@@ -91,6 +97,8 @@ export default function Complaints() {
                           size="sm"
                           style={{ backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '4px 8px' }}
                           onClick={() => handleResolve(c.id)}
+                          isLoading={resolvingId === c.id}
+                          disabled={!!resolvingId}
                         >
                           <Check size={14} /> Resolve
                         </Button>
