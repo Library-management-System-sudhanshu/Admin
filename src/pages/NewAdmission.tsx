@@ -15,10 +15,9 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
 import { CustomCalendar } from '../components/ui/CustomCalendar';
-import { ArrowLeft, UserPlus, MapPin, Layers, Camera, Plus, Calendar as CalendarIcon } from 'lucide-react';
-import { getTodayYYYYMMDD, formatDateDisplay } from '../utils/dateUtils';
+import { UserPlus, MapPin, Layers, Camera, Calendar as CalendarIcon } from 'lucide-react';
+import { getTodayYYYYMMDD } from '../utils/dateUtils';
 import '../components/ui/Globals.css';
-
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -27,7 +26,6 @@ const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Prom
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
-
       if (width > height) {
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
@@ -39,7 +37,6 @@ const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Prom
           height = maxHeight;
         }
       }
-
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
@@ -48,16 +45,13 @@ const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Prom
     };
   });
 };
-
 export default function NewAdmission() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user } = useSelector((state: RootState) => state.auth);
-
   // Success Modal & Newly Created Student Profile Info
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [createdStudent, setCreatedStudent] = useState<{ id: string; name: string; joiningDate?: string; shiftId?: string } | null>(null);
-
   const handleResetForm = () => {
     setName('');
     setEmail('');
@@ -75,7 +69,6 @@ export default function NewAdmission() {
     setIsSuccessModalOpen(false);
     setCreatedStudent(null);
   };
-
   // Queries & Mutations
   const { data: branches } = useGetBranchesQuery(
     user?.workspaceId,
@@ -87,7 +80,6 @@ export default function NewAdmission() {
   );
   const [createStudent, { isLoading: isSubmitting }] = useCreateStudentMutation();
   const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
-
   // Form States
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -95,12 +87,12 @@ export default function NewAdmission() {
   const [password, setPassword] = useState('Student@123');
   const [gender, setGender] = useState('MALE');
   const [address, setAddress] = useState('');
-  
   const [guardianName, setGuardianName] = useState('');
   const [guardianMobile, setGuardianMobile] = useState('');
   const [aadharNumber, setAadharNumber] = useState('');
   const [branchId, setBranchId] = useState('');
   const [shiftId, setShiftId] = useState('');
+  const [selectedDurationLabel, setSelectedDurationLabel] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [avatar, setAvatar] = useState('');
   const [isDiscounted, setIsDiscounted] = useState(false);
@@ -108,7 +100,6 @@ export default function NewAdmission() {
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [openDirection, setOpenDirection] = useState<'bottom' | 'top'>('bottom');
   const dateContainerRef = useRef<HTMLDivElement>(null);
-
   const toggleCalendarPicker = () => {
     if (!showCalendarPicker && dateContainerRef.current) {
       const rect = dateContainerRef.current.getBoundingClientRect();
@@ -122,7 +113,6 @@ export default function NewAdmission() {
     }
     setShowCalendarPicker(!showCalendarPicker);
   };
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dateContainerRef.current && !dateContainerRef.current.contains(event.target as Node)) {
@@ -136,11 +126,9 @@ export default function NewAdmission() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showCalendarPicker]);
-
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onloadend = async () => {
       const rawBase64 = reader.result as string;
@@ -155,31 +143,30 @@ export default function NewAdmission() {
     };
     reader.readAsDataURL(file);
   };
-
   const selectedShiftPrice = useMemo(() => {
     if (!shiftId || !shifts) return 0;
     const shift = shifts.find((s: any) => s.id === shiftId);
-    return shift ? shift.price : 0;
-  }, [shiftId, shifts]);
-
+    if (!shift) return 0;
+    if (selectedDurationLabel && shift.customPricing && Array.isArray(shift.customPricing)) {
+      const cp = shift.customPricing.find((c: any) => c.label === selectedDurationLabel);
+      if (cp) return cp.price;
+    }
+    return shift.price;
+  }, [shiftId, shifts, selectedDurationLabel]);
   const dueAmount = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
     return isDiscounted ? 0 : Math.max(0, selectedShiftPrice - paid);
   }, [selectedShiftPrice, amountPaid, isDiscounted]);
-
   // Validation Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
-
   // Auto-set first branch if available
   useEffect(() => {
     if (branches && branches.length > 0 && !branchId) {
       setBranchId(branches[0].id);
     }
   }, [branches, branchId]);
-
   const validateField = (field: string, value: string) => {
     let errorMsg = '';
-    
     switch (field) {
       case 'name':
         if (!/^[a-zA-Z0-9\s\.\-]*$/.test(value)) {
@@ -232,64 +219,58 @@ export default function NewAdmission() {
       default:
         break;
     }
-    
     setErrors(prev => ({ ...prev, [field]: errorMsg }));
   };
-
   const handleChange = (field: string, value: string, setter: (val: string) => void) => {
     const finalVal = field === 'email' ? value.toLowerCase() : value;
     setter(finalVal);
     validateField(field, finalVal);
   };
-
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
     if (!name.trim()) newErrors.name = 'Student name is required';
     if (!mobile.trim()) newErrors.mobile = 'Mobile number is required';
     if (!branchId) newErrors.branchId = 'Target branch is required';
-
     if (name.trim() && !/^[a-zA-Z0-9\s\.\-]{2,50}$/.test(name.trim())) {
       newErrors.name = 'Name must be 2-50 characters';
     }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (email.trim() && !emailRegex.test(email.trim())) {
       newErrors.email = 'Invalid email address';
     }
-
     if (mobile.trim() && !/^\d{10}$/.test(mobile.trim())) {
       newErrors.mobile = 'Mobile number must be exactly 10 digits';
     }
-
     if (password && password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
-    
     if (guardianName.trim() && !/^[a-zA-Z0-9\s\.\-]{2,50}$/.test(guardianName.trim())) {
       newErrors.guardianName = 'Guardian name must be 2-50 characters';
     }
-    
     if (guardianMobile.trim() && !/^\d{10}$/.test(guardianMobile.trim())) {
       newErrors.guardianMobile = 'Guardian mobile must be exactly 10 digits';
     }
-    
     if (aadharNumber.trim() && !/^\d{12}$/.test(aadharNumber.trim())) {
       newErrors.aadharNumber = 'Aadhar number must be exactly 12 digits';
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) {
       showToast('Please fix the errors before submitting', 'error');
       return;
     }
-
     try {
+      const getDurationDays = (label: string) => {
+        const l = label.toLowerCase();
+        const num = parseInt(l) || 1;
+        if (l.includes('day')) return num;
+        if (l.includes('month')) return num * 30;
+        if (l.includes('year')) return num * 365;
+        return 30;
+      };
       const result = await createStudent({
         name,
         email,
@@ -303,14 +284,14 @@ export default function NewAdmission() {
         aadharNumber: aadharNumber || undefined,
         branchId,
         shiftId: shiftId || undefined,
+        durationDays: selectedDurationLabel ? getDurationDays(selectedDurationLabel) : 30,
+        shiftPrice: selectedShiftPrice,
         amountPaid: amountPaid === '' ? 0 : Number(amountPaid),
         isDiscounted,
         workspaceId: user?.workspaceId,
         avatar: avatar || undefined,
       }).unwrap();
-
       showToast('Student admitted successfully!', 'success');
-      
       const studentId = result?.profile?.id || result?.student?.id || result?.id || result?.data?.id;
       setCreatedStudent({
         id: studentId || 'new-student',
@@ -323,13 +304,11 @@ export default function NewAdmission() {
       showToast(err?.data?.message || 'Failed to complete admission', 'error');
     }
   };
-
   const genderOptions = [
     { value: 'MALE', label: 'Male' },
     { value: 'FEMALE', label: 'Female' },
     { value: 'OTHER', label: 'Other' },
   ];
-
   const shiftOptions = useMemo(() => {
     if (isLoadingShifts) {
       return [{ value: '', label: 'Loading seating shifts...' }];
@@ -343,118 +322,137 @@ export default function NewAdmission() {
           { value: '', label: 'No Shift (Admission only)' },
           ...shifts.map((s: any) => ({
             value: s.id,
-            label: `${s.name} (₹${s.price})`,
+            label: s.name,
           })),
         ];
-
     return [
       ...baseOptions,
       { value: 'ADD_NEW_SHIFT', label: '+ Add New Shift', isAction: true },
     ];
   }, [shifts, isLoadingShifts, shiftsError]);
-
   return (
-    <div style={{ width: '100%', maxWidth: '780px', margin: '0 auto', paddingBottom: '32px' }} className="animate-fade-in">
-      {/* Responsive CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media (max-width: 600px) {
-          .na-avatar-row { flex-direction: column !important; align-items: center !important; gap: 16px !important; }
-          .na-avatar-row > div:last-child { min-width: 100% !important; }
-          .na-submit-row { flex-direction: column-reverse !important; }
-          .na-submit-row > button { width: 100% !important; min-width: unset !important; }
+    <div className="new-admission animate-fade-in">
+      <style>{`
+        .new-admission { --na-blue: #2563eb; --na-border: #e2e8f0; width: 100%; max-width: 1280px; margin: 0 auto; padding-bottom: 24px; color: #0f172a; }
+        .new-admission *, .new-admission *::before, .new-admission *::after { box-sizing: border-box; }
+        .new-admission .na-intro { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .new-admission .na-intro p { margin: 0; font-size: 13px; color: #64748b; line-height: 1.5; }
+        .new-admission .na-required { flex-shrink: 0; padding: 6px 10px; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 7px; font-size: 11px; color: #1d4ed8; font-weight: 600; }
+        .new-admission .na-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); gap: 18px; align-items: start; }
+        .new-admission .na-personal { grid-column: 1; grid-row: 1 / 3; }
+        .new-admission .na-subscription { grid-column: 2; grid-row: 1; }
+        .new-admission .na-contact { grid-column: 2; grid-row: 2; }
+        .new-admission .na-card { padding: 20px !important; background: #fff !important; border: 1px solid var(--na-border) !important; border-radius: 16px !important; overflow: visible !important; box-shadow: 0 2px 8px rgba(15,23,42,.025) !important; min-width: 0; }
+        .new-admission .na-section-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #edf1f7; }
+        .new-admission .na-section-heading > svg { box-sizing: content-box; padding: 8px; color: var(--na-blue) !important; background: #eff6ff; border-radius: 10px; flex-shrink: 0; }
+        .new-admission .na-section-heading h3 { margin: 0; font-size: 14px; font-weight: 700; color: #0f172a; }
+        .new-admission .na-avatar-row { display: flex; flex-direction: column; gap: 18px; align-items: stretch; }
+        .new-admission .na-photo-block { display: flex; flex-direction: row; gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid #e8eef7; border-radius: 12px; background: #f8faff; }
+        .new-admission .na-photo-copy { display: flex; flex-direction: column; gap: 4px; }
+        .new-admission .na-photo-copy strong { font-size: 13px; font-weight: 600; }
+        .new-admission .na-photo-copy span { font-size: 12px; color: #64748b; }
+        .new-admission .na-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; min-width: 0; width: 100%; }
+        .new-admission .na-fields > * { min-width: 0; margin-bottom: 0 !important; }
+        .new-admission .na-fields .custom-input-label { display: block; margin: 0 0 6px !important; font-size: 12px !important; line-height: 1.4; font-weight: 600; color: #475569; }
+        .new-admission .na-fields input:not([type="checkbox"]):not([type="file"]) { min-height: 42px; font-size: 13px; border-radius: 9px; }
+        .new-admission .na-fields input::placeholder { color: #94a3b8; }
+        .new-admission .na-fields input:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+        .new-admission .na-date-trigger { width: 100%; display: flex; align-items: center; justify-content: space-between; height: 42px; padding: 0 12px; border: 1px solid var(--na-border); border-radius: 9px; background: white; cursor: pointer; font-family: inherit; }
+        .new-admission .na-date-trigger:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+        .new-admission .na-date-trigger[aria-expanded="true"] { border-color: var(--na-blue); box-shadow: 0 0 0 3px #dbeafe; }
+        .new-admission .na-due-panel { grid-column: 1 / -1; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+        .new-admission .na-submit-row { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 0; padding: 14px 18px; background: #fff; border: 1px solid var(--na-border); border-radius: 12px; box-shadow: 0 2px 8px rgba(15,23,42,.025); }
+        .new-admission .na-footer-copy { margin: 0; font-size: 12px; color: #64748b; line-height: 1.5; }
+        .new-admission .na-actions { display: flex; align-items: center; gap: 10px; }
+        .new-admission .na-actions button { min-height: 42px; font-size: 13px; }
+        @media (min-width: 1200px) { .new-admission .na-personal .na-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 980px) {
+          .new-admission .na-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+          .new-admission .na-personal, .new-admission .na-subscription, .new-admission .na-contact { grid-column: auto; grid-row: auto; }
         }
-      `}} />
-
-      {/* Back Action Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            background: '#ffffff',
-            border: '1px solid var(--border-card)',
-            borderRadius: '8px',
-            padding: '6px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            color: 'var(--text-navy)',
-            fontSize: '0.85rem',
-            fontWeight: 600,
-          }}
-        >
-          <ArrowLeft size={16} /> Back
-        </button>
+        @media (max-width: 560px) {
+          .new-admission .na-card { padding: 16px !important; border-radius: 12px !important; }
+          .new-admission .na-fields { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+          .new-admission .na-intro { align-items: flex-start; }
+          .new-admission .na-intro p { max-width: 220px; font-size: 12px; }
+          .new-admission .na-submit-row { flex-direction: column; align-items: stretch; padding: 14px; gap: 12px; }
+          .new-admission .na-actions { display: grid; grid-template-columns: 1fr 1fr; }
+          .new-admission .na-actions > button { min-width: 0 !important; width: 100%; }
+        }
+      `}</style>
+      <div className="na-intro">
+        <p>Enter student details, choose a branch, and set up their subscription.</p>
+        <span className="na-required">* Required fields</span>
       </div>
-
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        
+      <form onSubmit={handleSubmit} className="na-layout">
         {/* SECTION 1: PERSONAL DETAILS */}
-        <Card elevation="sm" style={{ padding: '16px 18px', background: '#ffffff', borderRadius: '14px', border: '1px solid var(--border-card)', overflow: 'visible' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '10px' }}>
+        <section className="na-card na-personal">
+       <Card elevation="sm" style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none', overflow: 'visible' }}>
+          <div className="na-section-heading">
             <UserPlus size={16} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
             <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-navy)' }}>
               Personal Details
             </h3>
           </div>
-
-          <div className="na-avatar-row" style={{ display: 'flex', gap: '20px', flexDirection: 'row', alignItems: 'flex-start' }}>
+          <div className="na-avatar-row">
             {/* Avatar */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <div className="na-photo-block">
               <div style={{ position: 'relative' }}>
-                <div 
-                  style={{ 
-                    width: '80px', 
-                    height: '80px', 
-                    borderRadius: '50%', 
+                <div
+                  style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
                     background: avatar ? `url(${avatar}) no-repeat center center / cover` : 'linear-gradient(135deg, var(--accent-blue) 0%, #3b82f6 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'white',
                     fontWeight: 700,
-                    fontSize: '2rem',
+                    fontSize: '1.4rem',
                     border: '2px solid #ffffff',
                     boxShadow: 'var(--shadow-soft)',
                   }}
                 >
                   {!avatar && (name?.charAt(0).toUpperCase() || 'A')}
                 </div>
-                <label 
-                  htmlFor="avatar-upload" 
-                  style={{ 
-                    position: 'absolute', 
-                    bottom: 0, 
-                    right: 0, 
-                    backgroundColor: 'var(--accent-blue)', 
-                    color: 'white', 
-                    width: '26px', 
-                    height: '26px', 
-                    borderRadius: '50%', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
+                <label
+                  aria-label="Upload student photo"
+                  title="Upload student photo"
+                  htmlFor="avatar-upload"
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    backgroundColor: 'var(--accent-blue)',
+                    color: 'white',
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     cursor: 'pointer',
                     border: '2px solid #ffffff',
                   }}
                 >
                   <Camera size={12} />
                 </label>
-                <input 
-                  id="avatar-upload" 
-                  type="file" 
-                  accept="image/*" 
-                  style={{ display: 'none' }} 
-                  onChange={handleAvatarUpload} 
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleAvatarUpload}
                 />
               </div>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)', fontWeight: 600 }}>
-                {isUploadingImage ? 'Uploading...' : 'Photo'}
-              </span>
+              <div className="na-photo-copy">
+              <strong>Student photo</strong>
+              <span>{isUploadingImage ? 'Uploading...' : 'Optional · Click the camera to upload'}</span>
             </div>
-
+            </div>
             {/* Fields Grid */}
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '14px', minWidth: 0 }}>
+            <div className="na-fields">
               <Input
                 label="Full Name *"
                 placeholder="e.g. Rohan Sharma"
@@ -513,28 +511,12 @@ export default function NewAdmission() {
               />
               <div ref={dateContainerRef} style={{ position: 'relative' }}>
                 <label className="custom-input-label">Admission Date *</label>
-                <div
-                  onClick={toggleCalendarPicker}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0 12px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    border: showCalendarPicker ? '1.5px solid #D97706' : '1px solid var(--border-color)',
-                    backgroundColor: '#ffffff',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: showCalendarPicker ? '0 0 0 3px rgba(217, 119, 6, 0.15)' : 'none'
-                  }}
-                >
+                <button type="button" className="na-date-trigger" aria-label="Choose admission date" aria-expanded={showCalendarPicker} onClick={toggleCalendarPicker}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-navy)' }}>
                     {joiningDate ? new Date(joiningDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Select date'}
                   </span>
-                  <CalendarIcon size={16} style={{ color: '#D97706' }} />
-                </div>
-
+                  <CalendarIcon size={16} style={{ color: 'var(--na-blue)' }} />
+                </button>
                 {showCalendarPicker && (
                   <div
                     style={{
@@ -566,17 +548,17 @@ export default function NewAdmission() {
             </div>
           </div>
         </Card>
-
+       </section>
         {/* SECTION 2: BRANCH & SUBSCRIPTION */}
-        <Card elevation="sm" style={{ padding: '16px 18px', background: '#ffffff', borderRadius: '14px', border: '1px solid var(--border-card)', overflow: 'visible' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '10px' }}>
+        <section className="na-card na-subscription">
+       <Card elevation="sm" style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none', overflow: 'visible' }}>
+          <div className="na-section-heading">
             <Layers size={16} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
             <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-navy)' }}>
               Branch & Subscription
             </h3>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '14px' }}>
+          <div className="na-fields">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label className="custom-input-label">Target Branch *</label>
               <Select
@@ -589,7 +571,6 @@ export default function NewAdmission() {
                 })) || []}
               />
             </div>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label className="custom-input-label">Seating Shift</label>
               <Select
@@ -601,14 +582,39 @@ export default function NewAdmission() {
                   }
                   setShiftId(val);
                   const selectedShift = shifts?.find((s: any) => s.id === val);
-                  setAmountPaid(selectedShift ? selectedShift.price.toString() : '');
+                  if (selectedShift && selectedShift.customPricing && selectedShift.customPricing.length > 0) {
+                    setSelectedDurationLabel(selectedShift.customPricing[0].label);
+                    setAmountPaid(selectedShift.customPricing[0].price.toString());
+                  } else {
+                    setSelectedDurationLabel('');
+                    setAmountPaid(selectedShift ? selectedShift.price.toString() : '');
+                  }
                 }}
                 placeholder="Select a seating shift"
                 options={shiftOptions}
                 disabled={isLoadingShifts || !!shiftsError}
               />
             </div>
-            
+            {shiftId && shifts?.find((s: any) => s.id === shiftId)?.customPricing?.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label className="custom-input-label">Duration</label>
+                <Select
+                  value={selectedDurationLabel}
+                  onChange={(val) => {
+                    setSelectedDurationLabel(val);
+                    const cp = shifts.find((s: any) => s.id === shiftId)?.customPricing?.find((c: any) => c.label === val);
+                    if (cp) {
+                      setAmountPaid(cp.price.toString());
+                    }
+                  }}
+                  placeholder="Select Duration"
+                  options={shifts.find((s: any) => s.id === shiftId).customPricing.map((cp: any) => ({
+                    value: cp.label,
+                    label: `${cp.label} (₹${cp.price})`,
+                  }))}
+                />
+              </div>
+            )}
             {shiftId && (
               <>
                 <Input
@@ -618,9 +624,9 @@ export default function NewAdmission() {
                   value={amountPaid}
                   onChange={(e) => setAmountPaid(e.target.value)}
                 />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
+                <div className="na-due-panel">
                   <label className="custom-input-label">Due Amount</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                     <div style={{ fontSize: '1.15rem', fontWeight: 800, color: dueAmount > 0 ? 'var(--status-red)' : 'var(--status-emerald)' }}>
                       ₹{dueAmount}
                     </div>
@@ -641,17 +647,17 @@ export default function NewAdmission() {
             )}
           </div>
         </Card>
-
+       </section>
         {/* SECTION 3: CONTACT & ADDRESS */}
-        <Card elevation="sm" style={{ padding: '16px 18px', background: '#ffffff', borderRadius: '14px', border: '1px solid var(--border-card)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', borderBottom: '1px solid rgba(15, 23, 42, 0.05)', paddingBottom: '10px' }}>
+        <section className="na-card na-contact">
+       <Card elevation="sm" style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none', overflow: 'visible' }}>
+          <div className="na-section-heading">
             <MapPin size={16} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
             <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-navy)' }}>
               Contact & Address
             </h3>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '14px' }}>
+          <div className="na-fields">
             <Input
               label="Guardian Name"
               placeholder="e.g. Satish Sharma"
@@ -680,9 +686,11 @@ export default function NewAdmission() {
             </div>
           </div>
         </Card>
-
+       </section>
         {/* SUBMIT */}
-        <div className="na-submit-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '4px' }}>
+        <div className="na-submit-row">
+          <p className="na-footer-copy">Review the details before completing admission.</p>
+          <div className="na-actions">
           <Button
             type="button"
             variant="outline"
@@ -700,10 +708,9 @@ export default function NewAdmission() {
           >
             Admit Student
           </Button>
+          </div>
         </div>
-
       </form>
-
       {/* Success Modal (Rendered via Portal to guarantee exact screen center positioning) */}
       {isSuccessModalOpen && createPortal(
         <div style={{
@@ -755,7 +762,6 @@ export default function NewAdmission() {
                 <strong>{createdStudent?.name}</strong> has been admitted successfully.
               </p>
             </div>
-            
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
               <Button
                 variant="primary"

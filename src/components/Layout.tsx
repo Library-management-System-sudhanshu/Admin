@@ -26,7 +26,8 @@ import {
   CreditCard,
   LogOut,
   Clock,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ArrowLeft
 } from 'lucide-react';
 import './Layout.css';
 
@@ -316,9 +317,31 @@ export default function Layout() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', lineHeight: 1.25 }}>
-                  {pageHeader.title}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {location.pathname === '/new-admission' && (
+                    <button
+                      onClick={() => navigate(-1)}
+                      title="Go Back"
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid var(--border-card)',
+                        borderRadius: '6px',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        color: 'var(--text-navy)',
+                        boxShadow: 'var(--shadow-sm)',
+                      }}
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                  )}
+                  <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', lineHeight: 1.25 }}>
+                    {pageHeader.title}
+                  </span>
+                </div>
                 {pageHeader.subtitle && (
                   <span style={{ fontSize: '0.76rem', color: 'var(--text-slate)', fontWeight: 500, marginTop: '2px' }}>
                     {pageHeader.subtitle}
