@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   useGetWorkspaceByIdQuery, 
   useUpdateWorkspaceMutation,
+  useDeleteWorkspaceMutation,
   useGetStudentsQuery 
 } from '../../store/api';
 import { Button } from '../../components/ui/Button';
@@ -29,6 +30,19 @@ export default function WorkspaceDetail() {
   const { data: workspace, isLoading, error } = useGetWorkspaceByIdQuery(id!, { skip: !id });
   const { data: students = [] } = useGetStudentsQuery({ workspaceId: id }, { skip: !id });
   const [updateWorkspace, { isLoading: isUpdating }] = useUpdateWorkspaceMutation();
+  const [deleteWorkspace, { isLoading: isDeleting }] = useDeleteWorkspaceMutation();
+
+  const handleDeleteWorkspace = async () => {
+    if (!workspace) return;
+    if (!window.confirm(`Are you sure you want to completely delete the workspace "${workspace.name}"? All data will be permanently erased. This action cannot be undone.`)) return;
+    try {
+      await deleteWorkspace(id!).unwrap();
+      showToast('Workspace deleted successfully.', 'success');
+      navigate('/super-admin/workspaces');
+    } catch (err) {
+      showToast('Failed to delete workspace.', 'error');
+    }
+  };
 
   const handleToggleAccess = async () => {
     if (!workspace) return;
@@ -148,24 +162,40 @@ export default function WorkspaceDetail() {
           </span>
         </div>
 
-        <Button
-          variant="primary"
-          onClick={handleToggleAccess}
-          disabled={isUpdating}
-          style={{
-            borderRadius: '12px',
-            padding: '10px 20px',
-            backgroundColor: isActive ? '#dc2626' : '#16a34a',
-            borderColor: isActive ? '#dc2626' : '#16a34a',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          {isActive ? <ShieldAlert size={16} /> : <ShieldCheck size={16} />}
-          {isActive ? 'Revoke / Disable Access' : 'Restore / Enable Access'}
-        </Button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Button
+            variant="outline"
+            onClick={handleDeleteWorkspace}
+            disabled={isDeleting || isUpdating}
+            style={{
+              borderRadius: '12px',
+              padding: '10px 20px',
+              borderColor: '#ef4444',
+              color: '#ef4444',
+              fontWeight: 700,
+            }}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete Workspace'}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleToggleAccess}
+            disabled={isUpdating || isDeleting}
+            style={{
+              borderRadius: '12px',
+              padding: '10px 20px',
+              backgroundColor: isActive ? '#dc2626' : '#16a34a',
+              borderColor: isActive ? '#dc2626' : '#16a34a',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            {isActive ? <ShieldAlert size={16} /> : <ShieldCheck size={16} />}
+            {isActive ? 'Revoke / Disable Access' : 'Restore / Enable Access'}
+          </Button>
+        </div>
       </div>
 
       {/* Metrics Row */}

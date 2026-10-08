@@ -74,7 +74,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
-  const [isDiscounted, setIsDiscounted] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState('');
 
   // Active allocations for selected seat
   const activeAllocations = useMemo(() => {
@@ -113,7 +113,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       setShouldGenerateInvoice(true);
       setInvoiceAmount('');
       setPaymentMethod('CASH');
-      setIsDiscounted(false);
+      setDiscountAmount('');
     }
   }, [isOpen, selectedSeat, shifts, preselectedStudentId, preselectedJoiningDate, studentsData]);
 
@@ -252,10 +252,10 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   }, [shiftId, shifts, durationMode, startDate, endDate]);
 
   const dueAmount = useMemo(() => {
-    if (isDiscounted) return 0;
     const paid = parseFloat(invoiceAmount) || 0;
-    return Math.max(0, calculatedBaseAmount - paid);
-  }, [calculatedBaseAmount, invoiceAmount, isDiscounted]);
+    const discount = parseFloat(discountAmount) || 0;
+    return Math.max(0, calculatedBaseAmount - paid - discount);
+  }, [calculatedBaseAmount, invoiceAmount, discountAmount]);
 
   useEffect(() => {
     if (calculatedBaseAmount > 0) {
@@ -285,7 +285,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           shiftId: shiftId || undefined,
           durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
           totalAmount: calculatedBaseAmount,
-          isDiscounted,
+          discountAmount: discountAmount || undefined,
         }).unwrap();
 
         const student = studentsData?.students?.find((s: any) => s.id === studentProfileId);
@@ -579,17 +579,16 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                   />
                   {calculatedBaseAmount > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
-                      {(parseFloat(invoiceAmount) || 0) < calculatedBaseAmount && (
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-slate)', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={isDiscounted}
-                            onChange={(e) => setIsDiscounted(e.target.checked)}
-                            style={{ accentColor: 'var(--accent-blue)', width: '14px', height: '14px', cursor: 'pointer' }}
-                          />
-                          Mark remaining as discount
-                        </label>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '0' }}>Discount (₹)</label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={discountAmount}
+                          onChange={(e) => setDiscountAmount(e.target.value)}
+                          style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', outline: 'none', backgroundColor: '#ffffff', width: '100px', textAlign: 'right' }}
+                        />
+                      </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
                         <span style={{ color: 'var(--text-slate)' }}>Total Price: ₹{calculatedBaseAmount}</span>
                         {dueAmount > 0 ? (

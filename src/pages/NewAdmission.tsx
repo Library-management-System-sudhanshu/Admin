@@ -95,7 +95,7 @@ export default function NewAdmission() {
   const [selectedDurationLabel, setSelectedDurationLabel] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [avatar, setAvatar] = useState('');
-  const [isDiscounted, setIsDiscounted] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState('');
   const [joiningDate, setJoiningDate] = useState(() => getTodayYYYYMMDD());
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [openDirection, setOpenDirection] = useState<'bottom' | 'top'>('bottom');
@@ -155,8 +155,9 @@ export default function NewAdmission() {
   }, [shiftId, shifts, selectedDurationLabel]);
   const dueAmount = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0;
-    return isDiscounted ? 0 : Math.max(0, selectedShiftPrice - paid);
-  }, [selectedShiftPrice, amountPaid, isDiscounted]);
+    const discount = parseFloat(discountAmount) || 0;
+    return Math.max(0, selectedShiftPrice - paid - discount);
+  }, [selectedShiftPrice, amountPaid, discountAmount]);
   // Validation Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Auto-set first branch if available
@@ -287,7 +288,7 @@ export default function NewAdmission() {
         durationDays: selectedDurationLabel ? getDurationDays(selectedDurationLabel) : 30,
         shiftPrice: selectedShiftPrice,
         amountPaid: amountPaid === '' ? 0 : Number(amountPaid),
-        isDiscounted,
+        discountAmount: discountAmount || undefined,
         workspaceId: user?.workspaceId,
         avatar: avatar || undefined,
       }).unwrap();
@@ -631,15 +632,16 @@ export default function NewAdmission() {
                       ₹{dueAmount}
                     </div>
                     {selectedShiftPrice - (parseFloat(amountPaid) || 0) > 0 && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-slate)', cursor: 'pointer', backgroundColor: '#f8fafc', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-card)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#f8fafc', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-card)' }}>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '0' }}>Discount (₹)</label>
                         <input
-                          type="checkbox"
-                          checked={isDiscounted}
-                          onChange={(e) => setIsDiscounted(e.target.checked)}
-                          style={{ cursor: 'pointer', accentColor: 'var(--accent-blue)' }}
+                          type="number"
+                          placeholder="0"
+                          value={discountAmount}
+                          onChange={(e) => setDiscountAmount(e.target.value)}
+                          style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', outline: 'none', backgroundColor: '#ffffff', width: '80px', textAlign: 'right' }}
                         />
-                        Mark as Discount
-                      </label>
+                      </div>
                     )}
                   </div>
                 </div>

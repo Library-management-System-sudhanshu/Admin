@@ -30,6 +30,13 @@ export const workspacesApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, error) => error ? [] : ['Workspaces', 'SuperAdminMetrics'],
     }),
+    deleteWorkspace: builder.mutation({
+      query: (id) => ({
+        url: `workspaces/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, error) => error ? [] : ['Workspaces', 'SuperAdminMetrics'],
+    }),
     getBranches: builder.query({
       query: (workspaceId) => `workspaces/${workspaceId}/branches`,
       providesTags: ['Branches'],
@@ -74,6 +81,7 @@ export const {
   useGetSuperAdminMetricsQuery,
   useUpdateWorkspaceMutation,
   useCreateWorkspaceMutation,
+  useDeleteWorkspaceMutation,
   useGetBranchesQuery,
   useGetShiftsQuery,
   useCreateShiftMutation,

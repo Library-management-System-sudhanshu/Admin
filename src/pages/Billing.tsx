@@ -458,6 +458,7 @@ export default function Billing() {
   const [openCollect, setOpenCollect] = useState(false);
   const [studentProfileId, setStudentProfileId] = useState('');
   const [amount, setAmount] = useState('');
+  const [discountAmount, setDiscountAmount] = useState('');
   const [method, setMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
   const [selectedShiftId, setSelectedShiftId] = useState('');
   const [billingDurationMonths, setBillingDurationMonths] = useState<number>(1);
@@ -732,6 +733,7 @@ export default function Billing() {
       await createPayment({
         studentProfileId,
         amount: Number(amount),
+        discountAmount: discountAmount || undefined,
         method,
         shiftId: selectedShiftId || undefined,
         durationMonths: selectedShiftId ? billingDurationMonths : undefined,
@@ -739,6 +741,7 @@ export default function Billing() {
       setOpenCollect(false);
       setStudentProfileId('');
       setAmount('');
+      setDiscountAmount('');
       setSelectedShiftId('');
       setBillingDurationMonths(1);
     } catch (err) {
@@ -1255,12 +1258,19 @@ export default function Billing() {
             )}
 
             <TextField
-              label="Billing Amount (₹)"
+              label="Billing Amount Paid (₹)"
               type="number"
               fullWidth
               required
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+            />
+            <TextField
+              label="Discount Amount (₹)"
+              type="number"
+              fullWidth
+              value={discountAmount}
+              onChange={(e) => setDiscountAmount(e.target.value)}
             />
 
             <FormControl fullWidth required>
