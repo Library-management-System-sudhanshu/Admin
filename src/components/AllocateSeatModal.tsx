@@ -74,6 +74,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
+  const [isDiscounted, setIsDiscounted] = useState(false);
 
   // Active allocations for selected seat
   const activeAllocations = useMemo(() => {
@@ -108,10 +109,11 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         setStudentSearchQuery('');
       }
 
-      setDurationMode(1);
+      setDurationMode('');
       setShouldGenerateInvoice(true);
       setInvoiceAmount('');
       setPaymentMethod('CASH');
+      setIsDiscounted(false);
     }
   }, [isOpen, selectedSeat, shifts, preselectedStudentId, preselectedJoiningDate, studentsData]);
 
@@ -121,7 +123,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       if (!shiftId || !availableShifts.some((s: any) => s.id === shiftId)) {
         const targetShift = (preselectedShiftId && availableShifts.some((s: any) => s.id === preselectedShiftId))
           ? preselectedShiftId
-          : availableShifts[0].id;
+          : '';
         setShiftId(targetShift);
       }
     }
@@ -156,7 +158,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       } else {
         // No active subscription -> allow invoice generation and reset to student's admission date or preselected date
         setShouldGenerateInvoice(true);
-        setDurationMode(1);
+        setDurationMode('');
         const baseDate = formatYYYYMMDD(preselectedJoiningDate) || formatYYYYMMDD(student?.joiningDate) || formatYYYYMMDD(new Date());
         setStartDate(baseDate);
         const end = new Date(baseDate);
@@ -168,19 +170,19 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
 
   // Duration modes calculations
   useEffect(() => {
-    if (durationMode === 'flex') return;
+    if (durationMode === 'flex' || !durationMode) return;
     if (!startDate) return;
 
-    if (durationMode === '7d') {
-      setEndDate(addDaysToDate(startDate, 7));
-    } else if (durationMode === '10d') {
-      setEndDate(addDaysToDate(startDate, 10));
-    } else if (durationMode === '15d') {
-      setEndDate(addDaysToDate(startDate, 15));
-    } else {
-      const months = typeof durationMode === 'number' ? durationMode : parseInt(durationMode as string) || 1;
-      setEndDate(addMonthsToDate(startDate, months));
-    }
+    const getDurationDays = (label: string) => {
+      const l = String(label).toLowerCase();
+      const num = parseInt(l) || 1;
+      if (l.includes('day')) return num;
+      if (l.includes('month')) return num * 30;
+      if (l.includes('year')) return num * 365;
+      return 30;
+    };
+
+    setEndDate(addDaysToDate(startDate, getDurationDays(durationMode as string)));
   }, [startDate, durationMode]);
 
   // Student list search inside Allocate form
@@ -226,29 +228,9 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     if (!shiftId || !shifts) return 0;
     const shift = shifts.find((s: any) => s.id === shiftId);
     if (!shift) return 0;
-
     const basePrice = shift.price || 0;
 
-    if (durationMode === '7d') {
-      return Math.round((basePrice / 30) * 7);
-    }
-    if (durationMode === '10d') {
-      return Math.round((basePrice / 30) * 10);
-    }
-    if (durationMode === '15d') {
-      return Math.round((basePrice / 30) * 15);
-    }
-
-    if (typeof durationMode === 'number' || !isNaN(Number(durationMode))) {
-      const months = Number(durationMode);
-      if (months === 3 && shift.price3Months) {
-        return shift.price3Months;
-      }
-      if (months === 6 && shift.price6Months) {
-        return shift.price6Months;
-      }
-      return basePrice * months;
-    } else if (durationMode === 'flex' && startDate && endDate) {
+    if (durationMode === 'flex' && startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
       if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
@@ -258,14 +240,22 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           return Math.round(basePrice * (diffDays / 30));
         }
       }
+      return basePrice;
     }
+
+    if (shift.customPricing && Array.isArray(shift.customPricing)) {
+      const cp = shift.customPricing.find((c: any) => c.label === durationMode);
+      if (cp) return cp.price;
+    }
+
     return basePrice;
   }, [shiftId, shifts, durationMode, startDate, endDate]);
 
   const dueAmount = useMemo(() => {
+    if (isDiscounted) return 0;
     const paid = parseFloat(invoiceAmount) || 0;
     return Math.max(0, calculatedBaseAmount - paid);
-  }, [calculatedBaseAmount, invoiceAmount]);
+  }, [calculatedBaseAmount, invoiceAmount, isDiscounted]);
 
   useEffect(() => {
     if (calculatedBaseAmount > 0) {
@@ -295,6 +285,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           shiftId: shiftId || undefined,
           durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
           totalAmount: calculatedBaseAmount,
+          isDiscounted,
         }).unwrap();
 
         const student = studentsData?.students?.find((s: any) => s.id === studentProfileId);
@@ -469,7 +460,15 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
               {availableShifts.length > 0 ? (
                 <Select
                   value={shiftId}
-                  onChange={(val) => setShiftId(val)}
+                  onChange={(val) => {
+                    setShiftId(val);
+                    const selectedShift = availableShifts.find((s: any) => s.id === val);
+                    if (selectedShift && selectedShift.customPricing && selectedShift.customPricing.length > 0) {
+                      setDurationMode(selectedShift.customPricing[0].label);
+                    } else {
+                      setDurationMode('');
+                    }
+                  }}
                   placeholder="Select schedule shift"
                   options={availableShifts.map((s: any) => ({
                     value: s.id,
@@ -497,18 +496,15 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
               <div style={{ display: 'flex', gap: '8px' }}>
                 <Select
                   value={durationMode}
-                  onChange={(val) => setDurationMode(isNaN(Number(val)) ? val : Number(val))}
+                  onChange={(val) => setDurationMode(val)}
                   placeholder="Select Duration"
                   style={{ flex: 1 }}
-                  options={[
-                    { value: 1, label: '1 Month (Standard)' },
-                    { value: 2, label: '2 Months' },
-                    { value: 3, label: '3 Months (Quarterly)' },
-                    { value: 6, label: '6 Months (Half Yearly)' },
-                    { value: '7d', label: '7 Days (Short Term)' },
-                    { value: '10d', label: '10 Days (Short Term)' },
-                    { value: '15d', label: '15 Days (Half Month)' },
-                  ]}
+                  options={
+                    shifts?.find((s: any) => s.id === shiftId)?.customPricing?.map((cp: any) => ({
+                      value: cp.label,
+                      label: `${cp.label} (₹${cp.price})`,
+                    })) || []
+                  }
                 />
                 <button
                   type="button"
@@ -582,13 +578,26 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                     style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: '#ffffff' }}
                   />
                   {calculatedBaseAmount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.75rem' }}>
-                      <span style={{ color: 'var(--text-slate)' }}>Total Price: ₹{calculatedBaseAmount}</span>
-                      {dueAmount > 0 ? (
-                        <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>Due: ₹{dueAmount}</span>
-                      ) : (
-                        <span style={{ color: 'var(--status-emerald)', fontWeight: 700 }}>Fully Paid</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                      {(parseFloat(invoiceAmount) || 0) < calculatedBaseAmount && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-slate)', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={isDiscounted}
+                            onChange={(e) => setIsDiscounted(e.target.checked)}
+                            style={{ accentColor: 'var(--accent-blue)', width: '14px', height: '14px', cursor: 'pointer' }}
+                          />
+                          Mark remaining as discount
+                        </label>
                       )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                        <span style={{ color: 'var(--text-slate)' }}>Total Price: ₹{calculatedBaseAmount}</span>
+                        {dueAmount > 0 ? (
+                          <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>Due: ₹{dueAmount}</span>
+                        ) : (
+                          <span style={{ color: 'var(--status-emerald)', fontWeight: 700 }}>Fully Paid</span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
