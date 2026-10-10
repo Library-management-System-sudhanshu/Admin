@@ -1,22 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  workspaceId?: string;
-  branchId?: string;
-  workspace?: {
-    id: string;
-    name: string;
-    address: string;
-    pincode?: string;
-    gstNumber?: string;
-    subdomain: string;
-  };
-}
+import type { User } from '../types';
 
 export interface AuthState {
   logoutReason?: 'expired' | 'disabled';

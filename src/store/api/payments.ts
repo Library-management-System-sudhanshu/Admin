@@ -1,26 +1,27 @@
 import { baseApi } from './baseApi';
+import type { Payment, CollectionReport } from '../../types';
 
 export const paymentsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getPayments: builder.query({
+    getPayments: builder.query<Payment[], Record<string, unknown> | void>({
       query: (params) => ({
         url: 'payments',
-        params,
+        params: params || undefined,
       }),
       providesTags: ['Payments'],
     }),
-    getStudentPayments: builder.query({
+    getStudentPayments: builder.query<any, string>({
       query: (studentProfileId: string) => ({
         url: 'payments',
         params: { studentProfileId },
       }),
       providesTags: (_result, _error, id) => [{ type: 'Payments', id }],
     }),
-    getCollectionReport: builder.query({
+    getCollectionReport: builder.query<CollectionReport, string>({
       query: (range) => `payments/report?range=${range}`,
       providesTags: ['Payments'],
     }),
-    createPayment: builder.mutation({
+    createPayment: builder.mutation<any, any>({
       query: (data) => ({
         url: 'payments',
         method: 'POST',
@@ -28,7 +29,7 @@ export const paymentsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, error) => error ? [] : ['Payments', 'Students', 'Metrics'],
     }),
-    recordManualPayment: builder.mutation({
+    recordManualPayment: builder.mutation<Payment, { id: string; method: string }>({
       query: ({ id, method }) => ({
         url: `payments/${id}/manual`,
         method: 'POST',
@@ -36,7 +37,7 @@ export const paymentsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, error) => error ? [] : ['Payments', 'Students', 'Metrics'],
     }),
-    verifyRazorpay: builder.mutation({
+    verifyRazorpay: builder.mutation<any, any>({
       query: ({ id, ...data }) => ({
         url: `payments/${id}/verify`,
         method: 'POST',
@@ -55,4 +56,3 @@ export const {
   useRecordManualPaymentMutation,
   useVerifyRazorpayMutation
 } = paymentsApi;
-
