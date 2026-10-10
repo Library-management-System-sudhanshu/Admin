@@ -80,11 +80,11 @@ export default function Login() {
                     const res = await googleLogin({ idToken: response.credential }).unwrap();
                     dispatch(setCredentials(res));
                     if (res.requiresWorkspaceInfo) {
-                      navigate('/setup-workspace');
+                      navigate('/setup-workspace', { replace: true });
                     } else if (res.user?.role === 'SUPER_ADMIN') {
-                      navigate('/super-admin');
+                      navigate('/super-admin', { replace: true });
                     } else {
-                      navigate('/dashboard');
+                      navigate('/dashboard', { replace: true });
                     }
                   } catch (err: any) {
                     setError(err?.data?.message || 'Google Sign-In failed.');
@@ -119,9 +119,9 @@ export default function Login() {
       const res = await loginMutation({ email, password }).unwrap();
       dispatch(setCredentials(res));
       if (res.user?.role === 'SUPER_ADMIN') {
-        navigate('/super-admin');
+        navigate('/super-admin', { replace: true });
       } else {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
       if (err?.data?.message?.includes('disabled') || err?.data?.message?.includes('Access denied')) {
@@ -150,11 +150,11 @@ export default function Login() {
       dispatch(setCredentials(res));
 
       if (res.requiresWorkspaceInfo) {
-        navigate('/setup-workspace');
+        navigate('/setup-workspace', { replace: true });
       } else if (res.user?.role === 'SUPER_ADMIN') {
-        navigate('/super-admin');
+        navigate('/super-admin', { replace: true });
       } else {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
       setError(err?.data?.message || 'Google authentication failed.');
@@ -292,7 +292,7 @@ export default function Login() {
         logo: logo.trim() || undefined,
       }).unwrap();
       dispatch(setCredentials(res));
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
       setError(err?.data?.message || 'Registration failed.');
     }
@@ -305,7 +305,7 @@ export default function Login() {
           <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect width="40" height="40" rx="12" fill="currentColor" /><path d="M12 12v8c0 5 3.5 7 8 7s8-2 8-7v-8M20 10v22" stroke="white" strokeWidth="2.7" strokeLinecap="round" /><path d="m9 15 3-3 3 3m10 0 3-3 3 3m-14-2 3-3 3 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <span>trishul<span className="login-brand-dot">.</span></span>
         </Link>
-        <Link to="/" className="login-back-link">Back to home <ArrowUpRight size={15} /></Link>
+        <Link to="/" className="login-back-link">Back to home <ArrowUpRight size={13} /></Link>
       </header>
 
       <aside className="login-brand-side">
@@ -316,16 +316,16 @@ export default function Login() {
         </div>
 
         <div className="login-preview" aria-label="Illustrative workspace preview with sample seat data">
-          <div className="login-preview-heading"><span><BookOpen size={16} /> The reading room</span><span className="login-demo-label">SAMPLE PREVIEW</span></div>
+          <div className="login-preview-heading"><span><BookOpen size={14} /> The reading room</span><span className="login-demo-label">SAMPLE PREVIEW</span></div>
           <div className="login-preview-meta"><span>Room 01 <span> / Morning shift</span></span><span><i /> 12 seats available</span></div>
           <div className="login-room-grid" aria-hidden="true">
-            {Array.from({ length: 24 }, (_, i) => <div key={i} className={`login-room-seat ${i % 4 < 2 ? 'is-taken' : ''}`}><Armchair size={21} strokeWidth={1.5} /><span>A{String(i + 1).padStart(2, '0')}</span></div>)}
+            {Array.from({ length: 24 }, (_, i) => <div key={i} className={`login-room-seat ${i % 4 < 2 ? 'is-taken' : ''}`}><Armchair size={15} strokeWidth={1.5} /><span>A{String(i + 1).padStart(2, '0')}</span></div>)}
           </div>
           <div className="login-preview-bottom"><span><i /> Available <i /> Occupied</span><span>24 seats · One clear view</span></div>
-          <div className="login-member-note"><span className="login-member-icon"><Users size={19} /></span><div><strong>Everything in its place.</strong><span>Students. Seats. A calmer day.</span></div><span className="login-note-check"><Check size={15} /></span></div>
+          <div className="login-member-note"><span className="login-member-icon"><Users size={16} /></span><div><strong>Everything in its place.</strong><span>Students. Seats. A calmer day.</span></div><span className="login-note-check"><Check size={13} /></span></div>
         </div>
 
-        <div className="login-feature-note"><span><Check size={14} /> Seat planning</span><span><Check size={14} /> Fee tracking</span><span><Check size={14} /> Student records</span></div>
+        <div className="login-feature-note"><span><Check size={12} /> Seat planning</span><span><Check size={12} /> Fee tracking</span><span><Check size={12} /> Student records</span></div>
       </aside>
 
       {/* ============ RIGHT: AUTHENTICATION PANEL (40%) ============ */}

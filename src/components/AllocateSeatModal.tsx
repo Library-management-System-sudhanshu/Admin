@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
-import { useAllocateSeatMutation, useCreatePaymentMutation, useGetStudentsQuery, useVerifyRazorpayMutation } from '../store/api';
+import { useAllocateSeatMutation, useCreatePaymentMutation, useGetStudentsQuery, useGetStudentPaymentsQuery, useVerifyRazorpayMutation } from '../store/api';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
@@ -75,6 +75,19 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
   const [discountAmount, setDiscountAmount] = useState('');
+  const [prefilledPayment, setPrefilledPayment] = useState<any>(null);
+
+  // Fetch payment history for student with dues (to get discount info)
+  const studentExistingDueForFetch = useMemo(() => {
+    if (!studentProfileId || !studentsData?.students) return 0;
+    const s = studentsData.students.find((s: any) => s.id === studentProfileId);
+    return s ? Number(s.dueAmount) : 0;
+  }, [studentProfileId, studentsData]);
+
+  const { data: studentPaymentsData } = useGetStudentPaymentsQuery(
+    studentProfileId,
+    { skip: !studentProfileId || studentExistingDueForFetch <= 0 }
+  );
 
   // Active allocations for selected seat
   const activeAllocations = useMemo(() => {
@@ -114,6 +127,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       setInvoiceAmount('');
       setPaymentMethod('CASH');
       setDiscountAmount('');
+      setPrefilledPayment(null);
     }
   }, [isOpen, selectedSeat, shifts, preselectedStudentId, preselectedJoiningDate, studentsData]);
 
@@ -150,11 +164,45 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         }
         if (activeSub.endDate) {
           setEndDate(formatYYYYMMDD(activeSub.endDate));
-          setDurationMode('flex');
+          let matchedDuration = 'flex';
+          const planDurationDays = activeSub.plan?.durationDays;
+          
+          if (matchingShift?.customPricing && planDurationDays) {
+            const getDurationDays = (label: string) => {
+              const l = String(label).toLowerCase();
+              const num = parseInt(l) || 1;
+              if (l.includes('day')) return num;
+              if (l.includes('month')) return num * 30;
+              if (l.includes('year')) return num * 365;
+              return 30;
+            };
+            
+            const match = matchingShift.customPricing.find((cp: any) => getDurationDays(cp.label) === planDurationDays);
+            if (match) {
+              matchedDuration = match.label;
+            }
+          }
+          setDurationMode(matchedDuration);
         }
         
-        // Already paid / subscribed -> do not generate another invoice
-        setShouldGenerateInvoice(false);
+        // Already paid / subscribed -> show invoice enabled
+        setShouldGenerateInvoice(true);
+        
+        const payment = student.payments ? [...student.payments].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .find((p: any) => 
+            p.subscriptionPlanId === activeSub.subscriptionPlanId || 
+            p.subscriptionPlanId === activeSub.plan?.id || 
+            p.studentSubscriptionId === activeSub.id || 
+            !p.subscriptionPlanId
+          ) : null;
+        
+        if (payment) {
+          setPaymentMethod(payment.method);
+          setInvoiceAmount(payment.amount?.toString() || '');
+          const discount = payment.discountAmount ? Number(payment.discountAmount) : 0;
+          setDiscountAmount(discount > 0 ? discount.toString() : '');
+          setPrefilledPayment(payment);
+        }
       } else {
         // No active subscription -> allow invoice generation and reset to student's admission date or preselected date
         setShouldGenerateInvoice(true);
@@ -251,19 +299,49 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     return basePrice;
   }, [shiftId, shifts, durationMode, startDate, endDate]);
 
+  // Get selected student object for easy access
+  const selectedStudent = useMemo(() => {
+    if (!studentProfileId || !studentsData?.students) return null;
+    return studentsData.students.find((s: any) => s.id === studentProfileId) || null;
+  }, [studentProfileId, studentsData]);
+
+  // Get the most recent payment record for this student (fetched from API)
+  const lastStudentPayment = useMemo(() => {
+    const payments = studentPaymentsData?.payments || studentPaymentsData || [];
+    if (!Array.isArray(payments) || payments.length === 0) return null;
+    return [...payments].sort((a: any, b: any) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0];
+  }, [studentPaymentsData]);
+
+  // Whether this payment is clearing an existing outstanding balance
+  const studentExistingDue = selectedStudent ? Number(selectedStudent.dueAmount) : 0;
+  const isCollectingDue = studentExistingDue > 0;
+
   const dueAmount = useMemo(() => {
     const paid = parseFloat(invoiceAmount) || 0;
     const discount = parseFloat(discountAmount) || 0;
-    return Math.max(0, calculatedBaseAmount - paid - discount);
-  }, [calculatedBaseAmount, invoiceAmount, discountAmount]);
+    const base = isCollectingDue ? studentExistingDue : calculatedBaseAmount;
+    return Math.max(0, base - paid - discount);
+  }, [calculatedBaseAmount, invoiceAmount, discountAmount, isCollectingDue, studentExistingDue]);
 
   useEffect(() => {
+    if (prefilledPayment) return;
     if (calculatedBaseAmount > 0) {
-      setInvoiceAmount(calculatedBaseAmount.toString());
+      const studentDue = selectedStudent ? Number(selectedStudent.dueAmount) : 0;
+      if (studentDue > 0) {
+        // Pre-fill discount from the last real payment record fetched from API
+        if (lastStudentPayment && Number(lastStudentPayment.discountAmount) > 0) {
+          setDiscountAmount(Number(lastStudentPayment.discountAmount).toString());
+        }
+        setInvoiceAmount(studentDue.toString());
+      } else {
+        setInvoiceAmount(calculatedBaseAmount.toString());
+      }
     } else {
       setInvoiceAmount('');
     }
-  }, [calculatedBaseAmount]);
+  }, [calculatedBaseAmount, prefilledPayment, selectedStudent, lastStudentPayment]);
 
   const handleAllocate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,15 +356,23 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       }).unwrap();
 
       if (shouldGenerateInvoice) {
-        const paymentResult = await createPayment({
-          studentProfileId,
-          amount: Number(invoiceAmount),
-          method: paymentMethod,
-          shiftId: shiftId || undefined,
-          durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
-          totalAmount: calculatedBaseAmount,
-          discountAmount: discountAmount || undefined,
-        }).unwrap();
+        let paymentResult;
+        const isSameAmount = prefilledPayment && Number(invoiceAmount) === Number(prefilledPayment.amount);
+        const isSameMethod = prefilledPayment && paymentMethod === prefilledPayment.method;
+
+        if (prefilledPayment && isSameAmount && isSameMethod) {
+          paymentResult = { payment: prefilledPayment };
+        } else {
+          paymentResult = await createPayment({
+            studentProfileId,
+            amount: Number(invoiceAmount),
+            method: paymentMethod,
+            shiftId: shiftId || undefined,
+            durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
+            totalAmount: calculatedBaseAmount,
+            discountAmount: discountAmount || undefined,
+          }).unwrap();
+        }
 
         const student = studentsData?.students?.find((s: any) => s.id === studentProfileId);
         const invoiceInfo = {
@@ -352,7 +438,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         }
       } else {
         showToast('Seat allocated successfully!', 'success');
-        onClose();
+        onSuccess(null);
       }
     } catch (err: any) {
       showToast(err.data?.message || 'Seat allocation failed', 'error');
@@ -411,20 +497,14 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                 />
               </div>
 
-              {studentProfileId && (() => {
-                const selectedStudent = studentsData?.students?.find((s: any) => s.id === studentProfileId);
-                if (selectedStudent && Number(selectedStudent.dueAmount) > 0) {
-                  return (
-                    <div style={{ padding: '8px 12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#991b1b' }}>
-                        ⚠️ Outstanding Dues:
-                      </span>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#991b1b' }}>₹{selectedStudent.dueAmount}</span>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
+              {studentProfileId && selectedStudent && Number(selectedStudent.dueAmount) > 0 && (
+                <div style={{ padding: '8px 12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#991b1b' }}>
+                    ⚠️ Outstanding Dues:
+                  </span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#991b1b' }}>₹{Number(selectedStudent.dueAmount).toFixed(2)}</span>
+                </div>
+              )}
 
               {showStudentDropdown && displayedStudents.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#ffffff', border: '1px solid var(--border-card)', borderRadius: '12px', boxShadow: 'var(--shadow-hover)', zIndex: 1000, marginTop: '4px', maxHeight: '180px', overflowY: 'auto' }}>
@@ -574,32 +654,62 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                     type="number"
                     required
                     value={invoiceAmount}
-                    onChange={(e) => setInvoiceAmount(e.target.value)}
+                    onChange={(e) => {
+                      setPrefilledPayment(null);
+                      setInvoiceAmount(e.target.value);
+                    }}
                     style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: '#ffffff' }}
                   />
-                  {calculatedBaseAmount > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '0' }}>Discount (₹)</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={discountAmount}
-                          onChange={(e) => setDiscountAmount(e.target.value)}
-                          style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', outline: 'none', backgroundColor: '#ffffff', width: '100px', textAlign: 'right' }}
-                        />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
-                        <span style={{ color: 'var(--text-slate)' }}>Total Price: ₹{calculatedBaseAmount}</span>
-                        {dueAmount > 0 ? (
-                          <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>Due: ₹{dueAmount}</span>
-                        ) : (
-                          <span style={{ color: 'var(--status-emerald)', fontWeight: 700 }}>Fully Paid</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
+                {calculatedBaseAmount > 0 && (
+                  <div>
+                    <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Discount (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={discountAmount}
+                      onChange={(e) => {
+                        setPrefilledPayment(null);
+                        setDiscountAmount(e.target.value);
+                      }}
+                      style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: '#ffffff' }}
+                    />
+                  </div>
+                )}
+                {calculatedBaseAmount > 0 && (
+                  <div style={{ borderTop: '1px dashed var(--border-card)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {/* Base row: Outstanding Balance for existing dues, Total Price for new */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                      <span style={{ color: 'var(--text-slate)' }}>{isCollectingDue ? 'Outstanding Balance:' : 'Total Price:'}</span>
+                      <span style={{ color: isCollectingDue ? '#991b1b' : 'var(--text-navy)', fontWeight: 600 }}>
+                        ₹{isCollectingDue ? studentExistingDue.toFixed(2) : calculatedBaseAmount}
+                      </span>
+                    </div>
+                    {/* Discount row: always show when discount field has value > 0 */}
+                    {(parseFloat(discountAmount) || 0) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                        <span style={{ color: 'var(--text-slate)' }}>Discount:</span>
+                        <span style={{ color: '#7c3aed', fontWeight: 600 }}>− ₹{parseFloat(discountAmount)}</span>
+                      </div>
+                    )}
+                    {/* Collected Amount: always show what admin entered */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                      <span style={{ color: 'var(--text-slate)' }}>Collected Amount:</span>
+                      <span style={{ color: 'var(--text-navy)', fontWeight: 600 }}>₹{parseFloat(invoiceAmount) || 0}</span>
+                    </div>
+                    {/* Due / Fully Paid */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', borderTop: '1px solid var(--border-card)', paddingTop: '6px', marginTop: '2px' }}>
+                      <span style={{ fontWeight: 700, color: dueAmount > 0 ? '#991b1b' : 'var(--status-emerald)' }}>
+                        {dueAmount > 0 ? 'Due Amount:' : 'Status:'}
+                      </span>
+                      {dueAmount > 0 ? (
+                        <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>₹{dueAmount}</span>
+                      ) : (
+                        <span style={{ color: 'var(--status-emerald)', fontWeight: 700 }}>✅ Fully Paid</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '16px', border: '1px dashed var(--border-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '140px' }}>

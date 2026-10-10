@@ -39,7 +39,7 @@ export default function SuperAdminLogin() {
       }
       
       dispatch(setCredentials(res));
-      navigate('/super-admin');
+      navigate('/super-admin', { replace: true });
     } catch (err: any) {
       setError(err?.data?.message || 'Login failed. Check your credentials.');
     }

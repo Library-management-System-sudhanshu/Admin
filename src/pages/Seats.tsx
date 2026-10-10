@@ -1912,32 +1912,35 @@ export default function Seats() {
   // Handle seat clicks
   const handleSeatClick = (seat: any) => {
     setSelectedSeat(seat);
+
+    // If allocating for a preselected student, ONLY open the AllocateSeatModal popup and do NOT open drawer
+    if (preselectedStudent) {
+      if (seat.status === 'BLOCKED') {
+        showToast('This seat is blocked/maintenance and cannot be allocated.', 'warning');
+        return;
+      }
+      setIsDrawerOpen(false);
+      setOpenAllocateModal(true);
+      return;
+    }
+
     setDrawerActiveSection('DETAILS');
     setIsDrawerOpen(true);
     setIsDetailsExpanded(false);
 
     if (seat.status === 'AVAILABLE') {
-      const baseDate = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
+      const baseDate = formatYYYYMMDD(new Date());
       setStartDate(baseDate);
       const end = new Date(baseDate);
       end.setMonth(end.getMonth() + 1);
       setEndDate(formatYYYYMMDD(end));
-      if (preselectedStudent) {
-        setStudentProfileId(preselectedStudent.id);
-        setStudentSearchQuery(preselectedStudent.name);
-      } else {
-        setStudentProfileId('');
-        setStudentSearchQuery('');
-      }
+      setStudentProfileId('');
+      setStudentSearchQuery('');
       setShiftId('');
       setDurationMode(1);
       setShouldGenerateInvoice(true);
       setInvoiceAmount('');
       setPaymentMethod('CASH');
-
-      if (preselectedStudent) {
-        setOpenAllocateModal(true);
-      }
     } else if (seat.status === 'OCCUPIED') {
       const activeAllocations = seat.allocations?.filter((a: any) => a.isActive) || [];
       if (activeAllocations.length > 0) {
@@ -1957,53 +1960,12 @@ export default function Seats() {
       setRenewAmount('');
       setRenewDuration(1);
       setRenewPaymentMethod('UPI');
-
-      if (preselectedStudent) {
-        const baseDate = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
-        setStartDate(baseDate);
-        const end = new Date(baseDate);
-        end.setMonth(end.getMonth() + 1);
-        setEndDate(formatYYYYMMDD(end));
-        setStudentProfileId(preselectedStudent.id);
-        setStudentSearchQuery(preselectedStudent.name);
-        setShiftId('');
-        setDurationMode(1);
-        setShouldGenerateInvoice(true);
-        setInvoiceAmount('');
-        setPaymentMethod('CASH');
-
-        setOpenAllocateModal(true);
-      }
     }
   };
 
   const handleOpenAllocateModal = () => {
     if (!selectedSeat) return;
-    const baseDate = formatYYYYMMDD(preselectedStudent?.joiningDate) || formatYYYYMMDD(new Date());
-    setStartDate(baseDate);
-    const end = new Date(baseDate);
-    end.setMonth(end.getMonth() + 1);
-    setEndDate(formatYYYYMMDD(end));
-    if (preselectedStudent) {
-      setStudentProfileId(preselectedStudent.id);
-      setStudentSearchQuery(preselectedStudent.name);
-    } else {
-      setStudentProfileId('');
-      setStudentSearchQuery('');
-    }
-    
-    // Find active allocations to get booked shifts
-    const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
-    const bookedShiftIds = activeAllocations.map((a: any) => a.shiftId || a.shift?.id);
-    
-    // Filter available shifts
-    const availableShifts = shifts?.filter((s: any) => !bookedShiftIds.includes(s.id)) || [];
-    
-    setShiftId('');
-    setDurationMode(1);
-    setShouldGenerateInvoice(true);
-    setInvoiceAmount('');
-    setPaymentMethod('CASH');
+    setIsDrawerOpen(false);
     setOpenAllocateModal(true);
   };
 

@@ -3,7 +3,8 @@ import AdminTheme from '../theme/AdminTheme';
 import { PageBoundary } from './PageBoundary';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import ProtectedRoute from '../components/ProtectedRoute';
+import AuthenticatedRoute from '../components/AuthenticatedRoute';
+import UnauthenticatedRoute from '../components/UnauthenticatedRoute';
 import Login from '../pages/Login';
 import SuperAdminLayout from '../pages/super-admin/SuperAdminLayout';
 import SuperAdminLogin from '../pages/super-admin/SuperAdminLogin';
@@ -51,29 +52,41 @@ export default function AppRoutes() {
   return (
     <PageBoundary animate={false}>
       <Routes>
-        {/* The homepage owns its light navigation and footer. */}
-        <Route path="/" element={<Home />} />
+        {/* =========================================================
+            1. UNAUTHENTICATED ROUTES (UnauthRoute)
+            Accessible before login. If an already-authenticated user
+            visits these or taps Back from dashboard, they are bounced
+            straight to their dashboard.
+           ========================================================= */}
+        <Route element={<UnauthenticatedRoute />}>
+          {/* Landing homepage */}
+          <Route path="/" element={<Home />} />
 
-        {/* Public Landing Routes */}
-        <Route element={<LandingLayout />}>
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/features" element={<Features />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/refund" element={<Refund />} />
-          <Route path="/cookies" element={<Cookies />} />
-          <Route path="/help" element={<Help />} />
-          <Route path="/coming-soon" element={<ComingSoon />} />
-          <Route path="/404" element={<NotFound />} />
+          {/* Public marketing pages */}
+          <Route element={<LandingLayout />}>
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/features" element={<Features />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/refund" element={<Refund />} />
+            <Route path="/cookies" element={<Cookies />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/coming-soon" element={<ComingSoon />} />
+          </Route>
+
+          {/* Auth pages */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/super-admin/login" element={<SuperAdminLogin />} />
         </Route>
 
-        <Route path="/login" element={<Login />} />
-        <Route path="/super-admin/login" element={<SuperAdminLogin />} />
-
-        {/* Protected Routes */}
-        <Route element={<ProtectedRoute />}>
+        {/* =========================================================
+            2. AUTHENTICATED ROUTES (AuthRoute)
+            Protected workspace routes requiring active authentication.
+            Unauthenticated users are redirected to /login.
+           ========================================================= */}
+        <Route element={<AuthenticatedRoute />}>
           <Route element={<AdminTheme />}>
             <Route path="/setup-workspace" element={<SetupWorkspace />} />
 
@@ -94,7 +107,7 @@ export default function AppRoutes() {
             </Route>
 
             {/* Super Admin Layout */}
-            <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+            <Route element={<AuthenticatedRoute allowedRoles={['SUPER_ADMIN']} />}>
               <Route element={<SuperAdminLayout />}>
                 <Route path="/super-admin" element={<SuperAdminDashboard />} />
                 <Route path="/super-admin/workspaces" element={<WorkspacesList />} />
@@ -111,6 +124,9 @@ export default function AppRoutes() {
             </Route>
           </Route>
         </Route>
+
+        {/* Common / Fallback */}
+        <Route path="/404" element={<NotFound />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Routes>
     </PageBoundary>

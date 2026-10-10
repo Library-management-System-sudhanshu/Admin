@@ -119,7 +119,7 @@ export default function SetupWorkspace() {
         accessToken: res.accessToken || token || '',
       }));
 
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
       setApiError(err?.data?.message || 'Failed to complete workspace setup. Please try again.');
     }

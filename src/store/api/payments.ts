@@ -9,6 +9,13 @@ export const paymentsApi = baseApi.injectEndpoints({
       }),
       providesTags: ['Payments'],
     }),
+    getStudentPayments: builder.query({
+      query: (studentProfileId: string) => ({
+        url: 'payments',
+        params: { studentProfileId },
+      }),
+      providesTags: (_result, _error, id) => [{ type: 'Payments', id }],
+    }),
     getCollectionReport: builder.query({
       query: (range) => `payments/report?range=${range}`,
       providesTags: ['Payments'],
@@ -42,8 +49,10 @@ export const paymentsApi = baseApi.injectEndpoints({
 
 export const {
   useGetPaymentsQuery,
+  useGetStudentPaymentsQuery,
   useGetCollectionReportQuery,
   useCreatePaymentMutation,
   useRecordManualPaymentMutation,
   useVerifyRazorpayMutation
 } = paymentsApi;
+
