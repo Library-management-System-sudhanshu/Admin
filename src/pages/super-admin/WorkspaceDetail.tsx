@@ -9,6 +9,7 @@ import {
 } from '../../store/api';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/ToastContext';
+import { useAlert } from '../../components/ui/AlertContext';
 import { 
   ArrowLeft, 
   Building2, 
@@ -26,6 +27,7 @@ export default function WorkspaceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { showAlert } = useAlert();
 
   const { data: workspace, isLoading, error } = useGetWorkspaceByIdQuery(id!, { skip: !id });
   const { data: students = [] } = useGetStudentsQuery({ workspaceId: id }, { skip: !id });
@@ -34,13 +36,22 @@ export default function WorkspaceDetail() {
 
   const handleDeleteWorkspace = async () => {
     if (!workspace) return;
-    if (!window.confirm(`Are you sure you want to completely delete the workspace "${workspace.name}"? All data will be permanently erased. This action cannot be undone.`)) return;
+    const confirmed = await showAlert(
+      `Are you sure you want to completely delete "${workspace.name}"? All branch, room, seat, and student data will be permanently erased. This action cannot be undone.`,
+      {
+        title: 'Delete Workspace',
+        confirmText: 'Delete Permanently',
+        cancelText: 'Cancel',
+        type: 'danger',
+      }
+    );
+    if (!confirmed) return;
     try {
       await deleteWorkspace(id!).unwrap();
       showToast('Workspace deleted successfully.', 'success');
       navigate('/super-admin/workspaces');
-    } catch (err) {
-      showToast('Failed to delete workspace.', 'error');
+    } catch (err: any) {
+      showToast(err?.data?.message || 'Failed to delete workspace.', 'error');
     }
   };
 

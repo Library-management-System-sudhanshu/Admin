@@ -10,6 +10,7 @@ import { DatePicker } from './ui/DatePicker';
 import { useToast } from './ui/ToastContext';
 import { Search } from 'lucide-react';
 import { formatYYYYMMDD, addMonthsToDate, addDaysToDate, formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
+import { getStudentDisplayName, getStudentEmail, getStudentMobile } from '../utils/studentUtils';
 interface AllocateSeatModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -115,7 +116,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         setStudentProfileId(preselectedStudentId);
         const student = studentsData?.students?.find((s: any) => s.id === preselectedStudentId);
         if (student) {
-          setStudentSearchQuery(student.user?.name || '');
+          setStudentSearchQuery(getStudentDisplayName(student));
         }
       } else {
         setStudentProfileId('');
@@ -259,10 +260,13 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       if (allocatedIds.has(student.id)) return false;
 
       if (!query) return true;
+      const displayName = getStudentDisplayName(student).toLowerCase();
+      const mobile = getStudentMobile(student);
+      const email = getStudentEmail(student).toLowerCase();
       return (
-        student.user?.name?.toLowerCase().includes(query) ||
-        student.user?.mobile?.includes(query) ||
-        student.user?.email?.toLowerCase().includes(query)
+        displayName.includes(query) ||
+        mobile.includes(query) ||
+        email.includes(query)
       );
     });
   }, [studentsData, studentSearchQuery, seatMap]);
@@ -421,9 +425,9 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
               }
             },
             prefill: {
-              name: student?.user?.name || '',
-              email: student?.user?.email || '',
-              contact: student?.user?.mobile || '',
+              name: getStudentDisplayName(student),
+              email: getStudentEmail(student) === 'N/A' ? '' : getStudentEmail(student),
+              contact: getStudentMobile(student) === 'N/A' ? '' : getStudentMobile(student),
             },
             theme: {
               color: '#2563eb',
@@ -469,7 +473,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                   <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
                     {activeAllocations.map((alloc: any) => (
                       <li key={alloc.id}>
-                        <strong>{alloc.shift?.name}</strong>: {alloc.studentProfile?.user?.name}
+                        <strong>{alloc.shift?.name}</strong>: {getStudentDisplayName(alloc.studentProfile)}
                       </li>
                     ))}
                   </ul>
@@ -514,14 +518,14 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                       onMouseDown={(e) => {
                         e.preventDefault();
                         setStudentProfileId(st.id);
-                        setStudentSearchQuery(st.user?.name || '');
+                        setStudentSearchQuery(getStudentDisplayName(st));
                         setShowStudentDropdown(false);
                       }}
                       style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{st.user?.name}</span>
-                        <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{st.user?.email || 'No email'} • {st.user?.mobile || 'No mobile'}</span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{getStudentDisplayName(st)}</span>
+                        <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{getStudentEmail(st)} • {getStudentMobile(st)}</span>
                       </div>
                       {Number(st.dueAmount) > 0 && (
                         <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--status-red)', backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '2px 6px', borderRadius: '6px', whiteSpace: 'nowrap' }}>

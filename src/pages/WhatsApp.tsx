@@ -33,6 +33,8 @@ import {
   Tab,
 } from '@mui/material';
 import { Button } from '../components/ui/Button';
+import { useToast } from '../components/ui/ToastContext';
+import { getErrorMessage } from '../utils/errorUtils';
 import { Send } from 'lucide-react';
 
 const inputStyle = {
@@ -69,6 +71,7 @@ const WHATSAPP_WINDOW_NAME = 'StudyFlowWhatsAppWindow';
 
 export default function WhatsApp() {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showToast } = useToast();
   const [tab, setTab] = useState(0);
 
   const { data: templates, isLoading: templatesLoading } = useGetWhatsAppTemplatesQuery({});
@@ -162,7 +165,7 @@ export default function WhatsApp() {
     let phone = student.user?.mobile ? student.user.mobile.replace(/\D/g, '') : '';
 
     if (!phone) {
-      alert('This student has no mobile number on file.');
+      showToast('This student has no mobile number on file.', 'error');
       return;
     }
     if (phone.length === 10) {
@@ -178,7 +181,7 @@ export default function WhatsApp() {
     if (win) {
       win.focus();
     } else {
-      alert('Popup blocked — please allow popups for this site to send via WhatsApp Web.');
+      showToast('Popup blocked — please allow popups for this site to send via WhatsApp Web.', 'warning');
     }
   };
 
@@ -198,7 +201,7 @@ export default function WhatsApp() {
   const handleCreateTemplateSubmit = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!newTemplateName.trim() || !newTemplateText.trim()) {
-      alert('Please fill out all fields.');
+      showToast('Please fill out all fields.', 'error');
       return;
     }
 
@@ -208,12 +211,12 @@ export default function WhatsApp() {
         text: newTemplateText,
       }).unwrap();
 
-      alert('Custom template created successfully!');
+      showToast('Custom template created successfully!', 'success');
       setIsTemplateModalOpen(false);
       setNewTemplateName('');
       setNewTemplateText('');
     } catch (err: any) {
-      alert(err?.data?.message || 'Failed to create template');
+      showToast(getErrorMessage(err, 'Failed to create template'), 'error');
     }
   };
 
@@ -223,7 +226,7 @@ export default function WhatsApp() {
 
     const selectedIds = Object.keys(selectedStudentIds).filter((key) => selectedStudentIds[key]);
     if (selectedIds.length === 0) {
-      alert('Please select at least one student.');
+      showToast('Please select at least one student.', 'error');
       return;
     }
 
@@ -248,7 +251,7 @@ export default function WhatsApp() {
         },
         studentIds: selectedIds,
       }).unwrap();
-      alert('Broadcast dispatch triggered successfully!');
+      showToast('Broadcast dispatch triggered successfully!', 'success');
       // Reset variables
       setAmount('');
       setDueDate('');
@@ -261,7 +264,7 @@ export default function WhatsApp() {
       setCustomVars({});
       setFetchTrigger(false);
     } catch (err) {
-      alert('Broadcast failed');
+      showToast(getErrorMessage(err, 'Broadcast failed'), 'error');
     }
   };
 

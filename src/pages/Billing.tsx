@@ -60,6 +60,7 @@ import { styled, keyframes } from '@mui/material/styles';
 import { Search, Download, TrendingUp, WalletCards, SlidersHorizontal, RotateCcw, ArrowUpRight, Info } from 'lucide-react';
 import './Billing.css';
 import { formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
+import { getStudentDisplayName, getStudentInitials, getStudentMobile } from '../utils/studentUtils';
 // Fade‑in animation for table rows
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
@@ -359,7 +360,7 @@ export default function Billing() {
       // 1. Search Query (Student name or Invoice ID)
       if (searchQuery.trim()) {
         const query = searchQuery.trim().toLowerCase();
-        const studentName = payment.studentProfile?.user?.name?.toLowerCase() || '';
+        const studentName = getStudentDisplayName(payment.studentProfile).toLowerCase();
         const invoiceId = `inv-${payment.id.substring(0, 8).toLowerCase()}`;
         if (!studentName.includes(query) && !invoiceId.includes(query)) {
           return false;
@@ -431,7 +432,7 @@ export default function Billing() {
     // Map rows
     const rows = filteredPayments.map((payment: any) => [
       `INV-${payment.id.substring(0, 8).toUpperCase()}`,
-      payment.studentProfile?.user?.name || 'N/A',
+      getStudentDisplayName(payment.studentProfile),
       payment.amount,
       payment.method,
       new Date(payment.createdAt).toLocaleDateString(),
@@ -928,7 +929,7 @@ export default function Billing() {
                           INV-{payment.id.substring(0, 8).toUpperCase()}
                         </TableCell>
                         <TableCell sx={{ fontSize: '0.9rem', fontWeight: 500 }}>
-                          {payment.studentProfile?.user?.name}
+                          {getStudentDisplayName(payment.studentProfile)}
                         </TableCell>
                         <TableCell sx={{ fontWeight: 600, fontSize: '0.9rem' }}>₹{payment.amount}</TableCell>
                         <TableCell>
@@ -1183,7 +1184,7 @@ export default function Billing() {
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Autocomplete
               options={studentsData?.students || []}
-              getOptionLabel={(option: any) => option.user?.name || ''}
+              getOptionLabel={(option: any) => getStudentDisplayName(option)}
               value={studentsData?.students.find((s: any) => s.id === studentProfileId) || null}
               onChange={(_event: any, newValue: any | null) => {
                 setStudentProfileId(newValue ? newValue.id : '');
@@ -1775,14 +1776,14 @@ export default function Billing() {
                   justifyContent: 'center',
                   flexShrink: 0
                 }}>
-                  {!selectedPayment.studentProfile?.user?.avatar && selectedPayment.studentProfile?.user?.name?.charAt(0).toUpperCase()}
+                  {!selectedPayment.studentProfile?.user?.avatar && getStudentInitials(selectedPayment.studentProfile)}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
                   <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {selectedPayment.studentProfile?.user?.name}
+                    {getStudentDisplayName(selectedPayment.studentProfile)}
                   </span>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', marginTop: '2px' }}>
-                    {selectedPayment.studentProfile?.user?.mobile}
+                    {getStudentMobile(selectedPayment.studentProfile)}
                   </span>
                 </div>
               </div>

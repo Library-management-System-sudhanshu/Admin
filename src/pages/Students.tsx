@@ -16,6 +16,7 @@ import {
   useGetShiftsQuery,
   useVacateSeatMutation,
   useAllocateSeatMutation,
+  useUpdateAllocationMutation,
   useCreatePaymentMutation,
   useClearStudentDuesMutation,
   useUploadImageMutation,
@@ -53,36 +54,18 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
-
-const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64Str;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width = Math.round((width * maxHeight) / height);
-          height = maxHeight;
-        }
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.7));
-    };
-  });
-};
+import { compressImage } from '../utils/imageUtils';
+import { getDaysRemainingText } from '../utils/seatUtils';
+import { StudentIDCardModal } from '../features/students';
+import { getErrorMessage } from '../utils/errorUtils';
+import { isValidEmail } from '../utils/validators';
+import {
+  getStudentDisplayName,
+  getStudentInitials,
+  getStudentEmail,
+  getStudentMobile,
+  getStudentBranchName,
+} from '../utils/studentUtils';
 
 export default function Students() {
   const { showToast } = useToast();
@@ -93,19 +76,6 @@ export default function Students() {
 
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
-
-  const getDaysRemainingText = (endDateStr: string) => {
-    if (!endDateStr) return 'No end date';
-    const end = new Date(endDateStr);
-    const today = new Date();
-    end.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    const diffTime = end.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) return 'Expired';
-    if (diffDays === 0) return 'Ends today';
-    return `${diffDays} days remaining`;
-  };
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
@@ -173,12 +143,15 @@ export default function Students() {
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editMobile, setEditMobile] = useState('');
-  const [editPassword, setEditPassword] = useState('');
   const [editGuardianName, setEditGuardianName] = useState('');
   const [editGuardianMobile, setEditGuardianMobile] = useState('');
   const [editAadharNumber, setEditAadharNumber] = useState('');
   const [editBranchId, setEditBranchId] = useState('');
-  const [editJoiningDate, setEditJoiningDate] = useState('');
+  const [editSubscriptionStart, setEditSubscriptionStart] = useState('');
+  const [editSubscriptionEnd, setEditSubscriptionEnd] = useState('');
+  const [editDurationMonths, setEditDurationMonths] = useState<number | 'custom'>(1);
+  const [editAllocationId, setEditAllocationId] = useState<string | null>(null);
+  const [editingActiveAllocation, setEditingActiveAllocation] = useState<any>(null);
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [showPasswordInDrawer, setShowPasswordInDrawer] = useState(false);
 
@@ -246,6 +219,7 @@ export default function Students() {
 
   const [_createStudent] = useCreateStudentMutation();
   const [updateStudent, { isLoading: isUpdating }] = useUpdateStudentMutation();
+  const [updateAllocation, { isLoading: isUpdatingAllocation }] = useUpdateAllocationMutation();
   const [updateStatus] = useUpdateStudentStatusMutation();
   const [uploadImage, { isLoading: isUploadingImage }] = useUploadImageMutation();
 
@@ -305,18 +279,67 @@ export default function Students() {
 
 
   const handleOpenEdit = (student: any) => {
-    setEditingStudent(student);
-    setEditName(student.user?.name || '');
-    setEditEmail(student.user?.email || '');
-    setEditMobile(student.user?.mobile || '');
-    setEditPassword(student.user?.rawPassword || 'Student@123');
-    setEditGuardianName(student.guardianName || '');
-    setEditGuardianMobile(student.guardianMobile || '');
-    setEditAadharNumber(student.aadharNumber || '');
-    setEditBranchId(student.branchId || '');
-    setEditJoiningDate(formatYYYYMMDD(student.joiningDate));
+    const targetStudent = (fullStudent && fullStudent.id === student.id) ? fullStudent : student;
+    setEditingStudent(targetStudent);
+    const resolvedName = targetStudent.user?.name || targetStudent.displayName || targetStudent.name || '';
+    const resolvedEmail = targetStudent.user?.email || targetStudent.contactEmail || targetStudent.email || '';
+    const resolvedMobile = targetStudent.user?.mobile || targetStudent.contactMobile || targetStudent.mobile || '';
+    setEditName(resolvedName);
+    setEditEmail(resolvedEmail);
+    setEditMobile(resolvedMobile);
+    setEditGuardianName(targetStudent.guardianName || '');
+    setEditGuardianMobile(targetStudent.guardianMobile || '');
+    setEditAadharNumber(targetStudent.aadharNumber || '');
+    setEditBranchId(targetStudent.branchId || '');
+
+    const activeAlloc = targetStudent.allocations?.find((a: any) => a.isActive) || targetStudent.allocations?.[0];
+    setEditingActiveAllocation(activeAlloc || null);
+    if (activeAlloc) {
+      setEditAllocationId(activeAlloc.id);
+      const startStr = formatYYYYMMDD(activeAlloc.startDate);
+      const endStr = formatYYYYMMDD(activeAlloc.endDate);
+      setEditSubscriptionStart(startStr);
+      setEditSubscriptionEnd(endStr);
+      if (startStr && endStr) {
+        const s = new Date(startStr);
+        const e = new Date(endStr);
+        const diffMonths = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24 * 30));
+        setEditDurationMonths(diffMonths > 0 ? diffMonths : 1);
+      } else {
+        setEditDurationMonths(1);
+      }
+    } else {
+      setEditAllocationId(null);
+      setEditSubscriptionStart('');
+      setEditSubscriptionEnd('');
+      setEditDurationMonths(1);
+    }
+
     setEditErrors({});
     setOpenEdit(true);
+  };
+
+  const handleSubscriptionStartChange = (val: string) => {
+    setEditSubscriptionStart(val);
+    if (val) {
+      const months = typeof editDurationMonths === 'number' ? editDurationMonths : 1;
+      const calculatedEnd = addMonthsToDate(val, months);
+      setEditSubscriptionEnd(calculatedEnd);
+    }
+    if (editErrors.subscriptionStart || editErrors.subscriptionEnd) {
+      setEditErrors(prev => ({ ...prev, subscriptionStart: '', subscriptionEnd: '' }));
+    }
+  };
+
+  const handleDurationPresetClick = (months: number) => {
+    setEditDurationMonths(months);
+    if (editSubscriptionStart) {
+      const calculatedEnd = addMonthsToDate(editSubscriptionStart, months);
+      setEditSubscriptionEnd(calculatedEnd);
+    }
+    if (editErrors.subscriptionEnd) {
+      setEditErrors(prev => ({ ...prev, subscriptionEnd: '' }));
+    }
   };
 
   const handleEditStudent = async (e: React.FormEvent) => {
@@ -324,9 +347,21 @@ export default function Students() {
     const newErrors: Record<string, string> = {};
     if (!editName.trim()) newErrors.name = 'Name is required';
     if (!editEmail.trim()) newErrors.email = 'Email is required';
+    else if (!isValidEmail(editEmail.trim())) newErrors.email = 'Invalid email address';
     if (!editMobile.trim()) newErrors.mobile = 'Mobile is required';
-    if (editPassword && editPassword.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+
+    if (editAllocationId) {
+      if (!editSubscriptionStart) {
+        newErrors.subscriptionStart = 'Subscription Start date is required';
+      }
+      if (!editSubscriptionEnd) {
+        newErrors.subscriptionEnd = 'Subscription End date is required';
+      }
+      if (editSubscriptionStart && editSubscriptionEnd) {
+        if (new Date(editSubscriptionEnd).getTime() <= new Date(editSubscriptionStart).getTime()) {
+          newErrors.subscriptionEnd = 'Subscription End must be after Subscription Start';
+        }
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -340,18 +375,25 @@ export default function Students() {
         name: editName,
         email: editEmail,
         mobile: editMobile,
-        password: editPassword || undefined,
         guardianName: editGuardianName,
         guardianMobile: editGuardianMobile,
         aadharNumber: editAadharNumber,
         branchId: editBranchId,
-        joiningDate: editJoiningDate,
       }).unwrap();
+
+      if (editAllocationId && editSubscriptionStart && editSubscriptionEnd) {
+        await updateAllocation({
+          id: editAllocationId,
+          startDate: editSubscriptionStart,
+          endDate: editSubscriptionEnd,
+        }).unwrap();
+      }
+
+      showToast('Student details updated successfully!', 'success');
       setOpenEdit(false);
       setEditingStudent(null);
-      setEditPassword('');
-    } catch (err) {
-      alert('Error updating student');
+    } catch (err: any) {
+      showToast(getErrorMessage(err, 'Error updating student'), 'error');
     }
   };
 
@@ -677,6 +719,31 @@ export default function Students() {
             <RotateCcw size={13} /> Reset
           </button>
         )}
+
+        {/* Primary Add Student Action */}
+        <button
+          type="button"
+          onClick={() => navigate('/new-admission')}
+          style={{
+            marginLeft: 'auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '0.45rem 0.95rem',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            borderRadius: '0.5rem',
+            border: 'none',
+            color: '#ffffff',
+            backgroundColor: 'var(--accent-blue)',
+            boxShadow: '0 1px 3px rgba(37, 99, 235, 0.25)',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            transition: 'all 150ms ease'
+          }}
+        >
+          <Plus size={15} /> Add Student
+        </button>
       </div>
 
       <QueryFeedback error={error} fetching={isFetching && !!data} onRetry={refetch} />
@@ -692,37 +759,84 @@ export default function Students() {
                 <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Contact Info</th>
                 <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)', whiteSpace: 'nowrap' }}>Seat & Shift</th>
                 <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Aadhar Card</th>
-                <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Admission Date</th>
+                <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)', whiteSpace: 'nowrap' }}>Subscription & Expiry</th>
                 <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-slate)' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                      <Users size={36} style={{ opacity: 0.3 }} />
-                      <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-navy)' }}>No students found matching your criteria</span>
-                      <span style={{ fontSize: '0.775rem' }}>Try adjusting your search terms or filter selection.</span>
-                      {hasActiveFilters && (
-                        <button
-                          type="button"
-                          onClick={handleResetFilters}
-                          style={{
-                            marginTop: '0.5rem',
-                            padding: '0.4rem 0.9rem',
-                            fontSize: '0.775rem',
-                            fontWeight: 600,
-                            borderRadius: '0.5rem',
-                            border: '1px solid var(--accent-blue)',
-                            color: 'var(--accent-blue)',
-                            backgroundColor: 'rgba(37, 99, 235, 0.05)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Clear All Filters
-                        </button>
-                      )}
+                  <td colSpan={6} style={{ padding: '3.5rem 1rem', textAlign: 'center', color: 'var(--text-slate)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.65rem', maxWidth: '380px', margin: '0 auto' }}>
+                      <div
+                        style={{
+                          width: '52px',
+                          height: '52px',
+                          borderRadius: '50%',
+                          backgroundColor: '#F1F5F9',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#64748B',
+                          marginBottom: '0.2rem'
+                        }}
+                      >
+                        <Users size={26} />
+                      </div>
+                      <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-navy)' }}>
+                        {hasActiveFilters ? 'No students found matching your filters' : 'No students found'}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', color: '#64748B', lineHeight: 1.45 }}>
+                        {hasActiveFilters
+                          ? 'No records match your selected filter criteria. Clear your filters to view all students.'
+                          : 'No students have been enrolled in this library yet. Get started by admitting a new student.'}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {hasActiveFilters ? (
+                          <button
+                            type="button"
+                            onClick={handleResetFilters}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '0.5rem 1.15rem',
+                              fontSize: '0.825rem',
+                              fontWeight: 600,
+                              borderRadius: '0.5rem',
+                              border: '1px solid var(--border-card)',
+                              color: 'var(--text-navy)',
+                              backgroundColor: '#F8FAFC',
+                              cursor: 'pointer',
+                              transition: 'all 150ms ease'
+                            }}
+                          >
+                            <RotateCcw size={14} /> Clear All Filters
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => navigate('/new-admission')}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '0.5rem 1.15rem',
+                              fontSize: '0.825rem',
+                              fontWeight: 600,
+                              borderRadius: '0.5rem',
+                              border: 'none',
+                              color: '#ffffff',
+                              backgroundColor: 'var(--accent-blue)',
+                              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
+                              cursor: 'pointer',
+                              transition: 'all 150ms ease'
+                            }}
+                          >
+                            <Plus size={16} /> Add Student
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -759,7 +873,7 @@ export default function Students() {
                               height: '34px',
                               border: `2px solid ${avatarBorderColor}`, 
                               boxSizing: 'border-box',
-                              background: student.user?.avatar ? `url(${student.user.avatar}) no-repeat center center / cover` : undefined,
+                              background: (student.user?.avatar || student.avatar) ? `url(${student.user?.avatar || student.avatar}) no-repeat center center / cover` : undefined,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -767,14 +881,14 @@ export default function Students() {
                               fontWeight: 700
                             }}
                           >
-                            {!student.user?.avatar && student.user?.name?.charAt(0).toUpperCase()}
+                            {!(student.user?.avatar || student.avatar) && getStudentInitials(student)}
                           </div>
                           <div>
                             <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-navy)', lineHeight: 1.2 }}>
-                              {student.user?.name}
+                              {getStudentDisplayName(student)}
                             </div>
                             <div style={{ fontSize: '0.725rem', color: 'var(--text-slate)', marginTop: '2px' }}>
-                              {student.branch?.name || 'No Branch'}
+                              {getStudentBranchName(student, branches)}
                             </div>
                           </div>
 
@@ -834,13 +948,13 @@ export default function Students() {
                       <td style={{ padding: '0.6rem 1rem' }}>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-navy)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <Mail size={12} style={{ color: '#94A3B8', flexShrink: 0 }} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }} title={student.user?.email}>
-                            {student.user?.email || 'N/A'}
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }} title={getStudentEmail(student)}>
+                            {getStudentEmail(student)}
                           </span>
                         </div>
                         <div style={{ fontSize: '0.725rem', color: 'var(--text-slate)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <Phone size={11} style={{ color: '#94A3B8', flexShrink: 0 }} />
-                          {student.user?.mobile || 'N/A'}
+                          {getStudentMobile(student)}
                         </div>
                       </td>
 
@@ -941,8 +1055,39 @@ export default function Students() {
                         )}
                       </td>
 
-                      <td style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', color: 'var(--text-navy)' }}>
-                        {student.joiningDate ? new Date(student.joiningDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                      <td style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                        {(() => {
+                          const activeAlloc = student.allocations?.find((a: any) => a.isActive);
+                          if (!activeAlloc) {
+                            return (
+                              <span style={{ fontStyle: 'italic', fontSize: '0.75rem', color: 'var(--text-slate)' }}>
+                                No active seat
+                              </span>
+                            );
+                          }
+                          const end = new Date(activeAlloc.endDate);
+                          const today = new Date();
+                          end.setHours(0, 0, 0, 0);
+                          today.setHours(0, 0, 0, 0);
+                          const isExpired = end.getTime() < today.getTime();
+
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>
+                                  {new Date(activeAlloc.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                </span>
+                                <span style={{ color: 'var(--text-slate)', fontSize: '0.75rem' }}>→</span>
+                                <span style={{ fontWeight: 700, color: isExpired ? 'var(--status-red)' : 'var(--text-navy)' }}>
+                                  {new Date(activeAlloc.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </span>
+                              </div>
+                              <span style={{ fontSize: '0.7rem', color: isExpired ? 'var(--status-red)' : 'var(--text-slate)', fontWeight: 500 }}>
+                                {getDaysRemainingText(activeAlloc.endDate)}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       <td style={{ padding: '0.6rem 1rem', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
@@ -1096,85 +1241,13 @@ export default function Students() {
 
 
       {/* ID Card Modal */}
-      <Modal
+      <StudentIDCardModal
         isOpen={openCard}
         onClose={() => setOpenCard(false)}
-        title="Student ID Card"
-        maxWidth="sm"
-      >
-        {selectedStudent && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem' }}>
-            <Card
-              style={{
-                width: '320px',
-                border: '2px solid var(--primary)',
-                borderRadius: '1rem',
-                overflow: 'hidden',
-                boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
-                backgroundColor: '#ffffff',
-                color: '#0f172a'
-              }}
-            >
-              {/* Card Header */}
-              <div style={{ backgroundColor: 'var(--primary)', padding: '1rem', textAlign: 'center', color: '#ffffff' }}>
-                <h3 style={{ margin: 0, fontWeight: 700, fontSize: '1.125rem' }}>{user?.workspace?.name?.toUpperCase() || 'N/A'}</h3>
-                <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>Digital Student Badge</span>
-              </div>
-
-              {/* Card Body */}
-              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 600, marginBottom: '1rem' }}>
-                  {selectedStudent.user?.name?.charAt(0).toUpperCase()}
-                </div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.25rem 0' }}>
-                  {selectedStudent.user?.name}
-                </h2>
-                <p style={{ margin: '0 0 1rem 0', color: '#64748b', fontSize: '0.875rem' }}>
-                  ID: SF-{selectedStudent.id.substring(0, 8).toUpperCase()}
-                </p>
-
-                {/* Details list */}
-                <div style={{
-                  width: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                  marginBottom: '1.5rem',
-                  borderTop: '1px solid #f1f5f9',
-                  borderBottom: '1px solid #f1f5f9',
-                  padding: '1rem 0',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
-                    <span style={{ color: '#64748b', fontWeight: 500 }}>Mobile</span>
-                    <span style={{ color: '#0f172a', fontWeight: 600 }}>{selectedStudent.user?.mobile}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
-                    <span style={{ color: '#64748b', fontWeight: 500 }}>Email</span>
-                    <span style={{ color: '#0f172a', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }} title={selectedStudent.user?.email}>{selectedStudent.user?.email}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
-                    <span style={{ color: '#64748b', fontWeight: 500 }}>Branch</span>
-                    <span style={{ color: '#0f172a', fontWeight: 600 }}>{selectedStudent.branch?.name || 'N/A'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
-                    <span style={{ color: '#64748b', fontWeight: 500 }}>Admission</span>
-                    <span style={{ color: '#0f172a', fontWeight: 600 }}>{new Date(selectedStudent.joiningDate).toLocaleDateString()}</span>
-                  </div>
-                </div>
-
-                {/* QR Code */}
-                {selectedStudent.qrCodeUrl && (
-                  <img
-                    src={selectedStudent.qrCodeUrl}
-                    alt="QR Code"
-                    style={{ width: 120, height: 120, border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}
-                  />
-                )}
-              </div>
-            </Card>
-          </div>
-        )}
-      </Modal>
+        student={selectedStudent}
+        workspaceName={user?.workspace?.name}
+        branches={branches}
+      />
 
       {/* Edit Student Modal */}
       <Modal
@@ -1208,14 +1281,6 @@ export default function Students() {
               error={editErrors.mobile}
               onChange={(e) => setEditMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
             />
-            <Input
-              label="New Password"
-              type="password"
-              value={editPassword}
-              error={editErrors.password}
-              placeholder="Student@123"
-              onChange={(e) => setEditPassword(e.target.value)}
-            />
             <div>
               <label className="custom-input-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Target Branch</label>
               <Select
@@ -1241,27 +1306,140 @@ export default function Students() {
               error={editErrors.guardianMobile}
               onChange={(e) => setEditGuardianMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
             />
-            <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <DatePicker
-                label="Admission Date"
-                required
-                value={editJoiningDate}
-                onChange={(val) => setEditJoiningDate(val)}
-              />
-              <Input
-                label="Aadhar Card Number"
-                maxLength={12}
-                value={editAadharNumber}
-                error={editErrors.aadharNumber}
-                onChange={(e) => setEditAadharNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                className="no-margin"
-              />
+            <Input
+              label="Aadhar Card Number"
+              maxLength={12}
+              value={editAadharNumber}
+              error={editErrors.aadharNumber}
+              onChange={(e) => setEditAadharNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
+            />
+          </div>
+
+          {/* Subscription Dates Section */}
+          <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+              <div>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-navy)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block' }}>
+                  Subscription & Expiry Period
+                </span>
+                <span style={{ fontSize: '0.725rem', color: 'var(--text-slate)' }}>
+                  Set Subscription Start to automatically calculate the expiration date
+                </span>
+              </div>
+              {editingActiveAllocation?.seat && (
+                <span style={{ fontSize: '0.725rem', color: 'var(--accent-blue)', background: 'rgba(37, 99, 235, 0.08)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                  Seat {editingActiveAllocation.seat.number || editingActiveAllocation.seat.seatNumber} {editingActiveAllocation.shift?.name ? `• ${editingActiveAllocation.shift.name}` : ''}
+                </span>
+              )}
             </div>
+
+            {editingActiveAllocation ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                {/* Duration Presets */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.725rem', fontWeight: 600, color: 'var(--text-slate)', marginRight: '4px' }}>
+                    Duration:
+                  </span>
+                  {[
+                    { label: '1 Month', months: 1 },
+                    { label: '2 Months', months: 2 },
+                    { label: '3 Months', months: 3 },
+                    { label: '6 Months', months: 6 },
+                    { label: '1 Year', months: 12 },
+                  ].map((preset) => {
+                    const isSelected = editDurationMonths === preset.months;
+                    return (
+                      <button
+                        key={preset.months}
+                        type="button"
+                        onClick={() => handleDurationPresetClick(preset.months)}
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.725rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 120ms ease',
+                          border: isSelected ? '1px solid var(--accent-blue)' : '1px solid var(--border-card)',
+                          backgroundColor: isSelected ? 'var(--accent-blue)' : '#F8FAFC',
+                          color: isSelected ? '#ffffff' : 'var(--text-navy)',
+                        }}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '1rem' }}>
+                  <div>
+                    <DatePicker
+                      label="Subscription Start *"
+                      required
+                      value={editSubscriptionStart}
+                      onChange={handleSubscriptionStartChange}
+                    />
+                    {editErrors.subscriptionStart && (
+                      <span style={{ color: 'var(--status-red)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                        {editErrors.subscriptionStart}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <DatePicker
+                      label="Subscription End (Calculated Expiry) *"
+                      required
+                      value={editSubscriptionEnd}
+                      onChange={(val) => {
+                        setEditSubscriptionEnd(val);
+                        setEditDurationMonths('custom');
+                        if (editErrors.subscriptionEnd) {
+                          setEditErrors(prev => ({ ...prev, subscriptionEnd: '' }));
+                        }
+                      }}
+                    />
+                    {editErrors.subscriptionEnd && (
+                      <span style={{ color: 'var(--status-red)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                        {editErrors.subscriptionEnd}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Expiry summary badge */}
+                {editSubscriptionEnd && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    backgroundColor: new Date(editSubscriptionEnd).getTime() < new Date().getTime() ? '#FEF2F2' : '#F0FDF4',
+                    border: `1px solid ${new Date(editSubscriptionEnd).getTime() < new Date().getTime() ? '#FECACA' : '#BBF7D0'}`,
+                    borderRadius: '8px',
+                    fontSize: '0.775rem',
+                    color: new Date(editSubscriptionEnd).getTime() < new Date().getTime() ? 'var(--status-red)' : '#166534',
+                    fontWeight: 600
+                  }}>
+                    <Clock size={14} />
+                    <span>
+                      Expiry: {new Date(editSubscriptionEnd).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {' • '}
+                      {getDaysRemainingText(editSubscriptionEnd)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ padding: '12px 14px', background: '#F8FAFC', border: '1px dashed #CBD5E1', borderRadius: '10px', fontSize: '0.8rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clock size={16} style={{ color: '#94A3B8', flexShrink: 0 }} />
+                <span>No active seat subscription found for this student. Allocate a seat to manage subscription dates.</span>
+              </div>
+            )}
           </div>
           
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
-            <Button type="button" variant="text" onClick={() => { setOpenEdit(false); setEditPassword(''); }}>Cancel</Button>
-            <Button type="submit" variant="primary" isLoading={isUpdating}>Save Changes</Button>
+            <Button type="button" variant="text" onClick={() => setOpenEdit(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" isLoading={isUpdating || isUpdatingAllocation}>Save Changes</Button>
           </div>
         </form>
       </Modal>
@@ -1307,7 +1485,7 @@ export default function Students() {
                       width: '48px', 
                       height: '48px', 
                       borderRadius: '50%', 
-                      background: fullStudent.user?.avatar ? `url(${fullStudent.user.avatar}) no-repeat center center / cover` : 'var(--accent-blue)', 
+                      background: (fullStudent.user?.avatar || fullStudent.avatar) ? `url(${fullStudent.user?.avatar || fullStudent.avatar}) no-repeat center center / cover` : 'var(--accent-blue)', 
                       color: 'white', 
                       fontWeight: 700, 
                       fontSize: '1.1rem', 
@@ -1317,7 +1495,7 @@ export default function Students() {
                       boxShadow: 'var(--shadow-soft)'
                     }}
                   >
-                    {!fullStudent.user?.avatar && fullStudent.user?.name?.charAt(0).toUpperCase()}
+                    {!(fullStudent.user?.avatar || fullStudent.avatar) && getStudentInitials(fullStudent)}
                   </div>
                   <label 
                     htmlFor={`student-avatar-${fullStudent.id}`}
@@ -1349,9 +1527,9 @@ export default function Students() {
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fullStudent.user?.name}</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}><Mail size={12} /> {fullStudent.user?.email}</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}><Phone size={12} /> {fullStudent.user?.mobile}</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getStudentDisplayName(fullStudent)}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}><Mail size={12} /> {getStudentEmail(fullStudent)}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}><Phone size={12} /> {getStudentMobile(fullStudent)}</span>
                 </div>
               </div>
 
@@ -1471,12 +1649,8 @@ export default function Students() {
                         <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{fullStudent.aadharNumber || 'N/A'}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                        <span style={{ color: 'var(--text-slate)' }}>Admission Date:</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{new Date(fullStudent.joiningDate).toLocaleDateString()}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                         <span style={{ color: 'var(--text-slate)' }}>Branch Location:</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{fullStudent.branch?.name || 'N/A'}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{getStudentBranchName(fullStudent, branches)}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
                         <span style={{ color: 'var(--text-slate)' }}>Login Password:</span>
@@ -1533,10 +1707,10 @@ export default function Students() {
                                 navigate('/seats', {
                                   state: {
                                     preselectedStudentId: fullStudent.id,
-                                    preselectedStudentName: fullStudent.user?.name,
+                                    preselectedStudentName: getStudentDisplayName(fullStudent),
                                   }
                                 });
-                                showToast('Select an available seat to assign to ' + fullStudent.user?.name, 'info');
+                                showToast('Select an available seat to assign to ' + getStudentDisplayName(fullStudent), 'info');
                               }}
                               style={{
                                 display: 'inline-flex',

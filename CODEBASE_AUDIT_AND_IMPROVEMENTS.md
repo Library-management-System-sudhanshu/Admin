@@ -260,14 +260,27 @@ Several page components violate the Single Responsibility Principle and have gro
 - [x] Add `"typecheck": "tsc -b"` and `"test"` script commands in `package.json`.
 - [x] Upgrade `PageBoundary.tsx` with error stack capture, logging, and user recovery controls.
 - [x] Create centralized domain types in `src/types/` (`user.ts`, `student.ts`, `seat.ts`, `billing.ts`, `api.ts`).
+- [x] Establish unit testing suite (`tests/*.test.cjs`) covering date math, shift durations, error extractors, seat calculations, and validators (25 passing tests).
+- [x] Create centralized error handling utility (`src/utils/errorUtils.ts`) to eliminate ad-hoc error parsing across UI pages.
+- [x] Add real-time network connectivity monitoring with non-intrusive offline indicator (`useNetworkStatus`, `OfflineBanner.tsx`).
 
-### Phase 2: Forms & Monolith Refactoring (For Future Iterations ⏳)
-- [ ] Deconstruct `Seats.tsx` (5,400 lines) into focused subcomponents and custom hooks (`features/seats/`).
-- [ ] Deconstruct `Billing.tsx` and `Students.tsx` into modular feature directories.
-- [ ] Adopt `react-hook-form` and `zod` for student admission, workspace setup, and login forms to replace dozens of manual `useState` hooks.
+### Phase 2: Duplication Extraction & Modularization (In Progress / Completed Milestones ✅)
+- [x] Extracted canvas image compression to `src/utils/imageUtils.ts` (deduplicated across `NewAdmission.tsx`, `Profile.tsx`, and `Students.tsx`).
+- [x] Extracted seat duration calculations and status flags to `src/utils/seatUtils.ts` (deduplicated across `Seats.tsx` and `Students.tsx`).
+- [x] Extracted centralized form validators (`src/utils/validators.ts`) and applied to `Login.tsx`, `NewAdmission.tsx`, and `Students.tsx`.
+- [x] Implemented resilient student data fallbacks (`src/utils/studentUtils.ts`, 31 unit tests) across `Students.tsx`, `AllocateSeatModal.tsx`, `StudentIDCardModal.tsx`, `Seats.tsx`, `Billing.tsx`, and `TransferSeat.tsx` to handle `null`/partial user records from the API gracefully without blank rows or missing branches.
+- [x] Replaced 100% of raw browser `alert()` modal calls across the app (`Students.tsx`, `WhatsApp.tsx`, `Complaints.tsx`, `Library.tsx`, `SaaSBillingGuard.tsx`, `Seats.tsx`) with accessible toast notifications and `getErrorMessage`.
+- [x] Began monolith deconstruction by extracting subcomponents:
+  - `src/features/seats/components/EditFloorModal.tsx`
+  - `src/features/seats/components/EditRoomModal.tsx`
+  - `src/features/students/components/StudentIDCardModal.tsx`
+- [ ] Continue extracting large subviews from `Seats.tsx` (toolbar, layout canvas, floor tabs) into `features/seats/`.
+- [ ] Deconstruct `Billing.tsx` into modular feature directories.
+- [ ] Adopt `react-hook-form` and `zod` for remaining complex workflows.
 
 ### Phase 3: Styling Unification & Performance (Long-term ⏳)
 - [ ] Eliminate mixed MUI dependency in favor of unified CSS token design system.
 - [ ] Implement list virtualization (`@tanstack/react-virtual`) for the student table and seat grid.
 - [ ] Implement silent refresh token rotation and enhanced error telemetry (Sentry).
+
 

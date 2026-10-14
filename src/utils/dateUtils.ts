@@ -117,7 +117,7 @@ export const calculateShiftDuration = (start24?: string, end24?: string): string
   const [sH, sM] = start24.split(':').map(Number);
   const [eH, eM] = end24.split(':').map(Number);
   if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) return '';
-  let startMinutes = sH * 60 + sM;
+  const startMinutes = sH * 60 + sM;
   let endMinutes = eH * 60 + eM;
   if (endMinutes <= startMinutes) {
     endMinutes += 24 * 60;

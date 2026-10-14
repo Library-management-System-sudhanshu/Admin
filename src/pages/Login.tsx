@@ -9,6 +9,8 @@ import {
   Mail, Lock, User, Building, MapPin, Users, Armchair, BookOpen, ArrowUpRight,
   ArrowRight, Eye, EyeOff, Check, Globe, Shield, AlertCircle
 } from 'lucide-react';
+import { isValidEmail, isValidPincode, NAME_REGEX } from '../utils/validators';
+import { getErrorMessage } from '../utils/errorUtils';
 import './Login.css';
 
 export default function Login() {
@@ -87,7 +89,7 @@ export default function Login() {
                       navigate('/dashboard', { replace: true });
                     }
                   } catch (err: any) {
-                    setError(err?.data?.message || 'Google Sign-In failed.');
+                    setError(getErrorMessage(err, 'Google Sign-In failed.'));
                   }
                 }
               }
@@ -124,10 +126,11 @@ export default function Login() {
         navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
-      if (err?.data?.message?.includes('disabled') || err?.data?.message?.includes('Access denied')) {
+      const msg = getErrorMessage(err, 'Login failed. Check credentials.');
+      if (msg.includes('disabled') || msg.includes('Access denied')) {
         setShowDisabledModal(true);
       } else {
-        setError(err?.data?.message || 'Login failed. Check credentials.');
+        setError(msg);
       }
     }
   };
@@ -157,7 +160,7 @@ export default function Login() {
         navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
-      setError(err?.data?.message || 'Google authentication failed.');
+      setError(getErrorMessage(err, 'Google authentication failed.'));
     }
   };
 
@@ -165,12 +168,8 @@ export default function Login() {
     let errorMsg = '';
     switch (field) {
       case 'name':
-        if (!/^[a-zA-Z0-9\s\.\-]*$/.test(value)) {
-          errorMsg = 'Name can contain only letters, numbers, spaces, dots, and hyphens';
-        } else if (value.trim().length > 0 && value.trim().length < 2) {
-          errorMsg = 'Name must be at least 2 characters';
-        } else if (value.trim().length > 50) {
-          errorMsg = 'Name must be at most 50 characters';
+        if (value.trim().length > 0 && !NAME_REGEX.test(value.trim())) {
+          errorMsg = 'Name must be 2-50 characters (letters, numbers, spaces, dots, hyphens)';
         }
         break;
       case 'workspaceName':
@@ -186,8 +185,7 @@ export default function Login() {
         }
         break;
       case 'email':
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (value.trim().length > 0 && !emailRegex.test(value.trim())) {
+        if (value.trim().length > 0 && !isValidEmail(value.trim())) {
           errorMsg = 'Invalid email address';
         }
         break;
@@ -199,7 +197,7 @@ export default function Login() {
       case 'pincode':
         if (value.trim().length === 0) {
           errorMsg = 'Pincode is required';
-        } else if (!/^\d{6}$/.test(value.trim())) {
+        } else if (!isValidPincode(value.trim())) {
           errorMsg = 'Pincode must be exactly 6 digits';
         }
         break;
@@ -227,7 +225,7 @@ export default function Login() {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) {
       newErrors.name = 'Name is required';
-    } else if (!/^[a-zA-Z0-9\s\.\-]{2,50}$/.test(name.trim())) {
+    } else if (!NAME_REGEX.test(name.trim())) {
       newErrors.name = 'Name must be 2-50 characters';
     }
 
@@ -243,10 +241,9 @@ export default function Login() {
       newErrors.address = 'Address must be at least 5 characters';
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!emailRegex.test(email.trim())) {
+    } else if (!isValidEmail(email.trim())) {
       newErrors.email = 'Invalid email address';
     }
 
@@ -258,7 +255,7 @@ export default function Login() {
 
     if (!pincode.trim()) {
       newErrors.pincode = 'Pincode is required';
-    } else if (!/^\d{6}$/.test(pincode.trim())) {
+    } else if (!isValidPincode(pincode.trim())) {
       newErrors.pincode = 'Pincode must be exactly 6 digits';
     }
 
@@ -294,7 +291,7 @@ export default function Login() {
       dispatch(setCredentials(res));
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
-      setError(err?.data?.message || 'Registration failed.');
+      setError(getErrorMessage(err, 'Registration failed.'));
     }
   };
 
@@ -305,7 +302,7 @@ export default function Login() {
           <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect width="40" height="40" rx="12" fill="currentColor" /><path d="M12 12v8c0 5 3.5 7 8 7s8-2 8-7v-8M20 10v22" stroke="white" strokeWidth="2.7" strokeLinecap="round" /><path d="m9 15 3-3 3 3m10 0 3-3 3 3m-14-2 3-3 3 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <span>trishul<span className="login-brand-dot">.</span></span>
         </Link>
-        <Link to="/" className="login-back-link">Back to home <ArrowUpRight size={13} /></Link>
+        <Link to="/" className="login-back-link">Back to home <ArrowUpRight size={15} /></Link>
       </header>
 
       <aside className="login-brand-side">
@@ -316,16 +313,16 @@ export default function Login() {
         </div>
 
         <div className="login-preview" aria-label="Illustrative workspace preview with sample seat data">
-          <div className="login-preview-heading"><span><BookOpen size={14} /> The reading room</span><span className="login-demo-label">SAMPLE PREVIEW</span></div>
+          <div className="login-preview-heading"><span><BookOpen size={16} /> The reading room</span><span className="login-demo-label">SAMPLE PREVIEW</span></div>
           <div className="login-preview-meta"><span>Room 01 <span> / Morning shift</span></span><span><i /> 12 seats available</span></div>
           <div className="login-room-grid" aria-hidden="true">
-            {Array.from({ length: 24 }, (_, i) => <div key={i} className={`login-room-seat ${i % 4 < 2 ? 'is-taken' : ''}`}><Armchair size={15} strokeWidth={1.5} /><span>A{String(i + 1).padStart(2, '0')}</span></div>)}
+            {Array.from({ length: 24 }, (_, i) => <div key={i} className={`login-room-seat ${i % 4 < 2 ? 'is-taken' : ''}`}><Armchair size={17} strokeWidth={1.5} /><span>A{String(i + 1).padStart(2, '0')}</span></div>)}
           </div>
           <div className="login-preview-bottom"><span><i /> Available <i /> Occupied</span><span>24 seats · One clear view</span></div>
-          <div className="login-member-note"><span className="login-member-icon"><Users size={16} /></span><div><strong>Everything in its place.</strong><span>Students. Seats. A calmer day.</span></div><span className="login-note-check"><Check size={13} /></span></div>
+          <div className="login-member-note"><span className="login-member-icon"><Users size={18} /></span><div><strong>Everything in its place.</strong><span>Students. Seats. A calmer day.</span></div><span className="login-note-check"><Check size={14} /></span></div>
         </div>
 
-        <div className="login-feature-note"><span><Check size={12} /> Seat planning</span><span><Check size={12} /> Fee tracking</span><span><Check size={12} /> Student records</span></div>
+        <div className="login-feature-note"><span><Check size={14} /> Seat planning</span><span><Check size={14} /> Fee tracking</span><span><Check size={14} /> Student records</span></div>
       </aside>
 
       {/* ============ RIGHT: AUTHENTICATION PANEL (40%) ============ */}
@@ -382,7 +379,7 @@ export default function Login() {
               <div className="premium-input-group">
                 <label className="premium-label" htmlFor="login-email">Email Address</label>
                 <div className="premium-input-wrapper">
-                  <Mail size={16} className="premium-input-icon" />
+                  <Mail size={18} className="premium-input-icon" />
                   <input
                     type="email"
                     id="login-email"
@@ -399,7 +396,7 @@ export default function Login() {
               <div className="premium-input-group">
                 <label className="premium-label" htmlFor="login-password">Password</label>
                 <div className="premium-input-wrapper">
-                  <Lock size={16} className="premium-input-icon" />
+                  <Lock size={18} className="premium-input-icon" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     id="login-password"
@@ -417,7 +414,7 @@ export default function Login() {
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                     aria-pressed={showPassword}
                   >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
@@ -460,7 +457,7 @@ export default function Login() {
                 ) : (
                   <>
                     <span>Sign In</span>
-                    <ArrowRight size={16} />
+                    <ArrowRight size={18} />
                   </>
                 )}
               </button>
@@ -478,7 +475,7 @@ export default function Login() {
                 onClick={triggerGoogleAuth}
                 disabled={isGoogleLoading}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" />
@@ -496,7 +493,7 @@ export default function Login() {
                   <div className="premium-input-group">
                     <label className="premium-label">Owner Name</label>
                     <div className="premium-input-wrapper">
-                      <User size={16} className="premium-input-icon" />
+                      <User size={18} className="premium-input-icon" />
                       <input
                         type="text"
                         required
@@ -508,7 +505,7 @@ export default function Login() {
                     </div>
                     {errors.name && (
                       <span className="input-error-msg">
-                        <AlertCircle size={12} /> {errors.name}
+                        <AlertCircle size={13} /> {errors.name}
                       </span>
                     )}
                   </div>
@@ -516,7 +513,7 @@ export default function Login() {
                   <div className="premium-input-group">
                     <label className="premium-label">Library/Study Space Name</label>
                     <div className="premium-input-wrapper">
-                      <Building size={16} className="premium-input-icon" />
+                      <Building size={18} className="premium-input-icon" />
                       <input
                         type="text"
                         required
@@ -528,7 +525,7 @@ export default function Login() {
                     </div>
                     {errors.workspaceName && (
                       <span className="input-error-msg">
-                        <AlertCircle size={12} /> {errors.workspaceName}
+                        <AlertCircle size={13} /> {errors.workspaceName}
                       </span>
                     )}
                   </div>
@@ -536,7 +533,7 @@ export default function Login() {
                   <div className="premium-input-group">
                     <label className="premium-label">Email</label>
                     <div className="premium-input-wrapper">
-                      <Mail size={16} className="premium-input-icon" />
+                      <Mail size={18} className="premium-input-icon" />
                       <input
                         type="email"
                         required
@@ -548,7 +545,7 @@ export default function Login() {
                     </div>
                     {errors.email && (
                       <span className="input-error-msg">
-                        <AlertCircle size={12} /> {errors.email}
+                        <AlertCircle size={13} /> {errors.email}
                       </span>
                     )}
                   </div>
@@ -559,7 +556,7 @@ export default function Login() {
                   <div className="premium-input-group">
                     <label className="premium-label">Address</label>
                     <div className="premium-input-wrapper">
-                      <MapPin size={16} className="premium-input-icon" />
+                      <MapPin size={18} className="premium-input-icon" />
                       <input
                         type="text"
                         required
@@ -571,7 +568,7 @@ export default function Login() {
                     </div>
                     {errors.address && (
                       <span className="input-error-msg">
-                        <AlertCircle size={12} /> {errors.address}
+                        <AlertCircle size={13} /> {errors.address}
                       </span>
                     )}
                   </div>
@@ -579,7 +576,7 @@ export default function Login() {
                   <div className="premium-input-group">
                     <label className="premium-label">Pincode</label>
                     <div className="premium-input-wrapper">
-                      <MapPin size={16} className="premium-input-icon" />
+                      <MapPin size={18} className="premium-input-icon" />
                       <input
                         type="text"
                         required
@@ -591,7 +588,7 @@ export default function Login() {
                     </div>
                     {errors.pincode && (
                       <span className="input-error-msg">
-                        <AlertCircle size={12} /> {errors.pincode}
+                        <AlertCircle size={13} /> {errors.pincode}
                       </span>
                     )}
                   </div>
@@ -599,7 +596,7 @@ export default function Login() {
                   <div className="premium-input-group">
                     <label className="premium-label">Password</label>
                     <div className="premium-input-wrapper">
-                      <Lock size={16} className="premium-input-icon" />
+                      <Lock size={18} className="premium-input-icon" />
                       <input
                         type={showPassword ? 'text' : 'password'}
                         required
@@ -615,12 +612,12 @@ export default function Login() {
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                     aria-pressed={showPassword}
                       >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                     {errors.password && (
                       <span className="input-error-msg">
-                        <AlertCircle size={12} /> {errors.password}
+                        <AlertCircle size={13} /> {errors.password}
                       </span>
                     )}
                   </div>
@@ -643,7 +640,7 @@ export default function Login() {
                     <div className="premium-input-group">
                       <label className="premium-label">GST Number</label>
                       <div className="premium-input-wrapper">
-                        <Building size={16} className="premium-input-icon" />
+                        <Building size={18} className="premium-input-icon" />
                         <input
                           type="text"
                           className={`premium-input ${errors.gstNumber ? 'input-error' : ''}`}
@@ -654,7 +651,7 @@ export default function Login() {
                       </div>
                       {errors.gstNumber && (
                         <span className="input-error-msg">
-                          <AlertCircle size={12} /> {errors.gstNumber}
+                          <AlertCircle size={13} /> {errors.gstNumber}
                         </span>
                       )}
                     </div>
@@ -662,7 +659,7 @@ export default function Login() {
                     <div className="premium-input-group">
                       <label className="premium-label">Logo URL</label>
                       <div className="premium-input-wrapper">
-                        <Globe size={16} className="premium-input-icon" />
+                        <Globe size={18} className="premium-input-icon" />
                         <input
                           type="text"
                           className="premium-input"
@@ -693,7 +690,7 @@ export default function Login() {
                 ) : (
                   <>
                     <span>Register & Log In</span>
-                    <ArrowRight size={16} />
+                    <ArrowRight size={18} />
                   </>
                 )}
               </button>

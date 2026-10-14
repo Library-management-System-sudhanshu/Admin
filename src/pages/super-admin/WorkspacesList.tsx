@@ -4,16 +4,19 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { useGetWorkspacesQuery, useUpdateWorkspaceMutation, useCreateWorkspaceMutation } from '../../store/api';
+import { useGetWorkspacesQuery, useUpdateWorkspaceMutation, useCreateWorkspaceMutation, useDeleteWorkspaceMutation } from '../../store/api';
 import { useToast } from '../../components/ui/ToastContext';
-import { Building2, Plus, Info, Check, Eye } from 'lucide-react';
+import { useAlert } from '../../components/ui/AlertContext';
+import { Building2, Plus, Info, Check, Eye, Trash2 } from 'lucide-react';
 
 export default function WorkspacesList() {
   const navigate = useNavigate();
   const { data: workspaces = [], isLoading, error } = useGetWorkspacesQuery({});
   const [updateWorkspace, { isLoading: isUpdating }] = useUpdateWorkspaceMutation();
   const [createWorkspace, { isLoading: isCreating }] = useCreateWorkspaceMutation();
+  const [deleteWorkspace, { isLoading: isDeleting }] = useDeleteWorkspaceMutation();
   const { showToast } = useToast();
+  const { showAlert } = useAlert();
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -79,6 +82,25 @@ export default function WorkspacesList() {
     }
   };
 
+  const handleDeleteWorkspace = async (workspace: any) => {
+    const confirmed = await showAlert(
+      `Are you sure you want to permanently delete "${workspace.name}"? All branch, room, seat, and student data associated with this library workspace will be permanently removed. This action cannot be undone.`,
+      {
+        title: 'Delete Workspace',
+        confirmText: 'Delete Permanently',
+        cancelText: 'Cancel',
+        type: 'danger',
+      }
+    );
+    if (!confirmed) return;
+    try {
+      await deleteWorkspace(workspace.id).unwrap();
+      showToast(`Workspace "${workspace.name}" deleted successfully.`, 'success');
+    } catch (err: any) {
+      showToast(err?.data?.message || 'Failed to delete workspace.', 'error');
+    }
+  };
+
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
     const baseSubdomain = name
@@ -121,7 +143,7 @@ export default function WorkspacesList() {
         </Button>
       </div>
 
-      {workspaces.length === 0 ? (
+      {workspaces.filter((w: any) => !w.deletedAt).length === 0 ? (
         <p style={{ color: '#64748b', textAlign: 'center', padding: '2rem' }}>No workspaces found.</p>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
@@ -136,7 +158,9 @@ export default function WorkspacesList() {
             </tr>
           </thead>
           <tbody>
-            {workspaces.map((row: any) => {
+            {workspaces
+              .filter((w: any) => !w.deletedAt)
+              .map((row: any) => {
               const owner = row.users && row.users[0];
               const planName = row.subscription?.saasPlan?.name || (row.subscription ? `Trial (${row.subscription.status})` : 'No Subscription');
               const isActive = row.isActive;
@@ -186,13 +210,30 @@ export default function WorkspacesList() {
                       variant="outline" 
                       size="sm" 
                       onClick={() => handleToggleAccess(row)}
-                      disabled={isUpdating}
+                      disabled={isUpdating || isDeleting}
                       style={{ 
+                        marginRight: '0.5rem',
                         borderColor: isActive ? '#ef4444' : '#10b981', 
                         color: isActive ? '#ef4444' : '#10b981' 
                       }}
                     >
                       {isActive ? 'Disable Access' : 'Enable Access'}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleDeleteWorkspace(row)}
+                      disabled={isDeleting || isUpdating}
+                      title="Permanently Delete Workspace"
+                      style={{ 
+                        borderColor: '#ef4444', 
+                        color: '#ef4444',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      <Trash2 size={14} /> Delete
                     </Button>
                   </td>
                 </tr>

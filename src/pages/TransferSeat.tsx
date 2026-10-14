@@ -12,6 +12,7 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { Card } from '../components/ui/Card';
 import { ArrowLeft, Armchair, Building2, Layers, Landmark } from 'lucide-react';
+import { getStudentDisplayName, getStudentInitials, getStudentEmail, getStudentMobile } from '../utils/studentUtils';
 import '../components/ui/Globals.css';
 
 export default function TransferSeat() {
@@ -137,12 +138,12 @@ export default function TransferSeat() {
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', color: 'white', fontWeight: 800, fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {student.user?.name?.charAt(0).toUpperCase()}
+                {getStudentInitials(student)}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-navy)' }}>{student.user?.name}</span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-slate)', marginTop: '2px' }}>{student.user?.email}</span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-slate)' }}>{student.user?.mobile}</span>
+                <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-navy)' }}>{getStudentDisplayName(student)}</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-slate)', marginTop: '2px' }}>{getStudentEmail(student)}</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-slate)' }}>{getStudentMobile(student)}</span>
               </div>
             </div>
 

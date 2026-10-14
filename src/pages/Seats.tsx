@@ -26,12 +26,14 @@ import {
   useVerifyRazorpayMutation,
 } from '../store/api';
 import { formatYYYYMMDD, addMonthsToDate, addDaysToDate, getTodayYYYYMMDD, formatDateDisplay } from '../utils/dateUtils';
+import { getStudentDisplayName, getStudentEmail, getStudentMobile } from '../utils/studentUtils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { AllocateSeatModal } from '../components/AllocateSeatModal';
 import { InvoiceReceiptModal } from '../components/InvoiceReceiptModal';
 import { LayoutCreatorModal } from '../components/LayoutCreatorModal';
+import { EditFloorModal, EditRoomModal } from '../features/seats';
 import { Switch } from '../components/ui/Switch';
 import { DatePicker } from '../components/ui/DatePicker';
 import { Select } from '../components/ui/Select';
@@ -72,47 +74,8 @@ import {
   Link2
 } from 'lucide-react';
 import { formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
-
-const getDaysRemainingText = (endDateStr: string) => {
-  if (!endDateStr) return 'No end date';
-  const end = new Date(endDateStr);
-  const today = new Date();
-  end.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-  const diffTime = end.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return 'Expired';
-  if (diffDays === 0) return 'Ends today';
-  return `${diffDays} days remaining`;
-};
-
-const getSeatStatusInfo = (seat: any) => {
-  if (!seat) return { isOccupied: false, isExpired: false, activeAllocations: [], currentAllocations: [], expiredAllocations: [] };
-  const activeAllocations = seat.allocations?.filter((a: any) => a.isActive) || [];
-  
-  const isAllocationExpired = (alloc: any) => {
-    if (!alloc.endDate) return false;
-    const end = new Date(alloc.endDate);
-    const today = new Date();
-    end.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    return end.getTime() < today.getTime();
-  };
-
-  const currentAllocations = activeAllocations.filter((a: any) => !isAllocationExpired(a));
-  const expiredAllocations = activeAllocations.filter((a: any) => isAllocationExpired(a));
-
-  const isOccupied = currentAllocations.length > 0;
-  const isExpired = currentAllocations.length === 0 && expiredAllocations.length > 0;
-
-  return {
-    isOccupied,
-    isExpired,
-    activeAllocations,
-    currentAllocations,
-    expiredAllocations
-  };
-};
+import { getDaysRemainingText, getSeatStatusInfo } from '../utils/seatUtils';
+import { getErrorMessage } from '../utils/errorUtils';
 
 export default function Seats() {
   const { showAlert } = useAlert();
@@ -1656,7 +1619,7 @@ export default function Seats() {
                 list.push({
                   seatId: seat.id,
                   seatNumber: seat.number,
-                  studentName: activeAlloc.studentProfile?.user?.name,
+                  studentName: getStudentDisplayName(activeAlloc.studentProfile),
                   daysLeft: diffDays,
                   roomName: room.name,
                   floorName: floor.name
@@ -1681,7 +1644,7 @@ export default function Seats() {
             const activeAlloc = seat.allocations?.find((a: any) => a.isActive);
             const isOccupied = seat.status === 'OCCUPIED';
             const match = seat.number.toLowerCase().includes(query) ||
-              (isOccupied && activeAlloc?.studentProfile?.user?.name?.toLowerCase().includes(query));
+              (isOccupied && getStudentDisplayName(activeAlloc?.studentProfile).toLowerCase().includes(query));
             if (match) {
               matchedSeat = seat;
               break;
@@ -1741,10 +1704,13 @@ export default function Seats() {
       if (allocatedIds.has(student.id)) return false;
 
       if (!query) return true;
+      const displayName = getStudentDisplayName(student).toLowerCase();
+      const mobile = getStudentMobile(student);
+      const email = getStudentEmail(student).toLowerCase();
       return (
-        student.user?.name?.toLowerCase().includes(query) ||
-        student.user?.mobile?.includes(query) ||
-        student.user?.email?.toLowerCase().includes(query)
+        displayName.includes(query) ||
+        mobile.includes(query) ||
+        email.includes(query)
       );
     });
   }, [studentsData, studentSearchQuery, seatMap]);
@@ -1759,10 +1725,13 @@ export default function Seats() {
     if (!allocModalSearchQuery.trim()) return [];
     const query = allocModalSearchQuery.toLowerCase();
     return studentsData.students.filter((st: any) => {
+      const displayName = getStudentDisplayName(st).toLowerCase();
+      const email = getStudentEmail(st).toLowerCase();
+      const mobile = getStudentMobile(st);
       return (
-        st.user?.name?.toLowerCase().includes(query) ||
-        st.user?.email?.toLowerCase().includes(query) ||
-        st.user?.mobile?.includes(query)
+        displayName.includes(query) ||
+        email.includes(query) ||
+        mobile.includes(query)
       );
     });
   }, [studentsData, allocModalSearchQuery]);
@@ -2132,7 +2101,8 @@ export default function Seats() {
     const activeAllocation = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
     if (!activeAllocation) return;
 
-    const confirmed = await showAlert(`Are you sure you want to vacate ${activeAllocation.studentProfile?.user?.name || 'this student'}?`, {
+    const sName = getStudentDisplayName(activeAllocation.studentProfile);
+    const confirmed = await showAlert(`Are you sure you want to vacate ${sName}?`, {
       title: "Vacate Seat",
       confirmText: "Vacate Seat",
       cancelText: "Cancel",
@@ -2247,9 +2217,9 @@ export default function Seats() {
             }
           },
           prefill: {
-            name: activeAllocation.studentProfile?.user?.name || '',
-            email: activeAllocation.studentProfile?.user?.email || '',
-            contact: activeAllocation.studentProfile?.user?.mobile || '',
+            name: getStudentDisplayName(activeAllocation.studentProfile),
+            email: getStudentEmail(activeAllocation.studentProfile) === 'N/A' ? '' : getStudentEmail(activeAllocation.studentProfile),
+            contact: getStudentMobile(activeAllocation.studentProfile) === 'N/A' ? '' : getStudentMobile(activeAllocation.studentProfile),
           },
           theme: {
             color: '#2563eb',
@@ -2363,9 +2333,9 @@ export default function Seats() {
         const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
         return seat.number.toLowerCase().includes(rSearch) ||
           (isOccupied && (
-            activeAllocation?.studentProfile?.user?.name?.toLowerCase().includes(rSearch) ||
-            activeAllocation?.studentProfile?.user?.email?.toLowerCase().includes(rSearch) ||
-            activeAllocation?.studentProfile?.user?.mobile?.includes(rSearch)
+            getStudentDisplayName(activeAllocation?.studentProfile).toLowerCase().includes(rSearch) ||
+            getStudentEmail(activeAllocation?.studentProfile).toLowerCase().includes(rSearch) ||
+            getStudentMobile(activeAllocation?.studentProfile).includes(rSearch)
           ));
       });
     }
@@ -2392,8 +2362,8 @@ export default function Seats() {
       if (roomSort === 'NAME') {
         const aAlloc = a.allocations?.find((al: any) => al.isActive);
         const bAlloc = b.allocations?.find((al: any) => al.isActive);
-        const aName = aAlloc?.studentProfile?.user?.name || '';
-        const bName = bAlloc?.studentProfile?.user?.name || '';
+        const aName = getStudentDisplayName(aAlloc?.studentProfile);
+        const bName = getStudentDisplayName(bAlloc?.studentProfile);
         if (!aName && bName) return 1;
         if (aName && !bName) return -1;
         return aName.localeCompare(bName);
@@ -2696,7 +2666,7 @@ export default function Seats() {
                     gap: '2px',
                     lineHeight: '1.2'
                   }}
-                  title={`${alloc.studentProfile?.user?.name} (${alloc.shift?.name})`}
+                  title={`${getStudentDisplayName(alloc.studentProfile)} (${alloc.shift?.name})`}
                 >
                   <span style={{
                     fontSize: '0.52rem',
@@ -2707,7 +2677,7 @@ export default function Seats() {
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap'
                   }}>
-                    {alloc.studentProfile?.user?.name?.split(' ')[0]}
+                    {getStudentDisplayName(alloc.studentProfile).split(' ')[0]}
                   </span>
                   <span
                     style={{
@@ -2762,7 +2732,7 @@ export default function Seats() {
                   : 'N/A';
                 return (
                   <div key={alloc.id} style={{ display: 'flex', flexDirection: 'column', fontSize: '0.75rem', lineHeight: '1.2' }}>
-                    <span style={{ fontWeight: 700 }}>{alloc.studentProfile?.user?.name}</span>
+                    <span style={{ fontWeight: 700 }}>{getStudentDisplayName(alloc.studentProfile)}</span>
                     <span style={{ opacity: 0.8, fontSize: '0.65rem' }}>Shift: {alloc.shift?.name}</span>
                     <span style={{ opacity: 0.8, fontSize: '0.65rem' }}>Ends: {formattedEnd}</span>
                   </div>
@@ -2800,7 +2770,7 @@ export default function Seats() {
               <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
                 {activeAllocations.map((alloc: any) => (
                   <li key={alloc.id}>
-                    <strong>{alloc.shift?.name}</strong>: {alloc.studentProfile?.user?.name}
+                    <strong>{alloc.shift?.name}</strong>: {getStudentDisplayName(alloc.studentProfile)}
                   </li>
                 ))}
               </ul>
@@ -2836,13 +2806,13 @@ export default function Seats() {
                   onMouseDown={(e) => {
                     e.preventDefault();
                     setStudentProfileId(st.id);
-                    setStudentSearchQuery(st.user?.name || '');
+                    setStudentSearchQuery(getStudentDisplayName(st));
                     setShowStudentDropdown(false);
                   }}
                   style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', flexDirection: 'column', borderBottom: '1px solid #f1f5f9' }}
                 >
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{st.user?.name}</span>
-                  <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{st.user?.email || 'No email'} • {st.user?.mobile || 'No mobile'}</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-navy)' }}>{getStudentDisplayName(st)}</span>
+                  <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{getStudentEmail(st)} • {getStudentMobile(st)}</span>
                 </div>
               ))}
             </div>
@@ -4636,10 +4606,10 @@ export default function Seats() {
                                 <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{activeAllocation.studentProfile?.aadharNumber || 'N/A'}</span>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
-                                <span style={{ color: 'var(--text-slate)' }}>Admission Date:</span>
+                                <span style={{ color: 'var(--text-slate)' }}>Subscription Start:</span>
                                 <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>
-                                  {activeAllocation.studentProfile?.joiningDate 
-                                    ? new Date(activeAllocation.studentProfile.joiningDate).toLocaleDateString()
+                                  {activeAllocation.startDate 
+                                    ? new Date(activeAllocation.startDate).toLocaleDateString()
                                     : 'N/A'}
                                 </span>
                               </div>
@@ -4946,7 +4916,7 @@ export default function Seats() {
             </button>
             <button 
               className="fab-option-btn"
-              onClick={() => { alert("Premium Feature: Import seat layout configurations via Excel/CSV."); setIsFabOpen(false); }}
+              onClick={() => { showToast("Premium Feature: Import seat layout configurations via Excel/CSV.", "info"); setIsFabOpen(false); }}
             >
               <FileText size={12} color="var(--accent-blue)" /> Import Seats
             </button>
@@ -5248,122 +5218,35 @@ export default function Seats() {
       })()}
 
       {/* Edit Floor Modal */}
-      <Modal
+      <EditFloorModal
         isOpen={openEditFloorModal}
         onClose={() => setOpenEditFloorModal(false)}
-        title={`Edit Floor - ${selectedFloorToEdit?.name}`}
-        maxWidth="sm"
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <Input
-            label="Floor Name"
-            value={editFloorName}
-            required
-            onChange={(e) => setEditFloorName(e.target.value)}
-            placeholder="e.g. Ground Floor"
-          />
-
-          <div style={{
-            margin: '20px -24px -24px -24px',
-            padding: '16px 24px',
-            backgroundColor: '#F8FAFC',
-            borderTop: '1px solid var(--border-card)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}>
-            <button
-              type="button"
-              onClick={async () => {
-                if (selectedFloorToEdit) {
-                  setOpenEditFloorModal(false);
-                  await handleDeleteFloor(selectedFloorToEdit.id);
-                }
-              }}
-              style={{ background: 'none', border: 'none', color: 'var(--status-red)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, padding: '6px 12px', borderRadius: '10px' }}
-            >
-              Delete Floor
-            </button>
-
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={() => setOpenEditFloorModal(false)}
-                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, padding: '6px 12px' }}
-              >
-                Cancel
-              </button>
-              <Button
-                variant="primary"
-                disabled={!editFloorName.trim()}
-                onClick={async () => {
-                  if (selectedFloorToEdit && editFloorName.trim()) {
-                    try {
-                      await updateFloor({ id: selectedFloorToEdit.id, name: editFloorName.trim() }).unwrap();
-                      setOpenEditFloorModal(false);
-                      showToast('Floor name updated!', 'success');
-                    } catch (err: any) {
-                      showToast('Failed to update floor', 'error');
-                    }
-                  }
-                }}
-                style={{ backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }}
-              >
-                Save Changes
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
+        floor={selectedFloorToEdit}
+        onDelete={handleDeleteFloor}
+        onSave={async (floorId, newName) => {
+          try {
+            await updateFloor({ id: floorId, name: newName }).unwrap();
+            showToast('Floor name updated!', 'success');
+          } catch (err: any) {
+            showToast(getErrorMessage(err, 'Failed to update floor'), 'error');
+          }
+        }}
+      />
 
       {/* Edit Room Name Modal */}
-      <Modal
+      <EditRoomModal
         isOpen={openEditRoomModal}
         onClose={() => setOpenEditRoomModal(false)}
-        title="Edit Room Name"
-        maxWidth="sm"
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Room Name</label>
-            <Input
-              type="text"
-              value={editRoomName}
-              onChange={(e) => setEditRoomName(e.target.value)}
-              placeholder="e.g. Room A"
-              autoFocus
-            />
-          </div>
-          
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
-            <button
-              type="button"
-              onClick={() => setOpenEditRoomModal(false)}
-              style={{ backgroundColor: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, padding: '6px 12px' }}
-            >
-              Cancel
-            </button>
-            <Button
-              variant="primary"
-              disabled={!editRoomName.trim()}
-              onClick={async () => {
-                if (selectedRoomToEdit && editRoomName.trim()) {
-                  try {
-                    await updateRoom({ id: selectedRoomToEdit.id, name: editRoomName.trim() }).unwrap();
-                    setOpenEditRoomModal(false);
-                    showToast('Room name updated successfully!', 'success');
-                  } catch (err: any) {
-                    showToast('Failed to update room name', 'error');
-                  }
-                }
-              }}
-              style={{ backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }}
-            >
-              Save Changes
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        room={selectedRoomToEdit}
+        onSave={async (roomId, newName) => {
+          try {
+            await updateRoom({ id: roomId, name: newName }).unwrap();
+            showToast('Room name updated successfully!', 'success');
+          } catch (err: any) {
+            showToast(getErrorMessage(err, 'Failed to update room name'), 'error');
+          }
+        }}
+      />
 
       {/* Allocate Seat Modal (Popup) */}
       <AllocateSeatModal

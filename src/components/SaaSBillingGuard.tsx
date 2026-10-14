@@ -3,6 +3,8 @@ import { useGetSaaSSubscriptionQuery, useStartSaaSTrialMutation, useGetSaaSPlans
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import { Button } from './ui/Button';
+import { useToast } from './ui/ToastContext';
+import { getErrorMessage } from '../utils/errorUtils';
 
 interface SaaSBillingGuardProps {
   children: React.ReactNode;
@@ -10,6 +12,7 @@ interface SaaSBillingGuardProps {
 
 export default function SaaSBillingGuard({ children }: SaaSBillingGuardProps) {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showToast } = useToast();
   
   // Only apply guard if user is associated with a workspace (not SUPER_ADMIN on their own dashboard)
   // Super Admin managing all workspaces doesn't need a guard on the super admin dashboard.
@@ -70,21 +73,22 @@ export default function SaaSBillingGuard({ children }: SaaSBillingGuardProps) {
     try {
       await startTrial({ workspaceId: user.workspaceId, days: 7 }).unwrap();
       setShowWelcomeModal(false);
+      showToast('Free trial started!', 'success');
     } catch (error) {
       console.error('Failed to start trial', error);
-      alert('Could not start free trial. Please contact support.');
+      showToast(getErrorMessage(error, 'Could not start free trial. Please contact support.'), 'error');
     }
   };
 
   const handlePayNow = async (plan: any) => {
     if (!user?.workspaceId || !plan) {
-      alert("Please select a valid plan.");
+      showToast('Please select a valid plan.', 'error');
       return;
     }
 
     const res = await loadRazorpay();
     if (!res) {
-      alert('Razorpay SDK failed to load. Are you online?');
+      showToast('Razorpay SDK failed to load. Are you online?', 'error');
       return;
     }
 
@@ -116,9 +120,10 @@ export default function SaaSBillingGuard({ children }: SaaSBillingGuardProps) {
             // On success, hide modals
             setShowWelcomeModal(false);
             setShowExpiredModal(false);
+            showToast('Subscription active!', 'success');
           } catch (err) {
             console.error('Verification failed', err);
-            alert('Payment verification failed. Please contact support.');
+            showToast('Payment verification failed. Please contact support.', 'error');
           }
         },
         prefill: {
@@ -134,7 +139,7 @@ export default function SaaSBillingGuard({ children }: SaaSBillingGuardProps) {
       paymentObject.open();
     } catch (err) {
       console.error('Error creating payment:', err);
-      alert('Failed to initiate payment. Please try again.');
+      showToast(getErrorMessage(err, 'Failed to initiate payment. Please try again.'), 'error');
     }
   };
 

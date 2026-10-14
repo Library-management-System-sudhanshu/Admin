@@ -4,7 +4,19 @@ import { BrowserRouter } from 'react-router-dom';
 import { store } from '../store';
 import { AlertProvider } from '../components/ui/AlertContext';
 import { ToastProvider } from '../components/ui/ToastContext';
+import { OfflineBanner } from '../components/feedback/OfflineBanner';
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  return <Provider store={store}><BrowserRouter><AlertProvider><ToastProvider>{children}</ToastProvider></AlertProvider></BrowserRouter></Provider>;
+  return (
+    <Provider store={store}>
+      <BrowserRouter>
+        <AlertProvider>
+          <ToastProvider>
+            <OfflineBanner />
+            {children}
+          </ToastProvider>
+        </AlertProvider>
+      </BrowserRouter>
+    </Provider>
+  );
 }

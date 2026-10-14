@@ -17,34 +17,11 @@ import { useToast } from '../components/ui/ToastContext';
 import { CustomCalendar } from '../components/ui/CustomCalendar';
 import { UserPlus, MapPin, Layers, Camera, Calendar as CalendarIcon } from 'lucide-react';
 import { getTodayYYYYMMDD } from '../utils/dateUtils';
+import { compressImage } from '../utils/imageUtils';
+import { isValidEmail, isValidAadhar, NAME_REGEX } from '../utils/validators';
+import { getErrorMessage } from '../utils/errorUtils';
 import '../components/ui/Globals.css';
-const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64Str;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-      if (width > height) {
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width = Math.round((width * maxHeight) / height);
-          height = maxHeight;
-        }
-      }
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.7));
-    };
-  });
-};
+
 export default function NewAdmission() {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -138,7 +115,7 @@ export default function NewAdmission() {
         setAvatar(uploadResult.url);
         showToast('Photo uploaded successfully!', 'success');
       } catch (err: any) {
-        showToast(err?.data?.message || 'Failed to upload photo.', 'error');
+        showToast(getErrorMessage(err, 'Failed to upload photo.'), 'error');
       }
     };
     reader.readAsDataURL(file);
@@ -170,17 +147,12 @@ export default function NewAdmission() {
     let errorMsg = '';
     switch (field) {
       case 'name':
-        if (!/^[a-zA-Z0-9\s\.\-]*$/.test(value)) {
-          errorMsg = 'Name can contain only letters, numbers, spaces, dots, and hyphens';
-        } else if (value.trim().length > 0 && value.trim().length < 2) {
-          errorMsg = 'Name must be at least 2 characters';
-        } else if (value.trim().length > 50) {
-          errorMsg = 'Name must be at most 50 characters';
+        if (value.trim().length > 0 && !NAME_REGEX.test(value.trim())) {
+          errorMsg = 'Name must be 2-50 characters (letters, numbers, spaces, dots, hyphens)';
         }
         break;
       case 'email':
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (value.trim().length > 0 && !emailRegex.test(value.trim())) {
+        if (value.trim().length > 0 && !isValidEmail(value.trim())) {
           errorMsg = 'Invalid email address';
         }
         break;
@@ -197,10 +169,8 @@ export default function NewAdmission() {
         }
         break;
       case 'guardianName':
-        if (!/^[a-zA-Z0-9\s\.\-]*$/.test(value)) {
-          errorMsg = 'Guardian name can contain only letters, numbers, spaces, dots, and hyphens';
-        } else if (value.trim().length > 0 && value.trim().length < 2) {
-          errorMsg = 'Guardian name must be at least 2 characters';
+        if (value.trim().length > 0 && !NAME_REGEX.test(value.trim())) {
+          errorMsg = 'Guardian name must be 2-50 characters';
         }
         break;
       case 'guardianMobile':
@@ -232,11 +202,10 @@ export default function NewAdmission() {
     if (!name.trim()) newErrors.name = 'Student name is required';
     if (!mobile.trim()) newErrors.mobile = 'Mobile number is required';
     if (!branchId) newErrors.branchId = 'Target branch is required';
-    if (name.trim() && !/^[a-zA-Z0-9\s\.\-]{2,50}$/.test(name.trim())) {
+    if (name.trim() && !NAME_REGEX.test(name.trim())) {
       newErrors.name = 'Name must be 2-50 characters';
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (email.trim() && !emailRegex.test(email.trim())) {
+    if (email.trim() && !isValidEmail(email.trim())) {
       newErrors.email = 'Invalid email address';
     }
     if (mobile.trim() && !/^\d{10}$/.test(mobile.trim())) {
@@ -245,13 +214,13 @@ export default function NewAdmission() {
     if (password && password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
-    if (guardianName.trim() && !/^[a-zA-Z0-9\s\.\-]{2,50}$/.test(guardianName.trim())) {
+    if (guardianName.trim() && !NAME_REGEX.test(guardianName.trim())) {
       newErrors.guardianName = 'Guardian name must be 2-50 characters';
     }
     if (guardianMobile.trim() && !/^\d{10}$/.test(guardianMobile.trim())) {
       newErrors.guardianMobile = 'Guardian mobile must be exactly 10 digits';
     }
-    if (aadharNumber.trim() && !/^\d{12}$/.test(aadharNumber.trim())) {
+    if (aadharNumber.trim() && !isValidAadhar(aadharNumber.trim())) {
       newErrors.aadharNumber = 'Aadhar number must be exactly 12 digits';
     }
     setErrors(newErrors);
@@ -302,7 +271,7 @@ export default function NewAdmission() {
       });
       setIsSuccessModalOpen(true);
     } catch (err: any) {
-      showToast(err?.data?.message || 'Failed to complete admission', 'error');
+      showToast(getErrorMessage(err, 'Failed to complete admission'), 'error');
     }
   };
   const genderOptions = [
@@ -511,8 +480,8 @@ export default function NewAdmission() {
                 }}
               />
               <div ref={dateContainerRef} style={{ position: 'relative' }}>
-                <label className="custom-input-label">Admission Date *</label>
-                <button type="button" className="na-date-trigger" aria-label="Choose admission date" aria-expanded={showCalendarPicker} onClick={toggleCalendarPicker}>
+                <label className="custom-input-label">Subscription Start *</label>
+                <button type="button" className="na-date-trigger" aria-label="Choose subscription start date" aria-expanded={showCalendarPicker} onClick={toggleCalendarPicker}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-navy)' }}>
                     {joiningDate ? new Date(joiningDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Select date'}
                   </span>

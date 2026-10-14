@@ -43,10 +43,13 @@ import {
   AssignmentTurnedIn as ReturnIcon,
 } from '@mui/icons-material';
 import { Button } from '../components/ui/Button';
+import { useToast } from '../components/ui/ToastContext';
+import { getErrorMessage } from '../utils/errorUtils';
 import { Plus, BookOpen } from 'lucide-react';
 
 export default function Library() {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showToast } = useToast();
   const [tab, setTab] = useState(0);
 
   const { data: books, isLoading: booksLoading, isFetching: booksFetching, error: booksError, refetch: refetchBooks } = useGetBooksQuery({});
@@ -80,14 +83,15 @@ export default function Library() {
         quantity: Number(quantity),
         rackNumber,
       }).unwrap();
+      showToast('Book added successfully!', 'success');
       setOpenAddBook(false);
       setTitle('');
       setAuthor('');
       setCategory('');
       setQuantity('');
       setRackNumber('');
-    } catch (err) {
-      alert('Error adding book');
+    } catch (err: any) {
+      showToast(getErrorMessage(err, 'Error adding book'), 'error');
     }
   };
 
@@ -99,11 +103,12 @@ export default function Library() {
         studentProfileId,
         issuedById: user?.id,
       }).unwrap();
+      showToast('Book issued successfully!', 'success');
       setOpenIssue(false);
       setSelectedBookId('');
       setStudentProfileId('');
-    } catch (err) {
-      alert('Error issuing book');
+    } catch (err: any) {
+      showToast(getErrorMessage(err, 'Error issuing book'), 'error');
     }
   };
 
@@ -111,12 +116,12 @@ export default function Library() {
     try {
       const res = await returnBook(issueId).unwrap();
       if (res.fineAmount > 0) {
-        alert(`Book returned! Late fine calculated: ₹${res.fineAmount}`);
+        showToast(`Book returned! Late fine calculated: ₹${res.fineAmount}`, 'warning');
       } else {
-        alert('Book returned successfully.');
+        showToast('Book returned successfully.', 'success');
       }
-    } catch (err) {
-      alert('Error returning book');
+    } catch (err: any) {
+      showToast(getErrorMessage(err, 'Error returning book'), 'error');
     }
   };
 

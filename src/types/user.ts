@@ -7,6 +7,8 @@ export interface WorkspaceSummary {
   pincode?: string;
   gstNumber?: string;
   subdomain: string;
+  logo?: string;
+  [key: string]: any;
 }
 
 export interface User {
@@ -14,9 +16,14 @@ export interface User {
   email: string;
   name: string;
   role: UserRole | string;
+  mobile?: string;
+  phone?: string;
+  avatar?: string;
+  password?: string;
   workspaceId?: string;
   branchId?: string;
   workspace?: WorkspaceSummary;
+  [key: string]: any;
 }
 
 export interface AuthCredentials {

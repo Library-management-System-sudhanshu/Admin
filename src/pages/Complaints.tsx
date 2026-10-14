@@ -17,10 +17,13 @@ import {
   Chip,
 } from '@mui/material';
 import { Button } from '../components/ui/Button';
+import { useToast } from '../components/ui/ToastContext';
+import { getErrorMessage } from '../utils/errorUtils';
 import { Check } from 'lucide-react';
 
 export default function Complaints() {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { showToast } = useToast();
   const { data: complaints, isLoading, isFetching, error, refetch } = useGetComplaintsQuery({});
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolveComplaint] = useUpdateComplaintStatusMutation();
@@ -34,9 +37,9 @@ export default function Complaints() {
         resolvedById: user?.id,
         status: 'RESOLVED',
       }).unwrap();
-      alert('Complaint resolved successfully');
-    } catch (err) {
-      alert('Error updating complaint');
+      showToast('Complaint resolved successfully', 'success');
+    } catch (err: any) {
+      showToast(getErrorMessage(err, 'Error updating complaint'), 'error');
     } finally {
       setResolvingId(null);
     }
