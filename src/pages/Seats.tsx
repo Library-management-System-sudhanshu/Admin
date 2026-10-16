@@ -26,7 +26,7 @@ import {
   useVerifyRazorpayMutation,
 } from '../store/api';
 import { formatYYYYMMDD, addMonthsToDate, addDaysToDate, getTodayYYYYMMDD, formatDateDisplay } from '../utils/dateUtils';
-import { getStudentDisplayName, getStudentEmail, getStudentMobile } from '../utils/studentUtils';
+import { getStudentDisplayName, getStudentEmail, getStudentMobile, getStudentInitials } from '../utils/studentUtils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
@@ -1641,10 +1641,10 @@ export default function Seats() {
       for (const floor of seatMap) {
         for (const room of floor.rooms) {
           for (const seat of room.seats) {
-            const activeAlloc = seat.allocations?.find((a: any) => a.isActive);
-            const isOccupied = seat.status === 'OCCUPIED';
+            const { isOccupied } = getSeatStatusInfo(seat);
+            const activeAlloc = seat.allocations?.find((a: any) => a.isActive && a.studentProfile && !a.studentProfile?.deletedAt);
             const match = seat.number.toLowerCase().includes(query) ||
-              (isOccupied && getStudentDisplayName(activeAlloc?.studentProfile).toLowerCase().includes(query));
+              (isOccupied && activeAlloc?.studentProfile && getStudentDisplayName(activeAlloc.studentProfile).toLowerCase().includes(query));
             if (match) {
               matchedSeat = seat;
               break;
@@ -1911,7 +1911,7 @@ export default function Seats() {
       setInvoiceAmount('');
       setPaymentMethod('CASH');
     } else if (seat.status === 'OCCUPIED') {
-      const activeAllocations = seat.allocations?.filter((a: any) => a.isActive) || [];
+      const { activeAllocations } = getSeatStatusInfo(seat);
       if (activeAllocations.length > 0) {
         setSelectedAllocationId(activeAllocations[0].id);
         const activeAllocation = activeAllocations[0];
@@ -2097,11 +2097,10 @@ export default function Seats() {
 
   // Submit vacate seat
   const handleVacateSeat = async () => {
-    if (!selectedSeat || !selectedAllocationId) return;
+    if (!selectedSeat) return;
     const activeAllocation = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
-    if (!activeAllocation) return;
 
-    const sName = getStudentDisplayName(activeAllocation.studentProfile);
+    const sName = activeAllocation?.studentProfile ? getStudentDisplayName(activeAllocation.studentProfile) : 'this seat';
     const confirmed = await showAlert(`Are you sure you want to vacate ${sName}?`, {
       title: "Vacate Seat",
       confirmText: "Vacate Seat",
@@ -2110,10 +2109,13 @@ export default function Seats() {
     });
     if (!confirmed) return;
     try {
-      await vacateSeat({ id: selectedSeat.id, studentProfileId: activeAllocation.studentProfileId }).unwrap();
+      await vacateSeat({
+        id: selectedSeat.id,
+        ...(activeAllocation?.studentProfileId ? { studentProfileId: activeAllocation.studentProfileId } : {})
+      }).unwrap();
       setIsDrawerOpen(false);
       setSelectedSeat(null);
-      showToast('Student vacated successfully!', 'success');
+      showToast('Seat vacated successfully!', 'success');
     } catch (err: any) {
       showToast(err.data?.message || 'Failed to vacate seat', 'error');
     }
@@ -2329,13 +2331,13 @@ export default function Seats() {
     // Apply search filter
     if (rSearch) {
       filtered = filtered.filter((seat: any) => {
-        const isOccupied = seat.status === 'OCCUPIED';
-        const activeAllocation = seat.allocations?.find((a: any) => a.isActive);
+        const { isOccupied } = getSeatStatusInfo(seat);
+        const activeAllocation = seat.allocations?.find((a: any) => a.isActive && a.studentProfile && !a.studentProfile?.deletedAt);
         return seat.number.toLowerCase().includes(rSearch) ||
-          (isOccupied && (
-            getStudentDisplayName(activeAllocation?.studentProfile).toLowerCase().includes(rSearch) ||
-            getStudentEmail(activeAllocation?.studentProfile).toLowerCase().includes(rSearch) ||
-            getStudentMobile(activeAllocation?.studentProfile).includes(rSearch)
+          (isOccupied && activeAllocation?.studentProfile && (
+            getStudentDisplayName(activeAllocation.studentProfile).toLowerCase().includes(rSearch) ||
+            getStudentEmail(activeAllocation.studentProfile).toLowerCase().includes(rSearch) ||
+            getStudentMobile(activeAllocation.studentProfile).includes(rSearch)
           ));
       });
     }
@@ -4478,11 +4480,11 @@ export default function Seats() {
           {(selectedSeat?.status === 'OCCUPIED' && getSeatStatusInfo(selectedSeat).isOccupied) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {(() => {
-                const activeAllocations = selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
+                const { activeAllocations } = getSeatStatusInfo(selectedSeat);
                 const activeAllocation = activeAllocations.find((a: any) => a.id === selectedAllocationId) || activeAllocations[0];
                 if (!activeAllocation) return <p style={{ fontSize: '0.8rem', color: 'var(--text-slate)' }}>Error: Active allocation details not found.</p>;
                 
-                const nameInit = activeAllocation.studentProfile?.user?.name?.charAt(0).toUpperCase() || 'S';
+                const nameInit = getStudentInitials(activeAllocation.studentProfile);
                 const latestPayment = activeAllocation.studentProfile?.payments && activeAllocation.studentProfile.payments.length > 0
                   ? [...activeAllocation.studentProfile.payments].sort((a: any, b: any) => new Date(b.paidAt || b.createdAt).getTime() - new Date(a.paidAt || a.createdAt).getTime())[0]
                   : null;
@@ -4513,7 +4515,7 @@ export default function Seats() {
                                 }}
                               >
                                 <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-navy)' }}>{alloc.studentProfile?.user?.name}</span>
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-navy)' }}>{getStudentDisplayName(alloc.studentProfile)}</span>
                                   <span style={{ fontSize: '0.65rem', color: 'var(--text-slate)' }}>Shift: {alloc.shift?.name}</span>
                                 </div>
                                 <span style={{ fontSize: '0.6rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: isCurrent ? 'var(--accent-blue)' : '#f1f5f9', color: isCurrent ? '#ffffff' : 'var(--text-slate)', fontWeight: 600 }}>
@@ -4566,10 +4568,10 @@ export default function Seats() {
                                 {nameInit}
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeAllocation.studentProfile?.user?.name}</span>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getStudentDisplayName(activeAllocation.studentProfile)}</span>
                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)' }}>ID: STD-{activeAllocation.studentProfile?.id?.slice(0, 4).toUpperCase()}</span>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)', marginTop: '1px' }}>{activeAllocation.studentProfile?.user?.mobile}</span>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)', marginTop: '1px', textTransform: 'lowercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeAllocation.studentProfile?.user?.email}</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)', marginTop: '1px' }}>{getStudentMobile(activeAllocation.studentProfile)}</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-slate)', marginTop: '1px', textTransform: 'lowercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getStudentEmail(activeAllocation.studentProfile)}</span>
                               </div>
                             </div>
                             <button

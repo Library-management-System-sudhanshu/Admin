@@ -40,10 +40,10 @@ const COLORS = [themeColors.chartPrimary, themeColors.chartSecondary];
 export default function Dashboard() {
   const navigate = useNavigate();
   const [expiringDays, setExpiringDays] = useState<number>(7);
-  const { data: metrics, isLoading, isFetching, error, refetch } = useGetMetricsQuery({ days: expiringDays });
+  const { currentData: metrics, isLoading, isFetching, error, refetch } = useGetMetricsQuery({ days: expiringDays });
   const [hoveredAction, setHoveredAction] = useState<number | null>(null);
 
-  if (isLoading) {
+  if (isLoading || (isFetching && !metrics)) {
     return (
       <LoadingState />
     );
@@ -351,7 +351,7 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', borderBottom: '1px solid rgba(15,23,42,0.03)', paddingBottom: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                 <Clock size={14} style={{ color: 'var(--status-amber)' }} />
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-slate)', fontWeight: 500 }}>Expiring Seats (7d)</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-slate)', fontWeight: 500 }}>Expiring Plans ({expiringDays}d)</span>
               </div>
               <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-navy)' }}>{metrics.expiringSubscriptions}</span>
             </div>

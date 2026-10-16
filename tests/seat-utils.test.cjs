@@ -75,4 +75,49 @@ describe('seatUtils unit tests', () => {
     assert.equal(expiredInfo.isExpired, true);
     assert.equal(expiredInfo.expiredAllocations.length, 1);
   });
+
+  test('getSeatStatusInfo ignores allocations where studentProfile is null or deleted', () => {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 15);
+
+    // Allocation where student was soft-deleted (Sequelize sets studentProfile to null)
+    const orphanedSeatNull = {
+      allocations: [
+        { id: '1', isActive: true, endDate: futureDate.toISOString(), studentProfile: null },
+      ],
+    };
+    const nullInfo = getSeatStatusInfo(orphanedSeatNull);
+    assert.equal(nullInfo.isOccupied, false);
+    assert.equal(nullInfo.activeAllocations.length, 0);
+
+    // Allocation where studentProfile has deletedAt timestamp
+    const orphanedSeatDeleted = {
+      allocations: [
+        {
+          id: '2',
+          isActive: true,
+          endDate: futureDate.toISOString(),
+          studentProfile: { id: 's1', name: 'Deleted Student', deletedAt: '2026-10-14T11:23:00Z' },
+        },
+      ],
+    };
+    const deletedInfo = getSeatStatusInfo(orphanedSeatDeleted);
+    assert.equal(deletedInfo.isOccupied, false);
+    assert.equal(deletedInfo.activeAllocations.length, 0);
+
+    // Valid student allocation
+    const validSeat = {
+      allocations: [
+        {
+          id: '3',
+          isActive: true,
+          endDate: futureDate.toISOString(),
+          studentProfile: { id: 's2', name: 'Active Student', deletedAt: null },
+        },
+      ],
+    };
+    const validInfo = getSeatStatusInfo(validSeat);
+    assert.equal(validInfo.isOccupied, true);
+    assert.equal(validInfo.activeAllocations.length, 1);
+  });
 });

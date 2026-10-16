@@ -50,7 +50,14 @@ export const getSeatStatusInfo = (seat: any): SeatStatusInfo => {
     };
   }
 
-  const activeAllocations = seat.allocations?.filter((a: any) => a.isActive) || [];
+  // Ensure allocations have a valid active student profile (not deleted or null)
+  const activeAllocations =
+    seat.allocations?.filter(
+      (a: any) =>
+        a.isActive &&
+        a.studentProfile !== null &&
+        !a.studentProfile?.deletedAt
+    ) || [];
 
   const isAllocationExpired = (alloc: any) => {
     if (!alloc?.endDate) return false;

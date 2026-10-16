@@ -41,7 +41,7 @@ import {
   LinearProgress,
 } from '@mui/material';
 import { Button } from '../components/ui/Button';
-import { Send, MessageCircle, Smartphone, Mail, Megaphone, ChevronRight } from 'lucide-react';
+import { Send, MessageCircle, Smartphone, Mail, Megaphone, ChevronRight, CheckCircle2, ExternalLink, ArrowRight, X, Phone, Play } from 'lucide-react';
 
 /* ─── Shared Styles ─── */
 const inputStyle = {
@@ -82,7 +82,38 @@ const channels = [
 
 type ChannelKey = typeof channels[number]['key'];
 
-const WHATSAPP_WINDOW_NAME = 'StudyFlowWhatsAppWindow';
+const PREDEFINED_WHATSAPP_TEMPLATES = [
+  {
+    id: 'fee_reminder',
+    name: '💳 Fee Payment Reminder',
+    text: 'Hello {{studentName}},\n\nThis is a friendly reminder that your study hall fee of ₹{{amount}} for {{branchName}} is due on {{dueDate}}. Please clear the dues to ensure uninterrupted seat access.\n\nBest regards,\nTeam StudyFlow',
+  },
+  {
+    id: 'renewal_reminder',
+    name: '⏳ Subscription Expiry & Renewal Alert',
+    text: 'Hello {{studentName}},\n\nYour library seat subscription (Seat #{{seatNumber}}) at {{branchName}} is expiring on {{endDate}}. Please renew your seat promptly to retain your preferred slot.\n\nWarm regards,\nTeam StudyFlow',
+  },
+  {
+    id: 'holiday_notice',
+    name: '🏖️ Holiday & Branch Closure Notice',
+    text: 'Dear Students,\n\nPlease note that {{branchName}} will remain closed on {{holidayDate}} due to {{reason}}. Normal study hall timings will resume promptly on {{resumeDate}}.\n\nThank you for your cooperation,\nStudyFlow Management',
+  },
+  {
+    id: 'general_notice',
+    name: '📢 General Announcement',
+    text: 'Important Notice for Students of {{branchName}}:\n\n{{message}}\n\nPlease maintain discipline, silence, and hygiene inside the study area.\n\nBest regards,\nStudyFlow Management',
+  },
+  {
+    id: 'welcome_onboarding',
+    name: '🎉 Welcome & Registration Confirmed',
+    text: 'Welcome to StudyFlow, {{studentName}}!\n\nYour seat registration at {{branchName}} has been successfully confirmed. Happy learning and all the very best with your exam preparation!\n\nFor Wi-Fi or locker assistance, visit the front desk.\nTeam StudyFlow',
+  },
+  {
+    id: 'custom_message',
+    name: '✍️ Custom WhatsApp Message (Write Free Text)',
+    text: 'Hello {{studentName}},\n\n{{message}}\n\nBest regards,\nTeam StudyFlow',
+  },
+];
 
 const PREDEFINED_EMAIL_TEMPLATES = [
   {
@@ -368,7 +399,12 @@ export default function MessagesBroadcast() {
   };
 
   /* ─── WhatsApp State ─── */
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('fee_reminder');
+  const [directPhone, setDirectPhone] = useState('');
+  const [broadcastQueue, setBroadcastQueue] = useState<any[]>([]);
+  const [queueIndex, setQueueIndex] = useState(0);
+  const [isBroadcastQueueOpen, setIsBroadcastQueueOpen] = useState(false);
+  const [sentStudentIds, setSentStudentIds] = useState<Record<string, boolean>>({});
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -381,6 +417,17 @@ export default function MessagesBroadcast() {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateText, setNewTemplateText] = useState('');
+
+  const allWhatsAppTemplates = React.useMemo(() => {
+    const backendList = Array.isArray(templates) ? templates : [];
+    const combined = [...PREDEFINED_WHATSAPP_TEMPLATES];
+    backendList.forEach((bt: any) => {
+      if (!combined.some((t) => t.id === bt.id)) {
+        combined.push(bt);
+      }
+    });
+    return combined;
+  }, [templates]);
 
   /* ─── SMS State ─── */
   const [smsMessage, setSmsMessage] = useState('');
@@ -409,20 +456,45 @@ export default function MessagesBroadcast() {
     return matches.map((m) => m.replace(/\{\{|\}\}/g, '').trim()).filter((v) => !standard.includes(v));
   };
 
+  const openWhatsAppUrl = (phone: string, message: string) => {
+    let cleanPhone = (phone || '').replace(/\D/g, '').replace(/^0+/, '');
+    if (!cleanPhone) {
+      showToast('No valid mobile number found for this recipient.', 'warning');
+      return false;
+    }
+    if (cleanPhone.length === 10) {
+      cleanPhone = '91' + cleanPhone;
+    }
+    const encoded = encodeURIComponent(message);
+    const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`;
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.focus();
+      return true;
+    } else {
+      window.location.href = url;
+      return true;
+    }
+  };
+
   const getTemplateTextPreview = (student?: any) => {
-    const t = templates?.find((x: any) => x.id === selectedTemplateId);
-    if (!t) return '';
+    const t = allWhatsAppTemplates.find((x: any) => x.id === selectedTemplateId) || allWhatsAppTemplates[0];
+    if (!t) return customMsg || 'Hello! This is an announcement from StudyFlow.';
     let preview = t.text;
-    preview = preview.replace('{{studentName}}', student?.user?.name || 'John Doe');
-    preview = preview.replace('{{amount}}', amount || '______');
-    preview = preview.replace('{{dueDate}}', dueDate || '______');
-    preview = preview.replace('{{endDate}}', endDate || '______');
-    preview = preview.replace('{{seatNumber}}', seatNumber || '______');
-    preview = preview.replace('{{branchName}}', student?.branch?.name || 'Main Branch');
-    preview = preview.replace('{{holidayDate}}', holidayDate || '______');
-    preview = preview.replace('{{resumeDate}}', resumeDate || '______');
-    preview = preview.replace('{{reason}}', reason || '______');
-    preview = preview.replace('{{message}}', customMsg || '______');
+    const studentName = student?.user?.name || 'John Doe';
+    const branchName = student?.branch?.name || (branches && branches[0]?.name) || 'Main Branch';
+    const studentSeat = student?.seat?.seatNumber || seatNumber || '______';
+
+    preview = preview.replace(/\{\{studentName\}\}/g, studentName);
+    preview = preview.replace(/\{\{amount\}\}/g, amount || '______');
+    preview = preview.replace(/\{\{dueDate\}\}/g, dueDate || '______');
+    preview = preview.replace(/\{\{endDate\}\}/g, endDate || '______');
+    preview = preview.replace(/\{\{seatNumber\}\}/g, studentSeat);
+    preview = preview.replace(/\{\{branchName\}\}/g, branchName);
+    preview = preview.replace(/\{\{holidayDate\}\}/g, holidayDate || '______');
+    preview = preview.replace(/\{\{resumeDate\}\}/g, resumeDate || '______');
+    preview = preview.replace(/\{\{reason\}\}/g, reason || '______');
+    preview = preview.replace(/\{\{message\}\}/g, customMsg || '______');
     const vars = extractTemplateVariables(t.text);
     vars.forEach((v) => { preview = preview.replace(new RegExp(`\\{\\{${v}\\}\\}`, 'g'), customVars[v] || '______'); });
     return preview;
@@ -430,30 +502,81 @@ export default function MessagesBroadcast() {
 
   const handleSendIndividualWa = (student: any) => {
     const message = getTemplateTextPreview(student);
-    let phone = student.user?.mobile ? student.user.mobile.replace(/\D/g, '') : '';
-    if (!phone) { showToast('This student has no mobile number on file.', 'warning'); return; }
-    if (phone.length === 10) phone = '91' + phone;
-    const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
-    const win = window.open(url, WHATSAPP_WINDOW_NAME, 'width=1000,height=750,resizable=yes,scrollbars=yes');
-    if (win) win.focus();
-    else showToast('Popup blocked — please allow popups for this site to send via WhatsApp Web.', 'warning');
+    const phone = student.user?.mobile;
+    if (!phone) {
+      showToast(`This student (${student.user?.name || 'Student'}) has no mobile number on file.`, 'warning');
+      return;
+    }
+    const ok = openWhatsAppUrl(phone, message);
+    if (ok) {
+      setSentStudentIds((prev) => ({ ...prev, [student.id]: true }));
+      showToast(`Opening WhatsApp for ${student.user?.name || phone}...`, 'success');
+    }
+  };
+
+  const handleDirectSendWa = () => {
+    if (!directPhone.trim()) {
+      showToast('Please enter a mobile number to open WhatsApp.', 'warning');
+      return;
+    }
+    const sampleStudent = {
+      user: { name: 'Student', mobile: directPhone },
+      branch: { name: (branches && branches[0]?.name) || 'StudyFlow' },
+    };
+    const message = getTemplateTextPreview(sampleStudent);
+    const ok = openWhatsAppUrl(directPhone, message);
+    if (ok) {
+      showToast(`Opening WhatsApp with your message...`, 'success');
+    }
   };
 
   const handleSendWaBroadcast = async (e?: React.FormEvent | React.MouseEvent) => {
     e?.preventDefault();
     if (!selectedTemplateId) { showToast('Please select a WhatsApp template.', 'warning'); return; }
-    const selectedIds = Object.keys(selectedStudentIds).filter((k) => selectedStudentIds[k]);
-    if (selectedIds.length === 0) { showToast('Please select at least one student recipient.', 'warning'); return; }
-    try {
-      await sendWhatsApp({
-        templateId: selectedTemplateId,
-        customVariables: { amount, dueDate, endDate, seatNumber, holidayDate, resumeDate, reason, message: customMsg, ...customVars },
-        filters: { branchId: branchId === 'ALL' ? undefined : branchId, shiftId: shiftId === 'ALL' ? undefined : shiftId, status: statusFilter === 'ALL' ? undefined : statusFilter },
-        studentIds: selectedIds,
-      }).unwrap();
-      showToast('WhatsApp broadcast triggered successfully!', 'success');
-      setAmount(''); setDueDate(''); setEndDate(''); setSeatNumber(''); setHolidayDate(''); setResumeDate(''); setReason(''); setCustomMsg(''); setCustomVars({}); setFetchTrigger(false);
-    } catch (err: any) { showToast(err?.data?.message || 'WhatsApp broadcast failed', 'error'); }
+    const selectedStudents = studentsData?.students?.filter((s: any) => selectedStudentIds[s.id]) || [];
+    if (selectedStudents.length === 0) {
+      showToast('Please select at least one student recipient.', 'warning');
+      return;
+    }
+
+    const selectedIds = selectedStudents.map((s: any) => s.id);
+
+    // Optional background log dispatch
+    sendWhatsApp({
+      templateId: selectedTemplateId,
+      customVariables: { amount, dueDate, endDate, seatNumber, holidayDate, resumeDate, reason, message: customMsg, ...customVars },
+      filters: { branchId: branchId === 'ALL' ? undefined : branchId, shiftId: shiftId === 'ALL' ? undefined : shiftId, status: statusFilter === 'ALL' ? undefined : statusFilter },
+      studentIds: selectedIds,
+    }).catch(() => { /* silent background fail safe */ });
+
+    // Single student selected: open WhatsApp chat directly!
+    if (selectedStudents.length === 1) {
+      const student = selectedStudents[0];
+      const message = getTemplateTextPreview(student);
+      const phone = student.user?.mobile;
+      if (!phone) {
+        showToast(`This student (${student.user?.name || ''}) has no mobile number on file.`, 'warning');
+        return;
+      }
+      const ok = openWhatsAppUrl(phone, message);
+      if (ok) {
+        setSentStudentIds((prev) => ({ ...prev, [student.id]: true }));
+        showToast(`Opening WhatsApp for ${student.user?.name || phone}...`, 'success');
+      }
+      return;
+    }
+
+    // Multiple students: open first recipient immediately and open sequential queue assistant
+    setBroadcastQueue(selectedStudents);
+    setQueueIndex(0);
+    setIsBroadcastQueueOpen(true);
+
+    const first = selectedStudents[0];
+    if (first.user?.mobile) {
+      openWhatsAppUrl(first.user.mobile, getTemplateTextPreview(first));
+      setSentStudentIds((prev) => ({ ...prev, [first.id]: true }));
+      showToast(`Opening WhatsApp for 1st recipient: ${first.user?.name}...`, 'success');
+    }
   };
 
   const handleCreateTemplate = async (e: React.MouseEvent) => {
@@ -593,14 +716,74 @@ export default function MessagesBroadcast() {
               {/* ── WhatsApp Compose ── */}
               {activeChannel === 'whatsapp' && (
                 <>
+                  {/* Direct WhatsApp Quick Send Card */}
+                  <Box sx={{
+                    p: 2,
+                    mb: 3,
+                    borderRadius: '12px',
+                    bgcolor: 'rgba(37, 211, 102, 0.05)',
+                    border: '1px solid rgba(37, 211, 102, 0.25)',
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <MessageCircle size={16} color="#25D366" />
+                        <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          Direct WhatsApp Quick Send
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                        Send composed message immediately to any mobile number
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                      <TextField
+                        size="small"
+                        placeholder="Enter 10-digit mobile number (e.g. 9876543210)"
+                        value={directPhone}
+                        onChange={(e) => setDirectPhone(e.target.value)}
+                        sx={{ flex: 1, ...inputStyle }}
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <Box component="span" sx={{ color: 'var(--text-secondary)', fontSize: '0.85rem', mr: 1, fontWeight: 600 }}>
+                                +91
+                              </Box>
+                            ),
+                          },
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={handleDirectSendWa}
+                        style={{
+                          backgroundColor: '#25D366',
+                          borderColor: '#25D366',
+                          color: '#fff',
+                          padding: '8px 16px',
+                          fontWeight: 600,
+                          fontSize: '0.85rem',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <Send size={15} />
+                        Open WhatsApp
+                      </Button>
+                    </Box>
+                  </Box>
+
                   {templatesLoading ? <CircularProgress /> : (
                     <>
                       <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '20px' }}>
                         <FormControl fullWidth required size="small" sx={{ ...inputStyle, marginBottom: 0 }}>
-                          <InputLabel id="template-select">Select Template</InputLabel>
-                          <Select labelId="template-select" value={selectedTemplateId} label="Select Template"
+                          <InputLabel id="template-select">Select WhatsApp Template</InputLabel>
+                          <Select labelId="template-select" value={selectedTemplateId} label="Select WhatsApp Template"
                             onChange={(e) => { setSelectedTemplateId(e.target.value); setCustomVars({}); }} MenuProps={menuProps}>
-                            {templates?.map((t: any) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                            {allWhatsAppTemplates.map((t: any) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
                           </Select>
                         </FormControl>
                         <Button type="button" variant="outline" onClick={() => setIsTemplateModalOpen(true)}
@@ -609,26 +792,45 @@ export default function MessagesBroadcast() {
                         </Button>
                       </div>
 
+                      {selectedTemplateId === 'fee_reminder' && (
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
+                          <TextField sx={inputStyle} label="Fee Amount (₹)" placeholder="e.g. 1200" fullWidth size="small" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                          <DatePicker label="Payment Due Date" value={dueDate} onChange={(val) => setDueDate(val)} />
+                        </Box>
+                      )}
+
                       {selectedTemplateId === 'renewal_reminder' && (
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
                           <DatePicker label="Expiry End Date" value={endDate} onChange={(val) => setEndDate(val)} />
-                          <TextField sx={inputStyle} label="Seat Number" fullWidth size="small" value={seatNumber} onChange={(e) => setSeatNumber(e.target.value)} />
+                          <TextField sx={inputStyle} label="Seat Number" placeholder="e.g. A-12" fullWidth size="small" value={seatNumber} onChange={(e) => setSeatNumber(e.target.value)} />
                         </Box>
                       )}
+
                       {selectedTemplateId === 'holiday_notice' && (
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2, mb: 3 }}>
                           <DatePicker label="Holiday Date" value={holidayDate} onChange={(val) => setHolidayDate(val)} />
                           <DatePicker label="Resume Date" value={resumeDate} onChange={(val) => setResumeDate(val)} />
-                          <TextField sx={inputStyle} label="Reason" fullWidth size="small" value={reason} onChange={(e) => setReason(e.target.value)} />
+                          <TextField sx={inputStyle} label="Reason / Occasion" placeholder="e.g. Festival Break" fullWidth size="small" value={reason} onChange={(e) => setReason(e.target.value)} />
                         </Box>
                       )}
-                      {selectedTemplateId === 'general_notice' && (
-                        <TextField label="Announcement Message" fullWidth multiline rows={3} value={customMsg} onChange={(e) => setCustomMsg(e.target.value)} sx={{ mb: 3, ...inputStyle }} />
+
+                      {(selectedTemplateId === 'general_notice' || selectedTemplateId === 'custom_message') && (
+                        <TextField
+                          label={selectedTemplateId === 'custom_message' ? 'Custom WhatsApp Message' : 'Announcement Message'}
+                          placeholder="Type your message text here... Personalize with {{studentName}}, {{branchName}}."
+                          fullWidth
+                          multiline
+                          rows={3}
+                          value={customMsg}
+                          onChange={(e) => setCustomMsg(e.target.value)}
+                          sx={{ mb: 3, ...inputStyle }}
+                          helperText="Use {{studentName}} and {{branchName}} tags for dynamic personalization"
+                        />
                       )}
 
                       {/* Dynamic custom vars */}
                       {(() => {
-                        const t = templates?.find((x: any) => x.id === selectedTemplateId);
+                        const t = allWhatsAppTemplates.find((x: any) => x.id === selectedTemplateId);
                         if (!t) return null;
                         const vars = extractTemplateVariables(t.text);
                         if (vars.length === 0) return null;
@@ -869,13 +1071,34 @@ export default function MessagesBroadcast() {
                   selectedStudentIds={selectedStudentIds} setSelectedStudentIds={setSelectedStudentIds}
                   channelLabel={ch.label}
                   renderMessagePreview={activeChannel === 'whatsapp' ? (s: any) => (selectedTemplateId ? getTemplateTextPreview(s) : '(No Template)') : undefined}
-                  renderAction={activeChannel === 'whatsapp' ? (s: any) => (
-                    <Button type="button" size="sm" variant="primary" onClick={() => handleSendIndividualWa(s)}
-                      disabled={isSending || !selectedTemplateId}
-                      style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px', backgroundColor: '#25D366', borderColor: '#25D366' }}>
-                      Send
-                    </Button>
-                  ) : undefined}
+                  renderAction={activeChannel === 'whatsapp' ? (s: any) => {
+                    const isSent = !!sentStudentIds[s.id];
+                    return (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={isSent ? 'outline' : 'primary'}
+                        onClick={() => handleSendIndividualWa(s)}
+                        disabled={isSending}
+                        style={{
+                          padding: '5px 12px',
+                          fontSize: '0.75rem',
+                          borderRadius: '6px',
+                          backgroundColor: isSent ? 'transparent' : '#25D366',
+                          borderColor: '#25D366',
+                          color: isSent ? '#25D366' : '#ffffff',
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                        title="Open WhatsApp with personalized message for this student"
+                      >
+                        {isSent ? <CheckCircle2 size={13} /> : <Send size={13} />}
+                        {isSent ? 'Sent' : 'Send'}
+                      </Button>
+                    );
+                  } : undefined}
                 />
               </Box>
 
@@ -884,7 +1107,7 @@ export default function MessagesBroadcast() {
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
                   <Button
                     type="button" variant="primary" isLoading={isSending}
-                    disabled={Object.values(selectedStudentIds).filter(Boolean).length === 0 || (activeChannel === 'whatsapp' && !selectedTemplateId)}
+                    disabled={Object.values(selectedStudentIds).filter(Boolean).length === 0}
                     onClick={(e) => {
                       if (activeChannel === 'whatsapp') handleSendWaBroadcast(e);
                       else if (activeChannel === 'sms') handleSendSmsBroadcast();
@@ -897,7 +1120,9 @@ export default function MessagesBroadcast() {
                     }}
                   >
                     <Send size={16} />
-                    Send {ch.label} Broadcast ({Object.values(selectedStudentIds).filter(Boolean).length} Selected)
+                    {activeChannel === 'whatsapp'
+                      ? `Open WhatsApp Broadcast (${Object.values(selectedStudentIds).filter(Boolean).length} Selected)`
+                      : `Send ${ch.label} Broadcast (${Object.values(selectedStudentIds).filter(Boolean).length} Selected)`}
                   </Button>
                 </Box>
               )}
@@ -945,6 +1170,39 @@ export default function MessagesBroadcast() {
                       </Typography>
                       <svg width="16" height="11" viewBox="0 0 16 11" fill="none"><path d="M4.5 9.5L1.5 6.5L0.5 7.5L4.5 11.5L13 3L12 2L4.5 9.5Z" fill="#53bdeb"/><path d="M7.5 9.5L9.5 7.5L8.5 6.5L7.5 7.5L7.5 9.5Z" fill="#53bdeb"/><path d="M15 3L14 2L9.5 6.5L10.5 7.5L15 3Z" fill="#53bdeb"/></svg>
                     </Box>
+                  </Box>
+                )}
+
+                {activeChannel === 'whatsapp' && (
+                  <Box sx={{ mt: 'auto', pt: 1, display: 'flex', justifyContent: 'center' }}>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => {
+                        const msg = getTemplateTextPreview();
+                        const phone = directPhone.trim() || '';
+                        if (!phone) {
+                          showToast('Enter a number in "Direct Quick Send" above or pick a student to open with their number.', 'info');
+                        }
+                        openWhatsAppUrl(phone || '', msg);
+                      }}
+                      style={{
+                        backgroundColor: '#25D366',
+                        borderColor: '#25D366',
+                        color: '#fff',
+                        padding: '8px 18px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 8px rgba(37,211,102,0.3)',
+                      }}
+                    >
+                      <ExternalLink size={14} />
+                      Open Preview in WhatsApp
+                    </Button>
                   </Box>
                 )}
 
@@ -1071,6 +1329,172 @@ export default function MessagesBroadcast() {
                 {isCreatingTemplate ? 'Creating...' : 'Create Template'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════
+          BROADCAST DISPATCH QUEUE MODAL (WhatsApp)
+         ════════════════════════════════════════════════════════ */}
+      {isBroadcastQueueOpen && broadcastQueue.length > 0 && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(5px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999, padding: '16px',
+        }}>
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '16px',
+            width: '100%', maxWidth: '540px', padding: '24px',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', gap: '20px',
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: 'rgba(37,211,102,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#25D366' }}>
+                  <MessageCircle size={22} />
+                </Box>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                    WhatsApp Broadcast Dispatcher
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'var(--text-secondary)' }}>
+                    Recipient {Math.min(queueIndex + 1, broadcastQueue.length)} of {broadcastQueue.length}
+                  </Typography>
+                </Box>
+              </Box>
+              <button
+                type="button"
+                onClick={() => setIsBroadcastQueueOpen(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </Box>
+
+            {/* Progress Bar */}
+            <Box>
+              <LinearProgress
+                variant="determinate"
+                value={Math.round((Object.keys(sentStudentIds).filter(id => broadcastQueue.some(s => s.id === id)).length / broadcastQueue.length) * 100)}
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  bgcolor: 'var(--border-color)',
+                  '& .MuiLinearProgress-bar': { bgcolor: '#25D366', borderRadius: 4 },
+                }}
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                <Typography sx={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                  {Object.keys(sentStudentIds).filter(id => broadcastQueue.some(s => s.id === id)).length} of {broadcastQueue.length} opened in WhatsApp
+                </Typography>
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: '#25D366' }}>
+                  {Math.round((Object.keys(sentStudentIds).filter(id => broadcastQueue.some(s => s.id === id)).length / broadcastQueue.length) * 100)}%
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Current Student Card */}
+            {queueIndex < broadcastQueue.length ? (
+              (() => {
+                const curr = broadcastQueue[queueIndex];
+                const currMsg = getTemplateTextPreview(curr);
+                const currPhone = curr.user?.mobile || '';
+                return (
+                  <Box sx={{ p: 2.5, borderRadius: '12px', bgcolor: 'var(--bg-surface-hover)', border: '1px solid var(--border-color)' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                      <Box>
+                        <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                          {curr.user?.name || 'Student'}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          📱 {currPhone || 'No mobile number'} • 🏢 {curr.branch?.name || 'Branch'}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={sentStudentIds[curr.id] ? 'Opened in WhatsApp' : 'Ready to Send'}
+                        size="small"
+                        color={sentStudentIds[curr.id] ? 'success' : 'default'}
+                        variant="outlined"
+                      />
+                    </Box>
+
+                    <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: 'var(--bg-surface)', border: '1px solid var(--border-color)', maxHeight: 110, overflowY: 'auto', mb: 2 }}>
+                      <Typography sx={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
+                        {currMsg}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (queueIndex < broadcastQueue.length - 1) {
+                            setQueueIndex(queueIndex + 1);
+                          } else {
+                            setIsBroadcastQueueOpen(false);
+                            showToast('Broadcast queue completed!', 'success');
+                          }
+                        }}
+                        style={{ borderRadius: '8px', padding: '8px 16px', fontSize: '0.85rem' }}
+                      >
+                        Skip
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={() => {
+                          if (currPhone) {
+                            openWhatsAppUrl(currPhone, currMsg);
+                            setSentStudentIds((prev) => ({ ...prev, [curr.id]: true }));
+                          } else {
+                            showToast('Student has no mobile number.', 'warning');
+                          }
+                          if (queueIndex < broadcastQueue.length - 1) {
+                            setQueueIndex(queueIndex + 1);
+                          } else {
+                            setIsBroadcastQueueOpen(false);
+                            showToast('All messages opened in WhatsApp!', 'success');
+                          }
+                        }}
+                        style={{
+                          backgroundColor: '#25D366',
+                          borderColor: '#25D366',
+                          color: '#fff',
+                          borderRadius: '8px',
+                          padding: '8px 20px',
+                          fontWeight: 600,
+                          fontSize: '0.85rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <Send size={15} />
+                        Open WhatsApp & Next ➡️
+                      </Button>
+                    </Box>
+                  </Box>
+                );
+              })()
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <CheckCircle2 size={48} color="#25D366" style={{ margin: '0 auto 12px' }} />
+                <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                  All Recipients Processed!
+                </Typography>
+                <Typography sx={{ fontSize: '0.85rem', color: 'var(--text-secondary)', mt: 1, mb: 3 }}>
+                  You have completed opening WhatsApp chats for all {broadcastQueue.length} selected recipients.
+                </Typography>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => setIsBroadcastQueueOpen(false)}
+                  style={{ borderRadius: '8px', padding: '8px 24px', backgroundColor: '#25D366', borderColor: '#25D366' }}
+                >
+                  Done
+                </Button>
+              </Box>
+            )}
           </div>
         </div>
       )}

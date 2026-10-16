@@ -160,6 +160,7 @@ export default function Students() {
     branchId: branchId || undefined,
     filterShiftId: filterShiftId || undefined,
     filterExpiration: filterExpiration || undefined,
+    days: filterDays,
     page,
     limit,
   });
@@ -758,7 +759,6 @@ export default function Students() {
                 <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Student</th>
                 <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Contact Info</th>
                 <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)', whiteSpace: 'nowrap' }}>Seat & Shift</th>
-                <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)' }}>Aadhar Card</th>
                 <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)', whiteSpace: 'nowrap' }}>Subscription & Expiry</th>
                 <th style={{ padding: '0.65rem 1rem', fontSize: '0.725rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-slate)', textAlign: 'right' }}>Actions</th>
               </tr>
@@ -766,7 +766,7 @@ export default function Students() {
             <tbody>
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '3.5rem 1rem', textAlign: 'center', color: 'var(--text-slate)' }}>
+                  <td colSpan={5} style={{ padding: '3.5rem 1rem', textAlign: 'center', color: 'var(--text-slate)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.65rem', maxWidth: '380px', margin: '0 auto' }}>
                       <div
                         style={{
@@ -1045,15 +1045,6 @@ export default function Students() {
                         })()}
                       </td>
 
-                      <td style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', color: 'var(--text-navy)', fontWeight: 500 }}>
-                        {student.aadharNumber ? (
-                          <span style={{ fontFamily: 'monospace', fontSize: '0.775rem', backgroundColor: '#F1F5F9', padding: '2px 6px', borderRadius: '4px' }}>
-                            {student.aadharNumber}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#94A3B8', fontSize: '0.75rem' }}>N/A</span>
-                        )}
-                      </td>
 
                       <td style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                         {(() => {
@@ -1643,10 +1634,6 @@ export default function Students() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                         <span style={{ color: 'var(--text-slate)' }}>Guardian Mobile:</span>
                         <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{fullStudent.guardianMobile || 'N/A'}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                        <span style={{ color: 'var(--text-slate)' }}>Aadhar Card:</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{fullStudent.aadharNumber || 'N/A'}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                         <span style={{ color: 'var(--text-slate)' }}>Branch Location:</span>

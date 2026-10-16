@@ -296,7 +296,7 @@ export default function Login() {
   };
 
   return (
-    <div className="login-page-container login-home-theme">
+    <div className={`login-page-container login-home-theme${tab === 1 ? ' is-registering' : ''}`}>
       <header className="login-topbar">
         <Link to="/" className="login-wordmark" aria-label="Trishul home">
           <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect width="40" height="40" rx="12" fill="currentColor" /><path d="M12 12v8c0 5 3.5 7 8 7s8-2 8-7v-8M20 10v22" stroke="white" strokeWidth="2.7" strokeLinecap="round" /><path d="m9 15 3-3 3 3m10 0 3-3 3 3m-14-2 3-3 3 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>

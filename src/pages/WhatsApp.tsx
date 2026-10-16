@@ -162,7 +162,7 @@ export default function WhatsApp() {
 
   const handleSendIndividual = (student: any) => {
     const message = getStudentMessagePreview(student);
-    let phone = student.user?.mobile ? student.user.mobile.replace(/\D/g, '') : '';
+    let phone = (student.user?.mobile || '').replace(/\D/g, '').replace(/^0+/, '');
 
     if (!phone) {
       showToast('This student has no mobile number on file.', 'error');
@@ -172,16 +172,14 @@ export default function WhatsApp() {
       phone = '91' + phone;
     }
 
-    const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
-
-    // Specifying window features (width, height) opens a dedicated popup window
-    // which modern browsers reuse reliably under the same window name.
-    const win = window.open(url, WHATSAPP_WINDOW_NAME, 'width=1000,height=750,resizable=yes,scrollbars=yes');
+    const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+    const win = window.open(url, '_blank');
 
     if (win) {
       win.focus();
+      showToast(`Opening WhatsApp for ${student.user?.name || phone}...`, 'success');
     } else {
-      showToast('Popup blocked — please allow popups for this site to send via WhatsApp Web.', 'warning');
+      window.location.href = url;
     }
   };
 
@@ -228,6 +226,14 @@ export default function WhatsApp() {
     if (selectedIds.length === 0) {
       showToast('Please select at least one student.', 'error');
       return;
+    }
+
+    // If 1 student is selected, also open their WhatsApp directly with the message
+    if (selectedIds.length === 1) {
+      const targetStudent = studentsData?.students?.find((s: any) => s.id === selectedIds[0]);
+      if (targetStudent) {
+        handleSendIndividual(targetStudent);
+      }
     }
 
     try {
