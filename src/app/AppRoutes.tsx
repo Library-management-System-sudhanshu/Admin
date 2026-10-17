@@ -86,7 +86,7 @@ export default function AppRoutes() {
             Protected workspace routes requiring active authentication.
             Unauthenticated users are redirected to /login.
            ========================================================= */}
-        <Route element={<AuthenticatedRoute />}>
+        <Route element={<AuthenticatedRoute allowedRoles={['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'SUPER_ADMIN']} />}>
           <Route element={<AdminTheme />}>
             <Route path="/setup-workspace" element={<SetupWorkspace />} />
 

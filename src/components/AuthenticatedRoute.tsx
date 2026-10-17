@@ -36,8 +36,16 @@ export default function AuthenticatedRoute({ allowedRoles }: AuthenticatedRouteP
     return <Navigate to="/super-admin" replace />;
   }
 
+  // Prevent STUDENT accounts from accessing admin portal routes
+  if (user && user.role === 'STUDENT') {
+    return <Navigate to="/login?student_denied=true" replace />;
+  }
+
   // Role-based authorization check
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    if (user.role === 'SUPER_ADMIN') {
+      return <Navigate to="/super-admin" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 

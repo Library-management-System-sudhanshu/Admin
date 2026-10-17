@@ -8,8 +8,10 @@ import { Select } from './ui/Select';
 import { Switch } from './ui/Switch';
 import { DatePicker } from './ui/DatePicker';
 import { useToast } from './ui/ToastContext';
-import { Search } from 'lucide-react';
+import { Search, Plus, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { formatYYYYMMDD, addMonthsToDate, addDaysToDate, formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
+import { getAvailableSeatShifts, getSeatStatusInfo } from '../utils/seatUtils';
 import { getStudentDisplayName, getStudentEmail, getStudentMobile } from '../utils/studentUtils';
 interface AllocateSeatModalProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
 }) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const { data: studentsData } = useGetStudentsQuery(undefined);
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
   const [createPayment, { isLoading: isCreatingPayment }] = useCreatePaymentMutation();
@@ -93,15 +96,14 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   // Active allocations for selected seat
   const activeAllocations = useMemo(() => {
     if (!selectedSeat) return [];
-    return selectedSeat.allocations?.filter((a: any) => a.isActive) || [];
+    return getSeatStatusInfo(selectedSeat).currentAllocations;
   }, [selectedSeat]);
 
   // Compute available shifts for selected seat
   const availableShifts = useMemo(() => {
     if (!shifts || !selectedSeat) return [];
-    const bookedShiftIds = activeAllocations.map((a: any) => a.shiftId || a.shift?.id);
-    return shifts.filter((s: any) => !bookedShiftIds.includes(s.id));
-  }, [shifts, selectedSeat, activeAllocations]);
+    return getAvailableSeatShifts(selectedSeat, shifts, startDate, endDate, studentProfileId);
+  }, [shifts, selectedSeat, startDate, endDate, studentProfileId]);
 
   // Initialize values when selected seat / modal open changes
   useEffect(() => {
@@ -134,7 +136,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
 
   // Ensure shift is selected whenever availableShifts loads
   useEffect(() => {
-    if (isOpen && availableShifts.length > 0) {
+    if (isOpen) {
       if (!shiftId || !availableShifts.some((s: any) => s.id === shiftId)) {
         const targetShift = (preselectedShiftId && availableShifts.some((s: any) => s.id === preselectedShiftId))
           ? preselectedShiftId
@@ -350,6 +352,10 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   const handleAllocate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSeat) return;
+    if (!availableShifts.some((shift: any) => shift.id === shiftId)) {
+      showToast('Select an available shift for these dates.', 'error');
+      return;
+    }
     try {
       await allocateSeat({
         studentProfileId,
@@ -378,7 +384,13 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           }).unwrap();
         }
 
-        const student = studentsData?.students?.find((s: any) => s.id === studentProfileId);
+        const student = studentsData?.students?.find((s: any) => s.id === studentProfileId) || selectedStudent;
+        const parsedDiscount = parseFloat(discountAmount) || 0;
+        const parsedPaid = Number(invoiceAmount) || 0;
+        const base = isCollectingDue ? studentExistingDue : calculatedBaseAmount;
+        const actualPayable = isCollectingDue ? studentExistingDue : Math.max(0, calculatedBaseAmount - parsedDiscount);
+        const remainingDue = Math.max(0, actualPayable - parsedPaid);
+
         const invoiceInfo = {
           payment: paymentResult.payment,
           student,
@@ -387,8 +399,13 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           startDate,
           endDate,
           branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
-          originalAmount: calculatedBaseAmount,
-          payableAmount: Number(invoiceAmount),
+          originalAmount: isCollectingDue ? studentExistingDue : calculatedBaseAmount,
+          payableAmount: actualPayable,
+          discountAmount: parsedDiscount,
+          paidAmount: parsedPaid,
+          dueAmount: remainingDue,
+          previousDue: studentExistingDue,
+          isCollectingDue,
         };
 
         if (paymentMethod === 'RAZORPAY' && paymentResult.razorpayOrder) {
@@ -540,11 +557,46 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
 
             {/* Shift Schedule Selection (Excludes booked shifts) */}
             <div>
-              <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Shift Schedule</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: 0, display: 'block' }}>
+                  Shift Schedule
+                </label>
+                <button
+                  type="button"
+                  id="allocate-modal-add-shift-header-btn"
+                  onClick={() => {
+                    onClose();
+                    navigate('/billing?tab=shifts&action=add-shift', { state: { tab: 1, openCreateShift: true } });
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary-color, #2563eb)',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Configure new shift"
+                >
+                  <Plus size={13} strokeWidth={2.5} /> Add Shift
+                </button>
+              </div>
+
               {availableShifts.length > 0 ? (
                 <Select
                   value={shiftId}
                   onChange={(val) => {
+                    if (val === 'ADD_NEW_SHIFT') {
+                      onClose();
+                      navigate('/billing?tab=shifts&action=add-shift', { state: { tab: 1, openCreateShift: true } });
+                      return;
+                    }
                     setShiftId(val);
                     const selectedShift = availableShifts.find((s: any) => s.id === val);
                     if (selectedShift && selectedShift.customPricing && selectedShift.customPricing.length > 0) {
@@ -554,14 +606,66 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                     }
                   }}
                   placeholder="Select schedule shift"
-                  options={availableShifts.map((s: any) => ({
-                    value: s.id,
-                    label: `${s.name} (${calculateShiftDuration(s.startTime, s.endTime)}) (${formatTo12hString(s.startTime)} - ${formatTo12hString(s.endTime)})`,
-                  }))}
+                  options={[
+                    ...availableShifts.map((s: any) => ({
+                      value: s.id,
+                      label: `${s.name} (${calculateShiftDuration(s.startTime, s.endTime)}) (${formatTo12hString(s.startTime)} - ${formatTo12hString(s.endTime)})`,
+                    })),
+                    { value: 'ADD_NEW_SHIFT', label: '+ Add New Shift', isAction: true },
+                  ]}
                 />
               ) : (
-                <div style={{ padding: '8px 12px', backgroundColor: '#fef2f2', border: '1px solid #fee2e2', borderRadius: '12px', fontSize: '0.75rem', color: 'var(--status-red)', fontWeight: 600 }}>
-                  All shifts are already occupied for this seat.
+                <div style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fee2e2',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  color: 'var(--status-red, #dc2626)',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '180px' }}>
+                    <AlertCircle size={16} style={{ flexShrink: 0, color: '#ef4444' }} />
+                    <span>
+                      {!shifts ? 'Loading shifts…' : shifts.length === 0
+                        ? 'No shifts are configured. Add a shift in Settings to allocate this seat.'
+                        : 'No shifts are available for the selected dates. Choose different dates or another seat.'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    id="allocate-modal-add-shift-btn"
+                    onClick={() => {
+                      onClose();
+                      navigate('/billing?tab=shifts&action=add-shift', { state: { tab: 1, openCreateShift: true } });
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      backgroundColor: '#ef4444',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '5px 12px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: '0 2px 6px rgba(239, 68, 68, 0.25)',
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ef4444')}
+                  >
+                    <Plus size={14} strokeWidth={2.5} />
+                    Add Shift
+                  </button>
                 </div>
               )}
             </div>
@@ -737,7 +841,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           <Button
             type="submit"
             variant="primary"
-            disabled={!studentProfileId || !shiftId || (shouldGenerateInvoice && !invoiceAmount)}
+            disabled={!studentProfileId || !availableShifts.some((shift: any) => shift.id === shiftId) || (shouldGenerateInvoice && !invoiceAmount)}
             style={{ flex: 1, backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)', borderRadius: '12px' }}
             isLoading={isAllocating || isCreatingPayment}
           >

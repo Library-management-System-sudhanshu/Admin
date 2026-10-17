@@ -42,6 +42,7 @@ import { useToast } from '../components/ui/ToastContext';
 import '../components/ui/Globals.css';
 import {
   Plus,
+  AlertCircle,
   Layers,
   DoorOpen,
   Trash2,
@@ -1853,6 +1854,10 @@ export default function Seats() {
           totalAmount: calculatedModalBaseAmount,
         }).unwrap();
 
+        const allocModalPaid = Number(allocModalAmount) || 0;
+        const allocModalTotal = calculatedModalBaseAmount || allocModalPaid;
+        const allocModalDue = Math.max(0, allocModalTotal - allocModalPaid);
+
         const invoiceInfo = {
           payment: paymentResult.payment,
           student: studentsData?.students?.find((s: any) => s.id === allocModalStudentId),
@@ -1861,8 +1866,11 @@ export default function Seats() {
           startDate: allocModalStartDate,
           endDate: allocModalEndDate,
           branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
-          originalAmount: calculatedModalBaseAmount,
-          payableAmount: Number(allocModalAmount),
+          originalAmount: allocModalTotal,
+          payableAmount: allocModalTotal,
+          discountAmount: 0,
+          paidAmount: allocModalPaid,
+          dueAmount: allocModalDue,
         };
         setCreatedInvoiceData(invoiceInfo);
         setOpenAllocateModal(false);
@@ -2058,6 +2066,10 @@ export default function Seats() {
           totalAmount: calculatedBaseAmount,
         }).unwrap();
 
+        const seatPaid = Number(invoiceAmount) || 0;
+        const seatTotal = calculatedBaseAmount || seatPaid;
+        const seatDue = Math.max(0, seatTotal - seatPaid);
+
         const invoiceInfo = {
           payment: paymentResult.payment,
           student: studentsData?.students?.find((s: any) => s.id === studentProfileId),
@@ -2066,8 +2078,11 @@ export default function Seats() {
           startDate,
           endDate,
           branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
-          originalAmount: calculatedBaseAmount,
-          payableAmount: Number(invoiceAmount),
+          originalAmount: seatTotal,
+          payableAmount: seatTotal,
+          discountAmount: 0,
+          paidAmount: seatPaid,
+          dueAmount: seatDue,
         };
         setCreatedInvoiceData(invoiceInfo);
         setIsDrawerOpen(false);
@@ -2170,6 +2185,7 @@ export default function Seats() {
         durationMonths: renewDuration,
       }).unwrap();
 
+      const renewPaid = Number(renewAmount) || 0;
       const invoiceInfo = {
         payment: paymentResult.payment,
         student: activeAllocation.studentProfile,
@@ -2178,8 +2194,11 @@ export default function Seats() {
         startDate: renewStartDate,
         endDate: renewEndDate,
         branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
-        originalAmount: Number(renewAmount),
-        payableAmount: Number(renewAmount),
+        originalAmount: renewPaid,
+        payableAmount: renewPaid,
+        discountAmount: 0,
+        paidAmount: renewPaid,
+        dueAmount: 0,
       };
 
       if (renewPaymentMethod === 'RAZORPAY' && paymentResult.razorpayOrder) {
@@ -2823,17 +2842,98 @@ export default function Seats() {
 
         {/* Shift select */}
         <div>
-          <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Shift Schedule</label>
-          {shifts && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: 0, display: 'block' }}>
+              Shift Schedule
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/billing?tab=shifts&action=add-shift', { state: { tab: 1, openCreateShift: true } });
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--primary-color, #2563eb)',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                padding: '2px 4px',
+                borderRadius: '4px',
+              }}
+            >
+              <Plus size={13} strokeWidth={2.5} /> Add Shift
+            </button>
+          </div>
+          {shifts && shifts.length > 0 ? (
             <Select
               value={shiftId}
-              onChange={(val) => setShiftId(val)}
+              onChange={(val) => {
+                if (val === 'ADD_NEW_SHIFT') {
+                  navigate('/billing?tab=shifts&action=add-shift', { state: { tab: 1, openCreateShift: true } });
+                  return;
+                }
+                setShiftId(val);
+              }}
               placeholder="Select schedule shift"
-              options={shifts.map((s: any) => ({
-                value: s.id,
-                label: `${s.name} (${calculateShiftDuration(s.startTime, s.endTime)}) (${formatTo12hString(s.startTime)} - ${formatTo12hString(s.endTime)})`,
-              }))}
+              options={[
+                ...shifts.map((s: any) => ({
+                  value: s.id,
+                  label: `${s.name} (${calculateShiftDuration(s.startTime, s.endTime)}) (${formatTo12hString(s.startTime)} - ${formatTo12hString(s.endTime)})`,
+                })),
+                { value: 'ADD_NEW_SHIFT', label: '+ Add New Shift', isAction: true },
+              ]}
             />
+          ) : (
+            <div style={{
+              padding: '10px 14px',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fee2e2',
+              borderRadius: '12px',
+              fontSize: '0.75rem',
+              color: 'var(--status-red, #dc2626)',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+              flexWrap: 'wrap',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '180px' }}>
+                <AlertCircle size={16} style={{ flexShrink: 0, color: '#ef4444' }} />
+                <span>No shifts are configured. Add a shift in Settings to allocate this seat.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigate('/billing?tab=shifts&action=add-shift', { state: { tab: 1, openCreateShift: true } });
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '5px 12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 2px 6px rgba(239, 68, 68, 0.25)',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ef4444')}
+              >
+                <Plus size={14} strokeWidth={2.5} />
+                Add Shift
+              </button>
+            </div>
           )}
         </div>
 

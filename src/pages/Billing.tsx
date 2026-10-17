@@ -55,6 +55,7 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { Button } from '../components/ui/Button';
+import { InvoiceReceiptModal } from '../components/InvoiceReceiptModal';
 import { Plus, X, CreditCard, Calendar, User, History, Clock, Sun, SunMedium, Sunset, Moon, Users, IndianRupee, CheckCircle2 } from 'lucide-react';
 import { styled, keyframes } from '@mui/material/styles';
 import { Search, Download, TrendingUp, WalletCards, SlidersHorizontal, RotateCcw, ArrowUpRight, Info } from 'lucide-react';
@@ -329,6 +330,39 @@ export default function Billing() {
   const [clearDuesAmount, setClearDuesAmount] = useState('');
   const [clearDuesMethod, setClearDuesMethod] = useState<'CASH' | 'UPI'>('CASH');
 
+  // Receipt Modal State
+  const [openReceiptModal, setOpenReceiptModal] = useState(false);
+  const [selectedReceiptData, setSelectedReceiptData] = useState<any>(null);
+
+  const handleOpenReceipt = (payment: any) => {
+    if (!payment) return;
+    const student = payment.studentProfile;
+    const total = Number(payment.totalAmount ?? payment.amount);
+    const discount = Number(payment.discountAmount ?? 0);
+    const paid = Number(payment.amount ?? 0);
+    const netPayable = Math.max(0, total - discount);
+    const due = payment.dueAmount !== undefined
+      ? Number(payment.dueAmount)
+      : (student?.dueAmount !== undefined ? Number(student.dueAmount) : Math.max(0, netPayable - paid));
+
+    const invoiceInfo = {
+      payment,
+      student,
+      seatNumber: payment.seatNumber || student?.seatNumber || student?.subscriptions?.[0]?.seat?.number || 'N/A',
+      shift: payment.shift || student?.subscriptions?.[0]?.shift || { name: 'Library Shift' },
+      startDate: payment.startDate || student?.subscriptions?.[0]?.startDate || payment.createdAt,
+      endDate: payment.endDate || student?.subscriptions?.[0]?.endDate || payment.createdAt,
+      branchName: payment.branchName || student?.branch?.name || '',
+      originalAmount: total,
+      payableAmount: netPayable,
+      discountAmount: discount,
+      paidAmount: paid,
+      dueAmount: due,
+    };
+    setSelectedReceiptData(invoiceInfo);
+    setOpenReceiptModal(true);
+  };
+
   const handleClearDues = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPayment?.studentProfile?.id) return;
@@ -577,9 +611,12 @@ export default function Billing() {
     const hasNoPlans = !shifts || shifts.length === 0;
     const requestedAddShift = Boolean(location.state?.openCreateShift || actionParam === 'add-shift');
 
-    // Only auto-open the drawer if there are NO shift plans
-    if (hasNoPlans && !hasAutoOpenedRef.current) {
-      if (requestedAddShift || tabParam === 'shifts' || location.state?.tab === 1 || tab === 1) {
+    // Auto-open if user explicitly requested Add Shift or if there are NO shift plans
+    if (requestedAddShift && !hasAutoOpenedRef.current) {
+      handleOpenCreateShift();
+      hasAutoOpenedRef.current = true;
+    } else if (hasNoPlans && !hasAutoOpenedRef.current) {
+      if (tabParam === 'shifts' || location.state?.tab === 1 || tab === 1) {
         handleOpenCreateShift();
         hasAutoOpenedRef.current = true;
       }
@@ -957,8 +994,13 @@ export default function Billing() {
                                 </Tooltip>
                               </>
                             )}
+                            <Tooltip title="View Fee Receipt & Invoice">
+                              <IconButton color="primary" onClick={(e) => { e.stopPropagation(); handleOpenReceipt(payment); }}>
+                                <InvoiceIcon />
+                              </IconButton>
+                            </Tooltip>
                             {payment.invoiceUrl && (
-                              <Tooltip title="Download Invoice">
+                              <Tooltip title="Download Original PDF">
                                 <IconButton color="inherit" onClick={(e) => { e.stopPropagation(); window.open(payment.invoiceUrl, '_blank'); }}>
                                   <InvoiceIcon />
                                 </IconButton>
@@ -1789,6 +1831,26 @@ export default function Billing() {
               </div>
             </div>
 
+            {/* View Receipt Button */}
+            <Button
+              variant="outline"
+              onClick={() => handleOpenReceipt(selectedPayment)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                width: '100%',
+                borderRadius: '12px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                padding: '9px 16px',
+              }}
+            >
+              <InvoiceIcon style={{ fontSize: '18px', color: 'var(--accent-blue)' }} />
+              <span>View Fee Receipt & Invoice</span>
+            </Button>
+
             {/* Remaining Dues Payment Block */}
             {selectedPayment.studentProfile?.dueAmount > 0 && (
               <div style={{
@@ -1913,6 +1975,12 @@ export default function Billing() {
           </div>
         )}
       </div>
+
+      <InvoiceReceiptModal
+        isOpen={openReceiptModal}
+        onClose={() => setOpenReceiptModal(false)}
+        createdInvoiceData={selectedReceiptData}
+      />
     </Box>
   );
 }

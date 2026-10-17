@@ -2,9 +2,9 @@ import { PageBoundary } from '../app/PageBoundary';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { logout } from '../store/authSlice';
+import { logout, updateUser } from '../store/authSlice';
 import type { RootState } from '../store';
-import { useGetBranchesQuery, useGetMetricsQuery, useGetSaaSSubscriptionQuery } from '../store/api';
+import { useGetBranchesQuery, useGetMetricsQuery, useGetSaaSSubscriptionQuery, useGetProfileQuery } from '../store/api';
 import {
   LayoutDashboard,
   Users,
@@ -50,12 +50,26 @@ export default function Layout() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
-  // Fetch branches & metrics
+  // Fetch profile, branches & metrics
+  const { data: profile } = useGetProfileQuery(undefined, { skip: !user });
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: metrics } = useGetMetricsQuery({ days: 7 });
   const { data: saasSub } = useGetSaaSSubscriptionQuery(user?.workspaceId, { 
     skip: !user?.workspaceId || user?.role === 'SUPER_ADMIN' 
   });
+
+  // Keep user profile in sync with server (e.g. role promotions)
+  useEffect(() => {
+    if (profile && user) {
+      if (
+        profile.role !== user.role ||
+        profile.workspaceId !== user.workspaceId ||
+        profile.name !== user.name
+      ) {
+        dispatch(updateUser(profile));
+      }
+    }
+  }, [profile, user, dispatch]);
 
   // Dynamic Greeting based on current time
   const greeting = useMemo(() => {

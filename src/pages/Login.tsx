@@ -61,6 +61,10 @@ export default function Login() {
       setShowDisabledModal(true);
       navigate('/login', { replace: true });
     }
+    if (searchParams.get('student_denied') === 'true') {
+      setError('Access Denied: Student accounts cannot access the Library Admin Portal. Please sign in with an Owner or Staff account.');
+      navigate('/login', { replace: true });
+    }
 
     // Google Identity Services (GIS) Integration
     const clientId = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
@@ -80,6 +84,10 @@ export default function Login() {
                 if (response.credential) {
                   try {
                     const res = await googleLogin({ idToken: response.credential }).unwrap();
+                    if (res.user?.role === 'STUDENT') {
+                      setError('Access Denied: Student accounts cannot access the Library Admin Portal. Please sign in with an Owner or Staff account.');
+                      return;
+                    }
                     dispatch(setCredentials(res));
                     if (res.requiresWorkspaceInfo) {
                       navigate('/setup-workspace', { replace: true });
@@ -119,6 +127,10 @@ export default function Login() {
     setError('');
     try {
       const res = await loginMutation({ email, password }).unwrap();
+      if (res.user?.role === 'STUDENT') {
+        setError('Access Denied: Student accounts cannot access the Library Admin Portal. Please sign in with an Owner or Staff account.');
+        return;
+      }
       dispatch(setCredentials(res));
       if (res.user?.role === 'SUPER_ADMIN') {
         navigate('/super-admin', { replace: true });
@@ -150,6 +162,10 @@ export default function Login() {
       const idToken = `mock-token-${encodedHeader}.${encodedPayload}.signature`;
 
       const res = await googleLogin({ idToken }).unwrap();
+      if (res.user?.role === 'STUDENT') {
+        setError('Access Denied: Student accounts cannot access the Library Admin Portal. Please sign in with an Owner or Staff account.');
+        return;
+      }
       dispatch(setCredentials(res));
 
       if (res.requiresWorkspaceInfo) {
