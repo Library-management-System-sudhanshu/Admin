@@ -368,7 +368,31 @@ export default function Login() {
           {error && (
             <div className="alert-banner-danger" role="alert">
               <AlertCircle size={16} />
-              <span>{error}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-start' }}>
+                <span>{error}</span>
+                {tab === 1 && /already exist/i.test(error) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTab(0);
+                      setError('');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      color: 'inherit',
+                      fontWeight: 600,
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontSize: '0.8125rem',
+                    }}
+                  >
+                    Already have an account? Switch to Sign In →
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
