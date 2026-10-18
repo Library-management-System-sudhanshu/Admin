@@ -350,10 +350,6 @@ export default function NewAdmission() {
           .new-admission .na-actions > button { min-width: 0 !important; width: 100%; }
         }
       `}</style>
-      <div className="na-intro">
-        <p>Enter student details, choose a branch, and set up their subscription.</p>
-        <span className="na-required">* Required fields</span>
-      </div>
       <form onSubmit={handleSubmit} className="na-layout">
         {/* SECTION 1: PERSONAL DETAILS */}
         <section className="na-card na-personal">

@@ -11,6 +11,7 @@ import {
 import { AllocationDatesForm } from './AllocationDatesForm';
 import { getStudentDisplayName, getStudentInitials, getStudentMobile, getStudentEmail } from '../../../utils/studentUtils';
 import { getDaysRemainingText } from '../../../utils/seatUtils';
+import { formatPlanDuration } from '../../../utils/dateUtils';
 
 export interface SeatAllocationDetailsProps {
   allocation: any;
@@ -262,6 +263,12 @@ export const SeatAllocationDetails: React.FC<SeatAllocationDetailsProps> = ({
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Plan Duration:</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>
+                {formatPlanDuration(allocation.startDate, allocation.endDate)}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Start date:</span>
               <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-navy)' }}>
                 {new Date(allocation.startDate).toLocaleDateString()}
@@ -324,15 +331,21 @@ export const SeatAllocationDetails: React.FC<SeatAllocationDetailsProps> = ({
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Status:</span>
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  color: latestPayment.status === 'PAID' ? 'var(--status-emerald)' : 'var(--status-red)',
-                }}
-              >
-                {latestPayment.status}
-              </span>
+              {(() => {
+                const paid = Number(latestPayment.amount || 0);
+                const due = latestPayment.dueAmount !== undefined ? Number(latestPayment.dueAmount) : 0;
+                const effStatus = latestPayment.status === 'PAID'
+                  ? 'PAID'
+                  : latestPayment.status === 'PARTIAL' || (paid > 0 && due > 0) || (latestPayment.status === 'UNPAID' && paid > 0)
+                  ? 'PARTIAL'
+                  : 'UNPAID';
+                const color = effStatus === 'PAID' ? 'var(--status-emerald)' : effStatus === 'PARTIAL' ? '#d97706' : 'var(--status-red)';
+                return (
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color }}>
+                    {effStatus}
+                  </span>
+                );
+              })()}
             </div>
           </div>
         ) : (

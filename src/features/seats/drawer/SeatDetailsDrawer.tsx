@@ -45,6 +45,10 @@ export interface SeatDetailsDrawerProps {
   onRenewEndDateChange: (d: string) => void;
   renewAmount: string;
   onRenewAmountChange: (amt: string) => void;
+  renewDiscount?: string;
+  onRenewDiscountChange?: (val: string) => void;
+  renewBasePrice?: number;
+  studentPreviousDue?: number;
   renewPaymentMethod: 'UPI' | 'CASH' | 'RAZORPAY';
   onRenewPaymentMethodChange: (m: 'UPI' | 'CASH' | 'RAZORPAY') => void;
   onRenewSubmit: (e: React.FormEvent) => void;
@@ -89,6 +93,10 @@ export const SeatDetailsDrawer: React.FC<SeatDetailsDrawerProps> = ({
   onRenewEndDateChange,
   renewAmount,
   onRenewAmountChange,
+  renewDiscount,
+  onRenewDiscountChange,
+  renewBasePrice,
+  studentPreviousDue,
   renewPaymentMethod,
   onRenewPaymentMethodChange,
   onRenewSubmit,
@@ -365,6 +373,10 @@ export const SeatDetailsDrawer: React.FC<SeatDetailsDrawerProps> = ({
                   onEndDateChange={onRenewEndDateChange}
                   renewAmount={renewAmount}
                   onAmountChange={onRenewAmountChange}
+                  renewDiscount={renewDiscount}
+                  onDiscountChange={onRenewDiscountChange}
+                  basePrice={renewBasePrice}
+                  previousDue={studentPreviousDue ?? (activeAllocation?.studentProfile?.dueAmount ? Number(activeAllocation.studentProfile.dueAmount) : 0)}
                   renewPaymentMethod={renewPaymentMethod}
                   onPaymentMethodChange={onRenewPaymentMethodChange}
                   onSubmit={onRenewSubmit}

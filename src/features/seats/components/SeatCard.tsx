@@ -22,6 +22,7 @@ export interface SeatCardProps {
 
 const getShiftBadgeStyle = (shiftName: string = '') => {
   const name = shiftName.toLowerCase();
+  if (name.includes('full') || name.includes('clubbed')) return { bg: '#ecfdf5', fg: '#047857', border: '#a7f3d0', label: 'FD' };
   if (name.includes('morning')) return { bg: '#e0f2fe', fg: '#0369a1', border: '#bae6fd', label: 'M' };
   if (name.includes('evening')) return { bg: '#ffedd5', fg: '#c2410c', border: '#fed7aa', label: 'E' };
   if (name.includes('night')) return { bg: '#faf5ff', fg: '#6b21a8', border: '#e9d5ff', label: 'N' };
@@ -313,7 +314,7 @@ export const SeatCard: React.FC<SeatCardProps> = ({
         {activeAllocations.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
             <strong style={{ fontSize: '0.725rem', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '2px', marginBottom: '1px', display: 'block' }}>
-              Occupants ({activeAllocations.length})
+              Occupants ({new Set(activeAllocations.map((a: any) => a.studentProfileId || a.studentProfile?.id || a.id)).size})
             </strong>
             {activeAllocations.map((alloc: any) => {
               const formattedEnd = alloc.endDate

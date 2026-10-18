@@ -320,34 +320,25 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     )[0];
   }, [studentPaymentsData]);
 
-  // Whether this payment is clearing an existing outstanding balance
+  // Student existing outstanding balance from prior transactions
   const studentExistingDue = selectedStudent ? Number(selectedStudent.dueAmount) : 0;
-  const isCollectingDue = studentExistingDue > 0;
 
+  // Due calculation for this seat allocation booking
   const dueAmount = useMemo(() => {
     const paid = parseFloat(invoiceAmount) || 0;
     const discount = parseFloat(discountAmount) || 0;
-    const base = isCollectingDue ? studentExistingDue : calculatedBaseAmount;
-    return Math.max(0, base - paid - discount);
-  }, [calculatedBaseAmount, invoiceAmount, discountAmount, isCollectingDue, studentExistingDue]);
+    const netPayable = Math.max(0, calculatedBaseAmount - discount);
+    return Math.max(0, netPayable - paid);
+  }, [calculatedBaseAmount, invoiceAmount, discountAmount]);
 
   useEffect(() => {
     if (prefilledPayment) return;
     if (calculatedBaseAmount > 0) {
-      const studentDue = selectedStudent ? Number(selectedStudent.dueAmount) : 0;
-      if (studentDue > 0) {
-        // Pre-fill discount from the last real payment record fetched from API
-        if (lastStudentPayment && Number(lastStudentPayment.discountAmount) > 0) {
-          setDiscountAmount(Number(lastStudentPayment.discountAmount).toString());
-        }
-        setInvoiceAmount(studentDue.toString());
-      } else {
-        setInvoiceAmount(calculatedBaseAmount.toString());
-      }
+      setInvoiceAmount(calculatedBaseAmount.toString());
     } else {
       setInvoiceAmount('');
     }
-  }, [calculatedBaseAmount, prefilledPayment, selectedStudent, lastStudentPayment]);
+  }, [calculatedBaseAmount, prefilledPayment]);
 
   const handleAllocate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -387,8 +378,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         const student = studentsData?.students?.find((s: any) => s.id === studentProfileId) || selectedStudent;
         const parsedDiscount = parseFloat(discountAmount) || 0;
         const parsedPaid = Number(invoiceAmount) || 0;
-        const base = isCollectingDue ? studentExistingDue : calculatedBaseAmount;
-        const actualPayable = isCollectingDue ? studentExistingDue : Math.max(0, calculatedBaseAmount - parsedDiscount);
+        const actualPayable = Math.max(0, calculatedBaseAmount - parsedDiscount);
         const remainingDue = Math.max(0, actualPayable - parsedPaid);
 
         const invoiceInfo = {
@@ -399,13 +389,13 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           startDate,
           endDate,
           branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
-          originalAmount: isCollectingDue ? studentExistingDue : calculatedBaseAmount,
+          originalAmount: calculatedBaseAmount,
           payableAmount: actualPayable,
           discountAmount: parsedDiscount,
           paidAmount: parsedPaid,
           dueAmount: remainingDue,
           previousDue: studentExistingDue,
-          isCollectingDue,
+          totalDue: remainingDue + studentExistingDue,
         };
 
         if (paymentMethod === 'RAZORPAY' && paymentResult.razorpayOrder) {
@@ -786,11 +776,11 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                 )}
                 {calculatedBaseAmount > 0 && (
                   <div style={{ borderTop: '1px dashed var(--border-card)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {/* Base row: Outstanding Balance for existing dues, Total Price for new */}
+                    {/* Total Price for new booking */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
-                      <span style={{ color: 'var(--text-slate)' }}>{isCollectingDue ? 'Outstanding Balance:' : 'Total Price:'}</span>
-                      <span style={{ color: isCollectingDue ? '#991b1b' : 'var(--text-navy)', fontWeight: 600 }}>
-                        ₹{isCollectingDue ? studentExistingDue.toFixed(2) : calculatedBaseAmount}
+                      <span style={{ color: 'var(--text-slate)' }}>Total Price:</span>
+                      <span style={{ color: 'var(--text-navy)', fontWeight: 600 }}>
+                        ₹{calculatedBaseAmount}
                       </span>
                     </div>
                     {/* Discount row: always show when discount field has value > 0 */}
@@ -805,13 +795,31 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                       <span style={{ color: 'var(--text-slate)' }}>Collected Amount:</span>
                       <span style={{ color: 'var(--text-navy)', fontWeight: 600 }}>₹{parseFloat(invoiceAmount) || 0}</span>
                     </div>
+                    {/* Previous Due if any */}
+                    {studentExistingDue > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
+                        <span style={{ color: '#991b1b' }}>Previous Due:</span>
+                        <span style={{ color: '#991b1b', fontWeight: 600 }}>₹{studentExistingDue.toFixed(2)}</span>
+                      </div>
+                    )}
                     {/* Due / Fully Paid */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', borderTop: '1px solid var(--border-card)', paddingTop: '6px', marginTop: '2px' }}>
-                      <span style={{ fontWeight: 700, color: dueAmount > 0 ? '#991b1b' : 'var(--status-emerald)' }}>
-                        {dueAmount > 0 ? 'Due Amount:' : 'Status:'}
+                      <span style={{ fontWeight: 700, color: (dueAmount > 0 || studentExistingDue > 0) ? '#991b1b' : 'var(--status-emerald)' }}>
+                        {dueAmount > 0 ? 'Due Amount:' : (studentExistingDue > 0 ? 'Total Due:' : 'Status:')}
                       </span>
                       {dueAmount > 0 ? (
-                        <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>₹{dueAmount}</span>
+                        <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>
+                          ₹{dueAmount}
+                          {studentExistingDue > 0 && (
+                            <span style={{ fontSize: '0.72rem', color: '#991b1b', fontWeight: 500, marginLeft: '4px' }}>
+                              (+ ₹{studentExistingDue.toFixed(2)} prev = ₹{(dueAmount + studentExistingDue).toFixed(2)})
+                            </span>
+                          )}
+                        </span>
+                      ) : studentExistingDue > 0 ? (
+                        <span style={{ color: '#991b1b', fontWeight: 700 }}>
+                          ₹{studentExistingDue.toFixed(2)} (Previous Due)
+                        </span>
                       ) : (
                         <span style={{ color: 'var(--status-emerald)', fontWeight: 700 }}>✅ Fully Paid</span>
                       )}

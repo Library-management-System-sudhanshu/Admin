@@ -18,6 +18,7 @@ import {
   useAllocateSeatMutation,
   useUpdateAllocationMutation,
   useCreatePaymentMutation,
+  useVerifyRazorpayMutation,
   useClearStudentDuesMutation,
   useUploadImageMutation,
 } from '../store/api';
@@ -29,7 +30,16 @@ import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/ToastContext';
 import { useAlert } from '../components/ui/AlertContext';
 import { DatePicker } from '../components/ui/DatePicker';
-import { formatYYYYMMDD, formatDateDisplay, getTodayYYYYMMDD, addDaysToDate, addMonthsToDate } from '../utils/dateUtils';
+import {
+  formatYYYYMMDD,
+  formatDateDisplay,
+  getTodayYYYYMMDD,
+  addDaysToDate,
+  addMonthsToDate,
+  calculateSubscriptionEndDate,
+  formatPlanDuration,
+  calculatePlanPrice,
+} from '../utils/dateUtils';
 import {
   Plus,
   Check,
@@ -57,6 +67,8 @@ import { formatTo12hString, calculateShiftDuration } from '../utils/dateUtils';
 import { compressImage } from '../utils/imageUtils';
 import { getDaysRemainingText } from '../utils/seatUtils';
 import { StudentIDCardModal } from '../features/students';
+import { InvoiceReceiptModal } from '../components/InvoiceReceiptModal';
+import { RenewSeatForm } from '../features/seats/drawer/RenewSeatForm';
 import { getErrorMessage } from '../utils/errorUtils';
 import { isValidEmail } from '../utils/validators';
 import {
@@ -134,8 +146,38 @@ export default function Students() {
   const [renewEndDate, setRenewEndDate] = useState('');
   const [renewPaymentMethod, setRenewPaymentMethod] = useState<'UPI' | 'CASH' | 'RAZORPAY'>('UPI');
   const [renewAmount, setRenewAmount] = useState('');
+  const [renewDiscount, setRenewDiscount] = useState('');
   const [renewDuration, setRenewDuration] = useState<number | string>(1);
   const [isRenewing, setIsRenewing] = useState(false);
+
+  const handleRenewDiscountChange = (newDiscount: string) => {
+    setRenewDiscount(newDiscount);
+    if (renewShiftId && shifts) {
+      const shift = shifts.find((s: any) => s.id === renewShiftId);
+      if (shift) {
+        const basePrice = calculatePlanPrice(shift, renewDuration);
+        const disc = parseFloat(newDiscount) || 0;
+        setRenewAmount(Math.max(0, basePrice - disc).toString());
+      }
+    }
+  };
+  const [createdInvoiceData, setCreatedInvoiceData] = useState<any>(null);
+  const [openInvoiceReceipt, setOpenInvoiceReceipt] = useState(false);
+  const [verifyRazorpay] = useVerifyRazorpayMutation();
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
 
 
@@ -304,7 +346,8 @@ export default function Students() {
       if (startStr && endStr) {
         const s = new Date(startStr);
         const e = new Date(endStr);
-        const diffMonths = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24 * 30));
+        const diffDays = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const diffMonths = Math.round(diffDays / 30);
         setEditDurationMonths(diffMonths > 0 ? diffMonths : 1);
       } else {
         setEditDurationMonths(1);
@@ -324,8 +367,8 @@ export default function Students() {
     setEditSubscriptionStart(val);
     if (val) {
       const months = typeof editDurationMonths === 'number' ? editDurationMonths : 1;
-      const calculatedEnd = addMonthsToDate(val, months);
-      setEditSubscriptionEnd(calculatedEnd);
+      const calculatedEnd = calculateSubscriptionEndDate(val, months);
+      if (calculatedEnd) setEditSubscriptionEnd(calculatedEnd);
     }
     if (editErrors.subscriptionStart || editErrors.subscriptionEnd) {
       setEditErrors(prev => ({ ...prev, subscriptionStart: '', subscriptionEnd: '' }));
@@ -335,8 +378,8 @@ export default function Students() {
   const handleDurationPresetClick = (months: number) => {
     setEditDurationMonths(months);
     if (editSubscriptionStart) {
-      const calculatedEnd = addMonthsToDate(editSubscriptionStart, months);
-      setEditSubscriptionEnd(calculatedEnd);
+      const calculatedEnd = calculateSubscriptionEndDate(editSubscriptionStart, months);
+      if (calculatedEnd) setEditSubscriptionEnd(calculatedEnd);
     }
     if (editErrors.subscriptionEnd) {
       setEditErrors(prev => ({ ...prev, subscriptionEnd: '' }));
@@ -401,35 +444,17 @@ export default function Students() {
 
   // 1. useEffect to automatically calculate renewEndDate and renewAmount when renewShiftId or renewStartDate or renewDuration changes
   useEffect(() => {
-    if (renewShiftId && shifts) {
+    if (renewShiftId && shifts && renewStartDate) {
       const shift = shifts.find((s: any) => s.id === renewShiftId);
-      if (shift && renewStartDate) {
-        let endDateCalculated = '';
-        let price = shift.price || 0;
+      if (shift) {
+        const endDateCalculated = calculateSubscriptionEndDate(renewStartDate, renewDuration);
+        const price = calculatePlanPrice(shift, renewDuration);
+        const disc = parseFloat(renewDiscount) || 0;
 
-        if (renewDuration === '7d') {
-          endDateCalculated = addDaysToDate(renewStartDate, 7);
-          price = Math.round((price / 30) * 7);
-        } else if (renewDuration === '10d') {
-          endDateCalculated = addDaysToDate(renewStartDate, 10);
-          price = Math.round((price / 30) * 10);
-        } else if (renewDuration === '15d') {
-          endDateCalculated = addDaysToDate(renewStartDate, 15);
-          price = Math.round((price / 30) * 15);
-        } else {
-          const months = typeof renewDuration === 'number' ? renewDuration : parseInt(renewDuration as string) || 1;
-          endDateCalculated = addMonthsToDate(renewStartDate, months);
-          if (months === 3 && shift.price3Months) {
-            price = shift.price3Months;
-          } else if (months === 6 && shift.price6Months) {
-            price = shift.price6Months;
-          } else {
-            price = price * months;
-          }
+        if (endDateCalculated) {
+          setRenewEndDate(endDateCalculated);
         }
-
-        setRenewEndDate(endDateCalculated);
-        setRenewAmount(price.toString());
+        setRenewAmount(Math.max(0, price - disc).toString());
       }
     }
   }, [renewShiftId, renewStartDate, renewDuration, shifts]);
@@ -437,21 +462,39 @@ export default function Students() {
   // 2. useEffect to prefill renew dates and shift when RENEW tab is selected
   useEffect(() => {
     if (drawerActiveSection === 'RENEW' && fullStudent) {
+      setRenewDiscount('');
       const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
+      const activeSub = fullStudent.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
       if (activeAllocation) {
-        // Start date is day after current subscription end date
-        setRenewStartDate(addDaysToDate(activeAllocation.endDate, 1) || getTodayYYYYMMDD());
-        setRenewShiftId(activeAllocation.shiftId || '');
+        const isExpired = activeAllocation.endDate ? new Date(activeAllocation.endDate).getTime() < new Date().setHours(0, 0, 0, 0) : false;
+        const start = isExpired ? getTodayYYYYMMDD() : (activeAllocation.endDate ? addDaysToDate(activeAllocation.endDate, 1) : getTodayYYYYMMDD());
+        setRenewStartDate(start);
+        const shiftId = activeAllocation.shiftId || (shifts?.[0]?.id || '');
+        setRenewShiftId(shiftId);
+
+        // Pre-select student's current plan duration if available
+        const detectedDuration = formatPlanDuration(activeAllocation.startDate, activeAllocation.endDate, activeSub?.plan?.name);
+        const shift = shifts?.find((s: any) => s.id === shiftId);
+        if (shift?.customPricing && Array.isArray(shift.customPricing) && shift.customPricing.length > 0) {
+          const match = shift.customPricing.find((cp: any) => cp.label.toLowerCase() === detectedDuration.toLowerCase());
+          setRenewDuration(match ? match.label : shift.customPricing[0].label);
+        } else {
+          if (detectedDuration === '7 Days') setRenewDuration('7d');
+          else if (detectedDuration === '15 Days') setRenewDuration('15d');
+          else if (detectedDuration === '3 Months') setRenewDuration(3);
+          else if (detectedDuration === '6 Months') setRenewDuration(6);
+          else if (detectedDuration === '2 Months') setRenewDuration(2);
+          else setRenewDuration(1);
+        }
       } else {
         setRenewStartDate(getTodayYYYYMMDD());
+        setRenewShiftId(shifts?.[0]?.id || '');
+        setRenewDuration(1);
       }
 
-      setRenewEndDate('');
-      setRenewAmount('');
-      setRenewDuration(1);
       setRenewPaymentMethod('UPI');
     }
-  }, [drawerActiveSection, fullStudent]);
+  }, [drawerActiveSection, fullStudent, shifts]);
 
   // 3. Submit vacate seat
   const handleVacateSeat = async (seatId: string) => {
@@ -463,7 +506,7 @@ export default function Students() {
     });
     if (!confirmed) return;
     try {
-      await vacateSeat({ id: seatId, studentProfileId: fullStudent?.profile?.id }).unwrap();
+      await vacateSeat({ id: seatId, studentProfileId: fullStudent?.id }).unwrap();
       showToast('Seat vacated successfully!', 'success');
     } catch (err: any) {
       showToast(err.data?.message || 'Failed to vacate seat', 'error');
@@ -497,12 +540,17 @@ export default function Students() {
 
     setIsRenewing(true);
     try {
+      const studentProfileId = activeAllocation.studentProfileId || fullStudent?.id;
+
       // 1. Vacate the current seat allocation
-      await vacateSeat(activeAllocation.seatId).unwrap();
+      await vacateSeat({
+        id: activeAllocation.seatId,
+        studentProfileId,
+      }).unwrap();
       
       // 2. Re-allocate with new shift and dates
       await allocateSeat({
-        studentProfileId: activeAllocation.studentProfileId,
+        studentProfileId,
         seatId: activeAllocation.seatId,
         shiftId: renewShiftId,
         startDate: renewStartDate,
@@ -510,21 +558,159 @@ export default function Students() {
       }).unwrap();
 
       // 3. Create payment invoice record
-      await createPayment({
-        studentProfileId: activeAllocation.studentProfileId,
-        amount: Number(renewAmount),
+      const selectedShift = shifts?.find((s: any) => s.id === renewShiftId);
+      const planBasePrice = selectedShift ? calculatePlanPrice(selectedShift, renewDuration) : 0;
+      const discountNum = parseFloat(renewDiscount) || 0;
+      const renewPaid = Number(renewAmount) || 0;
+      const payable = Math.max(0, planBasePrice - discountNum);
+      const remainingDue = Math.max(0, payable - renewPaid);
+      const studentExistingDue = fullStudent?.dueAmount ? Number(fullStudent.dueAmount) : 0;
+
+      const paymentResult = await createPayment({
+        studentProfileId,
+        amount: renewPaid,
         method: renewPaymentMethod,
         shiftId: renewShiftId || undefined,
-        durationMonths: renewDuration,
+        durationMonths: typeof renewDuration === 'number' ? renewDuration : undefined,
+        totalAmount: planBasePrice,
+        discountAmount: discountNum > 0 ? discountNum : undefined,
+        notes: typeof renewDuration === 'string' ? `Plan Duration: ${renewDuration}` : undefined,
       }).unwrap();
 
+      const invoiceInfo = {
+        payment: paymentResult?.payment || paymentResult,
+        student: fullStudent,
+        seatNumber: activeAllocation.seat?.number || activeAllocation.seat?.seatNumber,
+        shift: selectedShift,
+        startDate: renewStartDate,
+        endDate: renewEndDate,
+        branchName: getStudentBranchName(fullStudent, branches),
+        originalAmount: planBasePrice,
+        payableAmount: payable,
+        discountAmount: discountNum,
+        paidAmount: renewPaid,
+        dueAmount: remainingDue,
+        previousDue: studentExistingDue,
+        totalDue: remainingDue + studentExistingDue,
+      };
+
+      if (renewPaymentMethod === 'RAZORPAY' && paymentResult?.razorpayOrder) {
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          showToast('Failed to load Razorpay SDK. Check internet connection.', 'error');
+          setIsRenewing(false);
+          return;
+        }
+
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_T9hh97PsK4bGuG',
+          amount: paymentResult.razorpayOrder.amount,
+          currency: paymentResult.razorpayOrder.currency,
+          name: user?.workspace?.name || 'Library Workspace',
+          description: `Seat ${activeAllocation.seat?.number || ''} Renewal`,
+          order_id: paymentResult.razorpayOrder.id,
+          handler: async function (response: any) {
+            try {
+              const verifiedPayment = await verifyRazorpay({
+                id: paymentResult.payment.id,
+                transactionId: response.razorpay_payment_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+              }).unwrap();
+
+              showToast('Payment verified & seat renewed successfully!', 'success');
+              setCreatedInvoiceData({
+                ...invoiceInfo,
+                payment: verifiedPayment?.payment || verifiedPayment,
+              });
+              setOpenInvoiceReceipt(true);
+              setDrawerActiveSection('DETAILS');
+            } catch (vErr: any) {
+              showToast(vErr?.data?.message || 'Payment verification failed', 'error');
+            } finally {
+              setIsRenewing(false);
+            }
+          },
+          prefill: {
+            name: getStudentDisplayName(fullStudent),
+            email: getStudentEmail(fullStudent),
+            contact: getStudentMobile(fullStudent),
+          },
+          theme: { color: '#2563eb' }
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (response: any) {
+          showToast(response?.error?.description || 'Payment cancelled/failed', 'error');
+          setIsRenewing(false);
+        });
+        rzp.open();
+        return;
+      }
+
       setDrawerActiveSection('DETAILS');
+      setCreatedInvoiceData(invoiceInfo);
+      setOpenInvoiceReceipt(true);
       showToast('Seat renewed successfully!', 'success');
     } catch (err: any) {
       showToast(err?.data?.message || 'Seat renewal failed', 'error');
     } finally {
       setIsRenewing(false);
     }
+  };
+
+  const getEffectivePaymentStatus = (payment: any) => {
+    const paid = Number(payment.amount || 0);
+    const total = Number(payment.totalAmount || 0);
+    const discount = Number(payment.discountAmount || 0);
+    const netPayable = total > 0 ? Math.max(0, total - discount) : paid;
+    const due = payment.dueAmount !== undefined ? Number(payment.dueAmount) : Math.max(0, netPayable - paid);
+
+    if (payment.status === 'PAID') return 'PAID';
+    if (payment.status === 'PARTIAL') return 'PARTIAL';
+    if (paid > 0 && due > 0) return 'PARTIAL';
+    if (paid > 0 && due <= 0.01 && total > 0) return 'PAID';
+    if (payment.status === 'UNPAID' && paid > 0) return 'PARTIAL';
+    return payment.status || (paid > 0 ? 'PAID' : 'UNPAID');
+  };
+
+  const handleViewPaymentDetails = (payment: any) => {
+    if (!payment) return;
+    const total = Number(payment.totalAmount ?? payment.amount);
+    const discount = Number(payment.discountAmount ?? 0);
+    const paid = Number(payment.amount ?? 0);
+    const netPayable = Math.max(0, total - discount);
+    const due = payment.dueAmount !== undefined
+      ? Number(payment.dueAmount)
+      : Math.max(0, netPayable - paid);
+
+    const activeAlloc = fullStudent?.allocations?.find((a: any) => a.isActive) || fullStudent?.allocations?.[0];
+    const activeSub = fullStudent?.subscriptions?.find((s: any) => s.status === 'ACTIVE') || fullStudent?.subscriptions?.[0];
+    const shift = shifts?.find((s: any) => s.id === payment.shiftId || s.id === activeAlloc?.shiftId) || activeSub?.shift || { name: 'Shift Subscription' };
+
+    const invoiceInfo = {
+      payment: {
+        ...payment,
+        status: getEffectivePaymentStatus(payment),
+      },
+      student: fullStudent,
+      seatNumber: payment.seatNumber || activeAlloc?.seat?.number || activeAlloc?.seat?.seatNumber || 'N/A',
+      shift,
+      startDate: payment.startDate || activeAlloc?.startDate || payment.createdAt,
+      endDate: payment.endDate || activeAlloc?.endDate || payment.createdAt,
+      branchName: payment.branchName || getStudentBranchName(fullStudent, branches),
+      originalAmount: total,
+      payableAmount: netPayable,
+      discountAmount: discount,
+      paidAmount: paid,
+      dueAmount: due,
+      previousDue: fullStudent?.dueAmount ? Number(fullStudent.dueAmount) : 0,
+      totalDue: due + (fullStudent?.dueAmount ? Number(fullStudent.dueAmount) : 0),
+    };
+
+    setCreatedInvoiceData(invoiceInfo);
+    setOpenInvoiceReceipt(true);
   };
 
   return (
@@ -1672,8 +1858,8 @@ export default function Students() {
                     <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Seat Allocation</h5>
                     {(() => {
                       const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
+                      const activeSub = fullStudent.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
                       if (!activeAllocation) {
-                        const activeSub = fullStudent.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
                         const matchingShift = activeSub && shifts?.find((s: any) => 
                           activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
                         );
@@ -1684,6 +1870,7 @@ export default function Students() {
                             {matchingShift && (
                               <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '8px 12px', fontSize: '0.75rem', color: '#1e3a8a', fontWeight: 600, width: '100%', boxSizing: 'border-box', textAlign: 'left' }}>
                                 <div><strong>Paid Shift:</strong> {matchingShift.name}</div>
+                                <div style={{ marginTop: '2px' }}><strong>Plan Duration:</strong> {activeSub.plan?.name || formatPlanDuration(activeSub.startDate, activeSub.endDate, '1 Month')}</div>
                                 <div style={{ marginTop: '2px', color: '#2563eb' }}><strong>Time:</strong> {formatTo12hString(matchingShift.startTime)} - {formatTo12hString(matchingShift.endTime)}</div>
                               </div>
                             )}
@@ -1730,6 +1917,12 @@ export default function Students() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                             <span style={{ color: 'var(--text-slate)' }}>Shift Batch:</span>
                             <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{activeAllocation.shift?.name} ({formatTo12hString(activeAllocation.shift?.startTime)} - {formatTo12hString(activeAllocation.shift?.endTime)})</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                            <span style={{ color: 'var(--text-slate)' }}>Plan Duration:</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>
+                              {formatPlanDuration(activeAllocation.startDate, activeAllocation.endDate, activeSub?.plan?.name)}
+                            </span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
                             <span style={{ color: 'var(--text-slate)' }}>Subscription Start:</span>
@@ -1793,79 +1986,28 @@ export default function Students() {
                       );
                     }
                     return (
-                      <form onSubmit={(e) => handleRenewSeat(e, activeAllocation)} style={{ background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--status-emerald)', marginBottom: '4px' }}>
-                          <History size={16} />
-                          <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700 }}>Renew Seat Subscription</h4>
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Shift Schedule</label>
-                          <Select
-                            value={renewShiftId}
-                            onChange={(val) => setRenewShiftId(val)}
-                            placeholder="Select Shift"
-                            options={shifts?.map((s: any) => ({ value: s.id, label: s.name })) || []}
-                          />
-                        </div>
-
-                        <div>
-                          <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Plan Duration</label>
-                          <Select
-                            value={renewDuration}
-                            onChange={(val: any) => setRenewDuration(isNaN(Number(val)) ? val : Number(val))}
-                            placeholder="Select Duration"
-                            options={[
-                              { value: 1, label: '1 Month (Standard)' },
-                              { value: 2, label: '2 Months' },
-                              { value: 3, label: '3 Months (Quarterly)' },
-                              { value: 6, label: '6 Months (Half Yearly)' },
-                              { value: '7d', label: '7 Days (Short Term)' },
-                              { value: '10d', label: '10 Days (Short Term)' },
-                              { value: '15d', label: '15 Days (Half Month)' },
-                            ]}
-                          />
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <DatePicker
-                            label="Start Date"
-                            required
-                            value={renewStartDate}
-                            onChange={(val) => setRenewStartDate(val)}
-                          />
-                          <DatePicker
-                            label="End Date"
-                            required
-                            value={renewEndDate}
-                            onChange={(val) => setRenewEndDate(val)}
-                          />
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Amount (₹)</label>
-                            <input type="number" required value={renewAmount} onChange={(e) => setRenewAmount(e.target.value)} style={{ padding: '8px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid rgba(15, 23, 42, 0.05)', width: '100%', boxSizing: 'border-box' }} />
-                          </div>
-                          <div>
-                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>Method</label>
-                            <Select
-                              value={renewPaymentMethod}
-                              onChange={(val: any) => setRenewPaymentMethod(val)}
-                              placeholder="Payment Method"
-                              options={[
-                                { value: 'UPI', label: 'UPI' },
-                                { value: 'CASH', label: 'Cash' },
-                                { value: 'RAZORPAY', label: 'Online' }
-                              ]}
-                            />
-                          </div>
-                        </div>
-
-                        <Button type="submit" variant="primary" style={{ backgroundColor: 'var(--status-emerald)', borderColor: 'var(--status-emerald)', width: '100%', marginTop: '6px' }} disabled={!renewShiftId || !renewStartDate || !renewEndDate || isRenewing} isLoading={isRenewing}>
-                          Confirm Renewal
-                        </Button>
-                      </form>
+                      <div style={{ background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-card)' }}>
+                        <RenewSeatForm
+                          shifts={shifts}
+                          renewShiftId={renewShiftId}
+                          onShiftChange={setRenewShiftId}
+                          renewDuration={renewDuration}
+                          onDurationChange={setRenewDuration}
+                          renewStartDate={renewStartDate}
+                          onStartDateChange={setRenewStartDate}
+                          renewEndDate={renewEndDate}
+                          onEndDateChange={setRenewEndDate}
+                          renewAmount={renewAmount}
+                          onAmountChange={setRenewAmount}
+                          renewDiscount={renewDiscount}
+                          onDiscountChange={handleRenewDiscountChange}
+                          previousDue={fullStudent?.dueAmount ? Number(fullStudent.dueAmount) : 0}
+                          renewPaymentMethod={renewPaymentMethod}
+                          onPaymentMethodChange={setRenewPaymentMethod}
+                          onSubmit={(e) => handleRenewSeat(e, activeAllocation)}
+                          isRenewing={isRenewing}
+                        />
+                      </div>
                     );
                   })()}
                 </div>
@@ -1873,20 +2015,98 @@ export default function Students() {
 
               {/* Invoices & Payments History */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Ledger History</h5>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Payment Ledger History
+                  </h5>
+                  <span style={{ fontSize: '0.675rem', color: 'var(--accent-blue)', fontWeight: 600 }}>
+                    Click to view full invoice
+                  </span>
+                </div>
                 {fullStudent.payments && fullStudent.payments.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {fullStudent.payments.map((payment: any) => (
-                      <div key={payment.id} style={{ background: '#ffffff', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-navy)' }}>₹{payment.amount}</span>
-                          <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>{new Date(payment.createdAt).toLocaleDateString()} • {payment.method}</span>
+                    {fullStudent.payments.map((payment: any) => {
+                      const effStatus = getEffectivePaymentStatus(payment);
+                      const statusColor = effStatus === 'PAID'
+                        ? 'var(--status-emerald)'
+                        : effStatus === 'PARTIAL'
+                        ? '#d97706'
+                        : 'var(--status-red)';
+                      const statusBg = effStatus === 'PAID'
+                        ? 'rgba(16, 185, 129, 0.08)'
+                        : effStatus === 'PARTIAL'
+                        ? 'rgba(217, 119, 6, 0.1)'
+                        : 'rgba(239, 68, 68, 0.08)';
+
+                      const hasDiscount = Number(payment.discountAmount || 0) > 0;
+                      const hasTotal = Number(payment.totalAmount || 0) > Number(payment.amount || 0);
+
+                      return (
+                        <div
+                          key={payment.id}
+                          onClick={() => handleViewPaymentDetails(payment)}
+                          role="button"
+                          tabIndex={0}
+                          title="Click to view full payment invoice & receipt"
+                          style={{
+                            background: '#ffffff',
+                            padding: '12px 14px',
+                            borderRadius: '12px',
+                            border: '1px solid var(--border-card)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 150ms ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--accent-blue)';
+                            e.currentTarget.style.backgroundColor = '#f8faff';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.08)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--border-card)';
+                            e.currentTarget.style.backgroundColor = '#ffffff';
+                            e.currentTarget.style.transform = 'none';
+                            e.currentTarget.style.boxShadow = 'none';
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-navy)' }}>
+                                ₹{Number(payment.amount || 0).toFixed(2)}
+                              </span>
+                              {(hasTotal || hasDiscount) && (
+                                <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>
+                                  ({hasTotal ? `Plan: ₹${Number(payment.totalAmount).toFixed(0)}` : ''}{hasDiscount ? ` • Disc: -₹${Number(payment.discountAmount).toFixed(0)}` : ''})
+                                </span>
+                              )}
+                            </div>
+                            <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>
+                              {new Date(payment.createdAt).toLocaleDateString()} • {payment.method}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span
+                              style={{
+                                fontSize: '0.675rem',
+                                fontWeight: 700,
+                                color: statusColor,
+                                backgroundColor: statusBg,
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {effStatus}
+                            </span>
+                            <Eye size={14} style={{ color: 'var(--accent-blue)' }} />
+                          </div>
                         </div>
-                        <span style={{ fontSize: '0.675rem', fontWeight: 700, color: payment.status === 'PAID' ? 'var(--status-emerald)' : 'var(--status-red)', backgroundColor: payment.status === 'PAID' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
-                          {payment.status}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px dashed var(--border-card)', textAlign: 'center', color: 'var(--text-slate)', fontSize: '0.8rem' }}>
@@ -1902,6 +2122,13 @@ export default function Students() {
           )}
         </div>
       </div>
+
+      {/* Renewal Invoice Receipt Modal */}
+      <InvoiceReceiptModal
+        isOpen={openInvoiceReceipt}
+        onClose={() => setOpenInvoiceReceipt(false)}
+        createdInvoiceData={createdInvoiceData}
+      />
     </div>
   );
 }

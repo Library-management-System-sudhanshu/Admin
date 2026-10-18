@@ -1,5 +1,5 @@
  import { useState, useEffect } from 'react';
-import { addDaysToDate, addMonthsToDate } from '../../../utils/dateUtils';
+import { addDaysToDate, addMonthsToDate, calculateSubscriptionEndDate, calculatePlanPrice } from '../../../utils/dateUtils';
 import { getStudentDisplayName, getStudentEmail, getStudentMobile } from '../../../utils/studentUtils';
 import type { Shift, Seat } from '../types';
 
@@ -38,7 +38,27 @@ export function useSeatRenewal({
   const [renewEndDate, setRenewEndDate] = useState('');
   const [renewPaymentMethod, setRenewPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('UPI');
   const [renewAmount, setRenewAmount] = useState('');
+  const [renewDiscount, setRenewDiscount] = useState('');
   const [isRenewing, setIsRenewing] = useState(false);
+
+  const selectedShift = shifts?.find((s: any) => s.id === renewShiftId);
+  const basePrice = selectedShift ? calculatePlanPrice(selectedShift, renewDuration) : 0;
+  const parsedDiscount = parseFloat(renewDiscount) || 0;
+  const netPayable = Math.max(0, basePrice - parsedDiscount);
+  const parsedPaid = parseFloat(renewAmount) || 0;
+  const dueAmount = Math.max(0, netPayable - parsedPaid);
+
+  const handleDiscountChange = (newDiscount: string) => {
+    setRenewDiscount(newDiscount);
+    if (renewShiftId && shifts) {
+      const shift = shifts.find((s: any) => s.id === renewShiftId);
+      if (shift) {
+        const planPrice = calculatePlanPrice(shift, renewDuration);
+        const disc = parseFloat(newDiscount) || 0;
+        setRenewAmount(Math.max(0, planPrice - disc).toString());
+      }
+    }
+  };
 
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -59,41 +79,38 @@ export function useSeatRenewal({
     if (renewShiftId && shifts && renewStartDate) {
       const shift = shifts.find((s: any) => s.id === renewShiftId);
       if (shift) {
-        let endDateCalculated = '';
-        let price = shift.price || 0;
+        const endDateCalculated = calculateSubscriptionEndDate(renewStartDate, renewDuration);
+        const price = calculatePlanPrice(shift, renewDuration);
+        const disc = parseFloat(renewDiscount) || 0;
 
-        if (renewDuration === '7d') {
-          endDateCalculated = addDaysToDate(renewStartDate, 7);
-          price = Math.round((price / 30) * 7);
-        } else if (renewDuration === '10d') {
-          endDateCalculated = addDaysToDate(renewStartDate, 10);
-          price = Math.round((price / 30) * 10);
-        } else if (renewDuration === '15d') {
-          endDateCalculated = addDaysToDate(renewStartDate, 15);
-          price = Math.round((price / 30) * 15);
-        } else {
-          const months = typeof renewDuration === 'number' ? renewDuration : parseInt(renewDuration as string) || 1;
-          endDateCalculated = addMonthsToDate(renewStartDate, months);
-          if (months === 3 && shift.price3Months) {
-            price = shift.price3Months;
-          } else if (months === 6 && shift.price6Months) {
-            price = shift.price6Months;
-          } else {
-            price = price * months;
-          }
+        if (endDateCalculated) {
+          setRenewEndDate(endDateCalculated);
         }
-
-        setRenewEndDate(endDateCalculated);
-        setRenewAmount(price.toString());
+        setRenewAmount(Math.max(0, price - disc).toString());
       }
     }
   }, [renewShiftId, renewStartDate, renewDuration, shifts]);
+
+  // Reset discount when allocation changes
+  useEffect(() => {
+    setRenewDiscount('');
+  }, [selectedAllocationId, selectedSeat?.id]);
 
   const handleRenewSeat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSeat || !selectedAllocationId) return;
     const activeAllocation = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
     if (!activeAllocation) return;
+
+    const currentShift = shifts?.find((s: any) => s.id === renewShiftId);
+    const planBasePrice = currentShift ? calculatePlanPrice(currentShift, renewDuration) : 0;
+    const discountNum = parseFloat(renewDiscount) || 0;
+    const renewPaid = Number(renewAmount) || 0;
+    const payable = Math.max(0, planBasePrice - discountNum);
+    const remainingDue = Math.max(0, payable - renewPaid);
+    const studentExistingDue = activeAllocation.studentProfile?.dueAmount
+      ? Number(activeAllocation.studentProfile.dueAmount)
+      : 0;
 
     setIsRenewing(true);
     try {
@@ -108,26 +125,30 @@ export function useSeatRenewal({
 
       const paymentResult = await createPayment({
         studentProfileId: activeAllocation.studentProfileId,
-        amount: Number(renewAmount),
+        amount: renewPaid,
         method: renewPaymentMethod,
         shiftId: renewShiftId || undefined,
-        durationMonths: renewDuration,
+        durationMonths: typeof renewDuration === 'number' ? renewDuration : undefined,
+        totalAmount: planBasePrice,
+        discountAmount: discountNum > 0 ? discountNum : undefined,
+        notes: typeof renewDuration === 'string' ? `Plan Duration: ${renewDuration}` : undefined,
       }).unwrap();
 
-      const renewPaid = Number(renewAmount) || 0;
       const invoiceInfo = {
-        payment: paymentResult.payment,
+        payment: paymentResult?.payment || paymentResult,
         student: activeAllocation.studentProfile,
         seatNumber: selectedSeat.number || selectedSeat.seatNumber,
-        shift: shifts?.find((s: any) => s.id === renewShiftId),
+        shift: currentShift,
         startDate: renewStartDate,
         endDate: renewEndDate,
         branchName: branches?.find((b: any) => b.id === selectedBranch)?.name,
-        originalAmount: renewPaid,
-        payableAmount: renewPaid,
-        discountAmount: 0,
+        originalAmount: planBasePrice,
+        payableAmount: payable,
+        discountAmount: discountNum,
         paidAmount: renewPaid,
-        dueAmount: 0,
+        dueAmount: remainingDue,
+        previousDue: studentExistingDue,
+        totalDue: remainingDue + studentExistingDue,
       };
 
       if (renewPaymentMethod === 'RAZORPAY' && paymentResult.razorpayOrder) {
@@ -158,10 +179,12 @@ export function useSeatRenewal({
               showToast('Payment verified & seat renewed successfully!', 'success');
               onSuccess({
                 ...invoiceInfo,
-                payment: verifiedPayment,
+                payment: verifiedPayment?.payment || verifiedPayment,
               });
             } catch (err: any) {
               showToast(err.data?.message || 'Payment verification failed', 'error');
+            } finally {
+              setIsRenewing(false);
             }
           },
           prefill: {
@@ -181,6 +204,10 @@ export function useSeatRenewal({
         };
 
         const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (response: any) {
+          showToast(response?.error?.description || 'Payment cancelled/failed', 'error');
+          setIsRenewing(false);
+        });
         rzp.open();
       } else {
         onSuccess(invoiceInfo);
@@ -206,6 +233,11 @@ export function useSeatRenewal({
     setRenewPaymentMethod,
     renewAmount,
     setRenewAmount,
+    renewDiscount,
+    setRenewDiscount,
+    handleDiscountChange,
+    basePrice,
+    dueAmount,
     isRenewing,
     handleRenewSeat,
   };

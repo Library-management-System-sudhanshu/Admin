@@ -113,13 +113,30 @@ export const getAvailableSeatShifts = (
     return until > from ? [[from, until]] : [[from, 1440], [0, until]];
   };
   return shifts.filter((shift: any) => {
-    const candidates = shift.type === 'CLUBBED'
-      ? shifts.filter((base: any) => shift.baseShiftIds?.includes(base.id)) : [shift];
+    const candidateBases = shift.type === 'CLUBBED' && shift.baseShiftIds?.length
+      ? shifts.filter((base: any) => shift.baseShiftIds.includes(base.id))
+      : [shift];
+
     return !allocations.some((allocation: any) => {
       const bookedId = allocation.shiftId || allocation.shift?.id;
       const booked = allocation.shift || shifts.find((s: any) => s.id === bookedId);
-      return candidates.some((candidate: any) => candidate.id === bookedId ||
-        ranges(candidate).some(([a, b]) => ranges(booked).some(([c, d]) => a < d && c < b)));
+      if (!booked) return false;
+
+      const bookedBases = booked.type === 'CLUBBED' && booked.baseShiftIds?.length
+        ? shifts.filter((base: any) => booked.baseShiftIds.includes(base.id))
+        : [booked];
+
+      return candidateBases.some((c: any) =>
+        bookedBases.some((b: any) =>
+          c.id === b.id ||
+          c.id === booked.id ||
+          shift.id === b.id ||
+          shift.id === booked.id ||
+          ranges(c).some(([ca, cb]) =>
+            ranges(b).some(([ba, bb]) => ca < bb && ba < cb)
+          )
+        )
+      );
     });
   });
 };

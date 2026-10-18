@@ -23,7 +23,7 @@ import {
   useCreatePaymentMutation,
   useVerifyRazorpayMutation,
 } from '../store/api';
-import { formatYYYYMMDD, addDaysToDate } from '../utils/dateUtils';
+import { formatYYYYMMDD, addDaysToDate, getTodayYYYYMMDD } from '../utils/dateUtils';
 import {
   getStudentDisplayName,
   getStudentEmail,
@@ -350,7 +350,9 @@ export default function Seats() {
     if (selectedSeat && selectedAllocationId) {
       const alloc = selectedSeat.allocations?.find((a: any) => a.id === selectedAllocationId);
       if (alloc) {
-        renewal.setRenewStartDate(alloc.endDate ? addDaysToDate(alloc.endDate, 1) : '');
+        const isExpired = alloc.endDate ? new Date(alloc.endDate).getTime() < new Date().setHours(0, 0, 0, 0) : false;
+        const start = isExpired ? getTodayYYYYMMDD() : (alloc.endDate ? addDaysToDate(alloc.endDate, 1) : getTodayYYYYMMDD());
+        renewal.setRenewStartDate(start);
         renewal.setRenewShiftId(alloc.shiftId || '');
         setEditStartDate(formatYYYYMMDD(alloc.startDate));
         setEditEndDate(formatYYYYMMDD(alloc.endDate));
@@ -382,7 +384,8 @@ export default function Seats() {
       if (activeAllocations.length > 0) {
         setSelectedAllocationId(activeAllocations[0].id);
         const activeAllocation = activeAllocations[0];
-        const nextDay = activeAllocation.endDate ? addDaysToDate(activeAllocation.endDate, 1) : '';
+        const isExpired = activeAllocation.endDate ? new Date(activeAllocation.endDate).getTime() < new Date().setHours(0, 0, 0, 0) : false;
+        const nextDay = isExpired ? getTodayYYYYMMDD() : (activeAllocation.endDate ? addDaysToDate(activeAllocation.endDate, 1) : getTodayYYYYMMDD());
         renewal.setRenewStartDate(nextDay);
         renewal.setRenewShiftId(activeAllocation.shiftId || '');
         setEditStartDate(formatYYYYMMDD(activeAllocation.startDate));
@@ -813,6 +816,9 @@ export default function Seats() {
         onRenewEndDateChange={renewal.setRenewEndDate}
         renewAmount={renewal.renewAmount}
         onRenewAmountChange={renewal.setRenewAmount}
+        renewDiscount={renewal.renewDiscount}
+        onRenewDiscountChange={renewal.handleDiscountChange}
+        renewBasePrice={renewal.basePrice}
         renewPaymentMethod={renewal.renewPaymentMethod}
         onRenewPaymentMethodChange={renewal.setRenewPaymentMethod}
         onRenewSubmit={renewal.handleRenewSeat}
