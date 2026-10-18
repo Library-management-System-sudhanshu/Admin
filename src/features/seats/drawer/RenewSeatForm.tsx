@@ -23,6 +23,7 @@ export interface RenewSeatFormProps {
   onPaymentMethodChange: (val: 'UPI' | 'CASH' | 'RAZORPAY') => void;
   basePrice?: number;
   previousDue?: number;
+  hideHeader?: boolean;
   onSubmit: (e: React.FormEvent) => void;
   isRenewing?: boolean;
 }
@@ -45,6 +46,7 @@ export const RenewSeatForm: React.FC<RenewSeatFormProps> = ({
   onPaymentMethodChange,
   basePrice,
   previousDue = 0,
+  hideHeader = false,
   onSubmit,
   isRenewing = false,
 }) => {
@@ -94,13 +96,17 @@ export const RenewSeatForm: React.FC<RenewSeatFormProps> = ({
 
   return (
     <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--status-emerald)', marginBottom: '4px' }}>
-        <History size={16} />
-        <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Renew Seat Subscription</h4>
-      </div>
-      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-slate)' }}>
-        Extend the student's booking subscription and auto-generate the renewal payment invoice.
-      </p>
+      {!hideHeader && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--status-emerald)', marginBottom: '4px' }}>
+            <History size={16} />
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>Renew Seat Subscription</h4>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-slate)' }}>
+            Extend the student's booking subscription and auto-generate the renewal payment invoice.
+          </p>
+        </>
+      )}
 
       <div>
         <label style={{ fontSize: '0.675rem', fontWeight: 700, color: 'var(--text-slate)', display: 'block', marginBottom: '4px' }}>

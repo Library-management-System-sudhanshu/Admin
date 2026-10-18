@@ -112,6 +112,17 @@ export function useSeatRenewal({
       ? Number(activeAllocation.studentProfile.dueAmount)
       : 0;
 
+    if (planBasePrice > 0) {
+      if (discountNum > planBasePrice) {
+        showToast(`Discount (₹${discountNum}) cannot exceed the plan price (₹${planBasePrice}).`, 'error');
+        return;
+      }
+      if (renewPaid > payable) {
+        showToast(`Amount paid (₹${renewPaid}) cannot exceed net payable (₹${payable}) when discount is ₹${discountNum}.`, 'error');
+        return;
+      }
+    }
+
     setIsRenewing(true);
     try {
       await vacateSeat({ id: selectedSeat.id, studentProfileId: activeAllocation.studentProfileId }).unwrap();

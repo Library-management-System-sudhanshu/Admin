@@ -43,6 +43,7 @@ const WorkspaceRooms = lazyPage(() => import('../pages/super-admin/workspace-det
 const WorkspaceBilling = lazyPage(() => import('../pages/super-admin/workspace-details/WorkspaceBilling'));
 const WorkspaceBranches = lazyPage(() => import('../pages/super-admin/workspace-details/WorkspaceBranches'));
 const Profile = lazyPage(() => import('../pages/Profile'));
+const StudentProfile = lazyPage(() => import('../pages/StudentProfile'));
 const TransferSeat = lazyPage(() => import('../pages/TransferSeat'));
 const NewAdmission = lazyPage(() => import('../pages/NewAdmission'));
 const CalendarDemo = lazyPage(() => import('../pages/CalendarDemo'));
@@ -94,6 +95,8 @@ export default function AppRoutes() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/new-admission" element={<NewAdmission />} />
               <Route path="/students" element={<Students />} />
+              <Route path="/student-profile" element={<StudentProfile />} />
+              <Route path="/student-profile/:id" element={<StudentProfile />} />
               <Route path="/seats" element={<Seats />} />
               <Route path="/billing" element={<Billing />} />
               <Route path="/library" element={<Library />} />

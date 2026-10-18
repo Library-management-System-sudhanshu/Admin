@@ -115,9 +115,12 @@ export default function Layout() {
         return { title: 'My Account', subtitle: 'Manage account settings and subscription' };
       case '/transfer-seat':
         return { title: 'Transfer Seat', subtitle: 'Move student to a different seat' };
+      case '/student-profile':
+        return { title: 'Student Profile', subtitle: 'Detailed student records, seat allocation & ledger' };
       case '/calendar':
         return { title: 'Calendar', subtitle: 'View schedule and upcoming events' };
       default:
+        if (location.pathname.startsWith('/student-profile')) return { title: 'Student Profile', subtitle: 'Detailed student records, seat allocation & ledger' };
         if (location.pathname.startsWith('/super-admin')) return { title: 'Super Admin Console', subtitle: 'Platform administration' };
         return { title: 'StudyFlow', subtitle: '' };
     }

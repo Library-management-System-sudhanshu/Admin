@@ -128,12 +128,11 @@ export default function Students() {
 
   React.useEffect(() => {
     if (location.state && (location.state as any).selectedStudentId) {
-      setSelectedStudentId((location.state as any).selectedStudentId);
-      setIsDrawerOpen(true);
-      // Clean up router state so the drawer doesn't reopen unexpectedly
+      const targetId = (location.state as any).selectedStudentId;
       window.history.replaceState({}, document.title);
+      navigate(`/student-profile?id=${targetId}`);
     }
-  }, [location.state]);
+  }, [location.state, navigate]);
 
   // Drawer tab and form states
   const [drawerActiveSection, setDrawerActiveSection] = useState<'DETAILS' | 'TRANSFER' | 'RENEW'>('DETAILS');
@@ -538,6 +537,25 @@ export default function Students() {
     e.preventDefault();
     if (!activeAllocation || !activeAllocation.seatId) return;
 
+    const selectedShift = shifts?.find((s: any) => s.id === renewShiftId);
+    const planBasePrice = selectedShift ? calculatePlanPrice(selectedShift, renewDuration) : 0;
+    const discountNum = parseFloat(renewDiscount) || 0;
+    const renewPaid = Number(renewAmount) || 0;
+    const payable = Math.max(0, planBasePrice - discountNum);
+    const remainingDue = Math.max(0, payable - renewPaid);
+    const studentExistingDue = fullStudent?.dueAmount ? Number(fullStudent.dueAmount) : 0;
+
+    if (planBasePrice > 0) {
+      if (discountNum > planBasePrice) {
+        showToast(`Discount (₹${discountNum}) cannot exceed the plan price (₹${planBasePrice}).`, 'error');
+        return;
+      }
+      if (renewPaid > payable) {
+        showToast(`Amount paid (₹${renewPaid}) cannot exceed net payable (₹${payable}) when discount is ₹${discountNum}.`, 'error');
+        return;
+      }
+    }
+
     setIsRenewing(true);
     try {
       const studentProfileId = activeAllocation.studentProfileId || fullStudent?.id;
@@ -558,14 +576,6 @@ export default function Students() {
       }).unwrap();
 
       // 3. Create payment invoice record
-      const selectedShift = shifts?.find((s: any) => s.id === renewShiftId);
-      const planBasePrice = selectedShift ? calculatePlanPrice(selectedShift, renewDuration) : 0;
-      const discountNum = parseFloat(renewDiscount) || 0;
-      const renewPaid = Number(renewAmount) || 0;
-      const payable = Math.max(0, planBasePrice - discountNum);
-      const remainingDue = Math.max(0, payable - renewPaid);
-      const studentExistingDue = fullStudent?.dueAmount ? Number(fullStudent.dueAmount) : 0;
-
       const paymentResult = await createPayment({
         studentProfileId,
         amount: renewPaid,
@@ -1044,9 +1054,7 @@ export default function Students() {
                       key={student.id}
                       className="student-table-row"
                       onClick={() => {
-                        setSelectedStudentId(student.id);
-                        setDrawerActiveSection('DETAILS');
-                        setIsDrawerOpen(true);
+                        navigate(`/student-profile?id=${student.id}`);
                       }}
                       style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-card)' }}
                     >
@@ -1274,14 +1282,20 @@ export default function Students() {
                               <button 
                                 className="icon-btn success" 
                                 title="Approve" 
-                                onClick={() => handleStatusChange(student.id, 'APPROVED')}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(student.id, 'APPROVED');
+                                }}
                               >
                                 <Check size={16} />
                               </button>
                               <button 
                                 className="icon-btn danger" 
                                 title="Reject" 
-                                onClick={() => handleStatusChange(student.id, 'REJECTED')}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(student.id, 'REJECTED');
+                                }}
                               >
                                 <X size={16} />
                               </button>
@@ -1290,14 +1304,18 @@ export default function Students() {
                           <button 
                             className="icon-btn" 
                             title="Edit Student" 
-                            onClick={() => handleOpenEdit(student)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEdit(student);
+                            }}
                           >
                             <Edit2 size={16} />
                           </button>
                           <button 
                             className="icon-btn" 
                             title="ID Card" 
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedStudent(student);
                               setOpenCard(true);
                             }}
@@ -1307,7 +1325,10 @@ export default function Students() {
                           <button 
                             className="icon-btn danger" 
                             title="Delete" 
-                            onClick={() => handleDelete(student.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(student.id);
+                            }}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -1621,514 +1642,6 @@ export default function Students() {
         </form>
       </Modal>
 
-      {/* RIGHT SLIDING DRAWER PANEL */}
-      <div 
-        className={`drawer-backdrop ${isDrawerOpen ? 'open' : ''}`}
-        onClick={() => setIsDrawerOpen(false)}
-      />
-      <div className={`right-drawer-panel ${isDrawerOpen ? 'open' : ''}`}>
-        {/* Drawer Header */}
-        <div className="drawer-header">
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-navy)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              Student Profile
-              {fullStudent?.status && (
-                <span className={`status-pill ${fullStudent.status.toLowerCase()}`} style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 700, backgroundColor: fullStudent.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: fullStudent.status === 'APPROVED' ? 'var(--status-emerald)' : 'var(--status-gold)' }}>
-                  {fullStudent.status}
-                </span>
-              )}
-            </h3>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)' }}>Detailed records and seat allocations</span>
-          </div>
-          <button 
-            onClick={() => setIsDrawerOpen(false)}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-slate)', padding: '4px' }}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Drawer Body */}
-        <div className="drawer-body" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {isStudentLoading ? (
-            <LoadingState />
-          ) : fullStudent ? (
-            <>
-              {/* Profile Card */}
-              <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: '#eff6ff', borderColor: 'rgba(37, 99, 235, 0.15)', borderRadius: '14px' }}>
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div 
-                    style={{ 
-                      width: '48px', 
-                      height: '48px', 
-                      borderRadius: '50%', 
-                      background: (fullStudent.user?.avatar || fullStudent.avatar) ? `url(${fullStudent.user?.avatar || fullStudent.avatar}) no-repeat center center / cover` : 'var(--accent-blue)', 
-                      color: 'white', 
-                      fontWeight: 700, 
-                      fontSize: '1.1rem', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      boxShadow: 'var(--shadow-soft)'
-                    }}
-                  >
-                    {!(fullStudent.user?.avatar || fullStudent.avatar) && getStudentInitials(fullStudent)}
-                  </div>
-                  <label 
-                    htmlFor={`student-avatar-${fullStudent.id}`}
-                    style={{ 
-                      position: 'absolute', 
-                      bottom: -2, 
-                      right: -2, 
-                      backgroundColor: 'var(--accent-blue)', 
-                      color: 'white', 
-                      width: '18px', 
-                      height: '18px', 
-                      borderRadius: '50%', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      cursor: 'pointer',
-                      border: '1px solid #ffffff',
-                      boxShadow: 'var(--shadow-soft)'
-                    }}
-                  >
-                    <Camera size={9} />
-                  </label>
-                  <input 
-                    id={`student-avatar-${fullStudent.id}`}
-                    type="file" 
-                    accept="image/*" 
-                    style={{ display: 'none' }} 
-                    onChange={handleStudentAvatarUpload} 
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-navy)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getStudentDisplayName(fullStudent)}</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}><Mail size={12} /> {getStudentEmail(fullStudent)}</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-slate)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}><Phone size={12} /> {getStudentMobile(fullStudent)}</span>
-                </div>
-              </div>
-
-              {/* Main Tab Selector at the Top */}
-              {fullStudent.allocations?.some((a: any) => a.isActive) && (
-                <div style={{ display: 'flex', background: '#F1F5F9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
-                  {['DETAILS', 'TRANSFER', 'RENEW'].map((tab: any) => {
-                    const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
-                    return (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => {
-                          if (tab === 'TRANSFER') {
-                            if (activeAllocation) {
-                              navigate(`/transfer-seat?allocationId=${activeAllocation.id}&studentId=${fullStudent.id}`);
-                            } else {
-                              showAlert('No active seat allocation to transfer', { title: 'Error' });
-                            }
-                          } else {
-                            setDrawerActiveSection(tab);
-                          }
-                        }}
-                        style={{
-                          flex: 1,
-                          border: 'none',
-                          padding: '8px',
-                          borderRadius: '8px',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          background: drawerActiveSection === tab ? '#ffffff' : 'transparent',
-                          color: drawerActiveSection === tab ? 'var(--text-navy)' : 'var(--text-slate)',
-                          cursor: 'pointer',
-                          transition: 'all 150ms ease'
-                        }}
-                      >
-                        {tab === 'DETAILS' ? 'Details' : tab === 'TRANSFER' ? 'Transfer' : 'Renew'}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Tab Content */}
-              {drawerActiveSection === 'DETAILS' && (
-                <>
-                  {/* General Information */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>General Information</h5>
-                    <div style={{ background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {fullStudent.dueAmount > 0 && (
-                        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '12px', borderRadius: '8px', marginBottom: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <span style={{ color: 'var(--status-red)', fontWeight: 700, fontSize: '0.85rem' }}>Outstanding Dues</span>
-                            <span style={{ color: 'var(--status-red)', fontWeight: 800, fontSize: '1rem' }}>₹{fullStudent.dueAmount}</span>
-                          </div>
-                          <form onSubmit={handleClearDues} style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-                            <div style={{ flex: 1 }}>
-                              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: '4px' }}>Amount to Pay</label>
-                              <input
-                                type="number"
-                                required
-                                value={clearDuesAmount}
-                                onChange={(e) => setClearDuesAmount(e.target.value)}
-                                max={fullStudent.dueAmount}
-                                style={{
-                                  height: '38px',
-                                  padding: '0 10px',
-                                  fontSize: '0.8rem',
-                                  borderRadius: '8px',
-                                  border: '1px solid #fca5a5',
-                                  width: '100%',
-                                  boxSizing: 'border-box',
-                                  outline: 'none',
-                                  backgroundColor: '#ffffff'
-                                }}
-                              />
-                            </div>
-                            <div style={{ width: '110px' }}>
-                              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: '4px' }}>Method</label>
-                              <Select
-                                value={clearDuesMethod}
-                                onChange={(val: any) => setClearDuesMethod(val)}
-                                options={[{ value: 'UPI', label: 'UPI' }, { value: 'CASH', label: 'Cash' }, { value: 'RAZORPAY', label: 'Online' }]}
-                              />
-                            </div>
-                            <Button
-                              type="submit"
-                              variant="primary"
-                              style={{
-                                backgroundColor: 'var(--status-red)',
-                                borderColor: 'var(--status-red)',
-                                height: '38px',
-                                padding: '0 16px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                borderRadius: '8px'
-                              }}
-                              disabled={!clearDuesAmount || isClearingDues}
-                              isLoading={isClearingDues}
-                            >
-                              Pay
-                            </Button>
-                          </form>
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                        <span style={{ color: 'var(--text-slate)' }}>Guardian Name:</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{fullStudent.guardianName || 'N/A'}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                        <span style={{ color: 'var(--text-slate)' }}>Guardian Mobile:</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{fullStudent.guardianMobile || 'N/A'}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                        <span style={{ color: 'var(--text-slate)' }}>Branch Location:</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{getStudentBranchName(fullStudent, branches)}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-                        <span style={{ color: 'var(--text-slate)' }}>Login Password:</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontWeight: 600, color: 'var(--text-navy)', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                            {showPasswordInDrawer ? (fullStudent.user?.rawPassword || 'Student@123') : '••••••••'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setShowPasswordInDrawer(!showPasswordInDrawer)}
-                            title={showPasswordInDrawer ? 'Hide Password' : 'Show Password'}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '2px 4px',
-                              color: 'var(--accent-blue)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            {showPasswordInDrawer ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Seat Allocation Details */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Seat Allocation</h5>
-                    {(() => {
-                      const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
-                      const activeSub = fullStudent.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
-                      if (!activeAllocation) {
-                        const matchingShift = activeSub && shifts?.find((s: any) => 
-                          activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
-                        );
-
-                        return (
-                          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px dashed var(--border-card)', textAlign: 'center', color: 'var(--text-slate)', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-                            <span>No active seat allocated currently</span>
-                            {matchingShift && (
-                              <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '8px 12px', fontSize: '0.75rem', color: '#1e3a8a', fontWeight: 600, width: '100%', boxSizing: 'border-box', textAlign: 'left' }}>
-                                <div><strong>Paid Shift:</strong> {matchingShift.name}</div>
-                                <div style={{ marginTop: '2px' }}><strong>Plan Duration:</strong> {activeSub.plan?.name || formatPlanDuration(activeSub.startDate, activeSub.endDate, '1 Month')}</div>
-                                <div style={{ marginTop: '2px', color: '#2563eb' }}><strong>Time:</strong> {formatTo12hString(matchingShift.startTime)} - {formatTo12hString(matchingShift.endTime)}</div>
-                              </div>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsDrawerOpen(false);
-                                navigate('/seats', {
-                                  state: {
-                                    preselectedStudentId: fullStudent.id,
-                                    preselectedStudentName: getStudentDisplayName(fullStudent),
-                                  }
-                                });
-                                showToast('Select an available seat to assign to ' + getStudentDisplayName(fullStudent), 'info');
-                              }}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '8px 16px',
-                                borderRadius: '10px',
-                                border: 'none',
-                                backgroundColor: 'var(--accent-blue)',
-                                color: '#ffffff',
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                transition: 'background-color 150ms ease'
-                              }}
-                              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-                              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-blue)'}
-                            >
-                              <Plus size={14} /> Allot Seat
-                            </button>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div style={{ background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-card)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                            <span style={{ color: 'var(--text-slate)' }}>Assigned Seat:</span>
-                            <span style={{ fontWeight: 700, color: 'var(--accent-blue)' }}>Seat {activeAllocation.seat?.number}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                            <span style={{ color: 'var(--text-slate)' }}>Shift Batch:</span>
-                            <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{activeAllocation.shift?.name} ({formatTo12hString(activeAllocation.shift?.startTime)} - {formatTo12hString(activeAllocation.shift?.endTime)})</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                            <span style={{ color: 'var(--text-slate)' }}>Plan Duration:</span>
-                            <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>
-                              {formatPlanDuration(activeAllocation.startDate, activeAllocation.endDate, activeSub?.plan?.name)}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                            <span style={{ color: 'var(--text-slate)' }}>Subscription Start:</span>
-                            <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{new Date(activeAllocation.startDate).toLocaleDateString()}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                            <span style={{ color: 'var(--text-slate)' }}>Subscription End:</span>
-                            <span style={{ fontWeight: 600, color: 'var(--text-navy)' }}>{new Date(activeAllocation.endDate).toLocaleDateString()}</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: activeAllocation.endDate && new Date(activeAllocation.endDate).getTime() < new Date().getTime() ? 'var(--status-red)' : 'var(--status-emerald)', fontSize: '0.75rem', fontWeight: 700, marginTop: '4px', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
-                            <Clock size={12} />
-                            <span>{getDaysRemainingText(activeAllocation.endDate)}</span>
-                          </div>
-
-                          {/* Vacate Seat Button */}
-                          <div style={{ borderTop: '1px solid var(--border-card)', paddingTop: '12px', marginTop: '4px' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleVacateSeat(activeAllocation.seatId)}
-                              disabled={isVacating}
-                              style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                                padding: '8px',
-                                borderRadius: '10px',
-                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                backgroundColor: '#fef2f2',
-                                color: 'var(--status-red)',
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                transition: 'background 150ms ease'
-                              }}
-                              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
-                              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
-                            >
-                              <LogOut size={14} style={{ transform: 'rotate(180deg)' }} /> Vacate Student Seat
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </>
-              )}
-
-
-
-              {drawerActiveSection === 'RENEW' && (
-                <div>
-                  {(() => {
-                    const activeAllocation = fullStudent.allocations?.find((a: any) => a.isActive);
-                    if (!activeAllocation) {
-                      return (
-                        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px dashed var(--border-card)', textAlign: 'center', color: 'var(--text-slate)', fontSize: '0.8rem' }}>
-                          No active seat allocation to renew
-                        </div>
-                      );
-                    }
-                    return (
-                      <div style={{ background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-card)' }}>
-                        <RenewSeatForm
-                          shifts={shifts}
-                          renewShiftId={renewShiftId}
-                          onShiftChange={setRenewShiftId}
-                          renewDuration={renewDuration}
-                          onDurationChange={setRenewDuration}
-                          renewStartDate={renewStartDate}
-                          onStartDateChange={setRenewStartDate}
-                          renewEndDate={renewEndDate}
-                          onEndDateChange={setRenewEndDate}
-                          renewAmount={renewAmount}
-                          onAmountChange={setRenewAmount}
-                          renewDiscount={renewDiscount}
-                          onDiscountChange={handleRenewDiscountChange}
-                          previousDue={fullStudent?.dueAmount ? Number(fullStudent.dueAmount) : 0}
-                          renewPaymentMethod={renewPaymentMethod}
-                          onPaymentMethodChange={setRenewPaymentMethod}
-                          onSubmit={(e) => handleRenewSeat(e, activeAllocation)}
-                          isRenewing={isRenewing}
-                        />
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* Invoices & Payments History */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Payment Ledger History
-                  </h5>
-                  <span style={{ fontSize: '0.675rem', color: 'var(--accent-blue)', fontWeight: 600 }}>
-                    Click to view full invoice
-                  </span>
-                </div>
-                {fullStudent.payments && fullStudent.payments.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {fullStudent.payments.map((payment: any) => {
-                      const effStatus = getEffectivePaymentStatus(payment);
-                      const statusColor = effStatus === 'PAID'
-                        ? 'var(--status-emerald)'
-                        : effStatus === 'PARTIAL'
-                        ? '#d97706'
-                        : 'var(--status-red)';
-                      const statusBg = effStatus === 'PAID'
-                        ? 'rgba(16, 185, 129, 0.08)'
-                        : effStatus === 'PARTIAL'
-                        ? 'rgba(217, 119, 6, 0.1)'
-                        : 'rgba(239, 68, 68, 0.08)';
-
-                      const hasDiscount = Number(payment.discountAmount || 0) > 0;
-                      const hasTotal = Number(payment.totalAmount || 0) > Number(payment.amount || 0);
-
-                      return (
-                        <div
-                          key={payment.id}
-                          onClick={() => handleViewPaymentDetails(payment)}
-                          role="button"
-                          tabIndex={0}
-                          title="Click to view full payment invoice & receipt"
-                          style={{
-                            background: '#ffffff',
-                            padding: '12px 14px',
-                            borderRadius: '12px',
-                            border: '1px solid var(--border-card)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 150ms ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--accent-blue)';
-                            e.currentTarget.style.backgroundColor = '#f8faff';
-                            e.currentTarget.style.transform = 'translateY(-1px)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.08)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--border-card)';
-                            e.currentTarget.style.backgroundColor = '#ffffff';
-                            e.currentTarget.style.transform = 'none';
-                            e.currentTarget.style.boxShadow = 'none';
-                          }}
-                        >
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-navy)' }}>
-                                ₹{Number(payment.amount || 0).toFixed(2)}
-                              </span>
-                              {(hasTotal || hasDiscount) && (
-                                <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>
-                                  ({hasTotal ? `Plan: ₹${Number(payment.totalAmount).toFixed(0)}` : ''}{hasDiscount ? ` • Disc: -₹${Number(payment.discountAmount).toFixed(0)}` : ''})
-                                </span>
-                              )}
-                            </div>
-                            <span style={{ fontSize: '0.675rem', color: 'var(--text-slate)' }}>
-                              {new Date(payment.createdAt).toLocaleDateString()} • {payment.method}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span
-                              style={{
-                                fontSize: '0.675rem',
-                                fontWeight: 700,
-                                color: statusColor,
-                                backgroundColor: statusBg,
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.04em',
-                              }}
-                            >
-                              {effStatus}
-                            </span>
-                            <Eye size={14} style={{ color: 'var(--accent-blue)' }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px dashed var(--border-card)', textAlign: 'center', color: 'var(--text-slate)', fontSize: '0.8rem' }}>
-                    No payment history found
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', color: 'var(--text-slate)', padding: '20px' }}>
-              Failed to load student details
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Renewal Invoice Receipt Modal */}
-      <InvoiceReceiptModal
-        isOpen={openInvoiceReceipt}
-        onClose={() => setOpenInvoiceReceipt(false)}
-        createdInvoiceData={createdInvoiceData}
-      />
     </div>
   );
 }

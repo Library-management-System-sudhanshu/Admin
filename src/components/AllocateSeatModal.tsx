@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import { useAllocateSeatMutation, useCreatePaymentMutation, useGetStudentsQuery, useGetStudentPaymentsQuery, useVerifyRazorpayMutation } from '../store/api';
@@ -62,11 +62,11 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     });
   };
 
-  const [studentProfileId, setStudentProfileId] = useState('');
+  const [studentProfileId, setStudentProfileId] = useState(preselectedStudentId || '');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [shiftId, setShiftId] = useState('');
+  const [shiftId, setShiftId] = useState(preselectedShiftId || '');
   const [startDate, setStartDate] = useState(() => formatYYYYMMDD(preselectedJoiningDate) || formatYYYYMMDD(new Date()));
   const [endDate, setEndDate] = useState(() => {
     const base = formatYYYYMMDD(preselectedJoiningDate) || formatYYYYMMDD(new Date());
@@ -74,24 +74,15 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     end.setMonth(end.getMonth() + 1);
     return formatYYYYMMDD(end);
   });
-  const [durationMode, setDurationMode] = useState<number | string>(1);
+  const [durationMode, setDurationMode] = useState<number | string>('');
   const [shouldGenerateInvoice, setShouldGenerateInvoice] = useState(true);
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'UPI' | 'RAZORPAY'>('CASH');
   const [discountAmount, setDiscountAmount] = useState('');
   const [prefilledPayment, setPrefilledPayment] = useState<any>(null);
 
-  // Fetch payment history for student with dues (to get discount info)
-  const studentExistingDueForFetch = useMemo(() => {
-    if (!studentProfileId || !studentsData?.students) return 0;
-    const s = studentsData.students.find((s: any) => s.id === studentProfileId);
-    return s ? Number(s.dueAmount) : 0;
-  }, [studentProfileId, studentsData]);
-
-  const { data: studentPaymentsData } = useGetStudentPaymentsQuery(
-    studentProfileId,
-    { skip: !studentProfileId || studentExistingDueForFetch <= 0 }
-  );
+  const prevIsOpenRef = useRef(false);
+  const syncedStudentIdRef = useRef<string | null>(null);
 
   // Active allocations for selected seat
   const activeAllocations = useMemo(() => {
@@ -105,9 +96,35 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     return getAvailableSeatShifts(selectedSeat, shifts, startDate, endDate, studentProfileId);
   }, [shifts, selectedSeat, startDate, endDate, studentProfileId]);
 
-  // Initialize values when selected seat / modal open changes
+  // Selected student object
+  const selectedStudent = useMemo(() => {
+    if (!studentProfileId || !studentsData?.students) return null;
+    return studentsData.students.find((s: any) => s.id === studentProfileId) || null;
+  }, [studentProfileId, studentsData]);
+
+  // Fetch payment history for student to get accurate admission payment records
+  const { data: studentPaymentsData } = useGetStudentPaymentsQuery(
+    studentProfileId,
+    { skip: !studentProfileId }
+  );
+
+  // Combine payments from studentProfile and studentPaymentsData
+  const allStudentPayments = useMemo(() => {
+    const fromStudent = selectedStudent?.payments || [];
+    const fromApi = studentPaymentsData?.payments || (Array.isArray(studentPaymentsData) ? studentPaymentsData : []);
+    const combined = [...fromStudent, ...fromApi];
+    const map = new Map<string, any>();
+    combined.forEach((p: any) => {
+      if (p && p.id) map.set(p.id, p);
+    });
+    return Array.from(map.values()).sort(
+      (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [selectedStudent, studentPaymentsData]);
+
+  // One-time initialization only when modal transitions from closed to open
   useEffect(() => {
-    if (isOpen && selectedSeat) {
+    if (isOpen && !prevIsOpenRef.current) {
       const baseDate = formatYYYYMMDD(preselectedJoiningDate) || formatYYYYMMDD(new Date());
       setStartDate(baseDate);
       const end = new Date(baseDate);
@@ -119,105 +136,117 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         const student = studentsData?.students?.find((s: any) => s.id === preselectedStudentId);
         if (student) {
           setStudentSearchQuery(getStudentDisplayName(student));
+        } else {
+          setStudentSearchQuery('');
         }
       } else {
         setStudentProfileId('');
         setStudentSearchQuery('');
       }
 
+      setShiftId(preselectedShiftId || '');
       setDurationMode('');
       setShouldGenerateInvoice(true);
       setInvoiceAmount('');
       setPaymentMethod('CASH');
       setDiscountAmount('');
       setPrefilledPayment(null);
+      syncedStudentIdRef.current = null;
+    } else if (!isOpen && prevIsOpenRef.current) {
+      syncedStudentIdRef.current = null;
     }
-  }, [isOpen, selectedSeat, shifts, preselectedStudentId, preselectedJoiningDate, studentsData]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, preselectedStudentId, preselectedJoiningDate, preselectedShiftId, studentsData]);
+
+  // When preselectedStudentId is active and studentsData finishes loading, update display name
+  useEffect(() => {
+    if (isOpen && preselectedStudentId && !studentSearchQuery && studentsData?.students) {
+      const student = studentsData.students.find((s: any) => s.id === preselectedStudentId);
+      if (student) {
+        setStudentSearchQuery(getStudentDisplayName(student));
+      }
+    }
+  }, [isOpen, preselectedStudentId, studentSearchQuery, studentsData]);
 
   // Ensure shift is selected whenever availableShifts loads
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && availableShifts.length > 0) {
       if (!shiftId || !availableShifts.some((s: any) => s.id === shiftId)) {
         const targetShift = (preselectedShiftId && availableShifts.some((s: any) => s.id === preselectedShiftId))
           ? preselectedShiftId
-          : '';
-        setShiftId(targetShift);
+          : availableShifts[0]?.id || '';
+        if (targetShift) {
+          setShiftId(targetShift);
+        }
       }
     }
   }, [isOpen, availableShifts, shiftId, preselectedShiftId]);
 
-  // Sync form inputs with student's active subscription if they already have one
+  // Sync form inputs with student's active subscription and admission payment
   useEffect(() => {
-    if (isOpen && studentProfileId && studentsData?.students) {
-      const student = studentsData.students.find((s: any) => s.id === studentProfileId);
-      const activeSub = student?.subscriptions?.find((sub: any) => sub.status === 'ACTIVE');
+    if (!isOpen || !studentProfileId || !selectedStudent) return;
+    if (syncedStudentIdRef.current === studentProfileId) return;
+
+    const activeSub = selectedStudent.subscriptions?.find((sub: any) => sub.status === 'ACTIVE') || selectedStudent.subscriptions?.[0];
+    
+    // Find matching payment for this subscription or admission
+    const payment = allStudentPayments.find((p: any) => 
+      (activeSub && (
+        p.subscriptionPlanId === activeSub.subscriptionPlanId || 
+        p.subscriptionPlanId === activeSub.plan?.id || 
+        p.studentSubscriptionId === activeSub.id
+      )) || !p.subscriptionPlanId
+    ) || allStudentPayments[0] || null;
+
+    if (activeSub) {
+      // Match shift
+      const matchingShift = shifts?.find((s: any) => 
+        activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
+      );
+      if (matchingShift) {
+        setShiftId(matchingShift.id);
+      } else if (preselectedShiftId) {
+        setShiftId(preselectedShiftId);
+      }
       
-      if (activeSub) {
-        // Match shift
-        const matchingShift = shifts?.find((s: any) => 
-          activeSub.plan?.name?.toLowerCase().includes(s.name.toLowerCase())
-        );
-        if (matchingShift) {
-          setShiftId(matchingShift.id);
-        }
+      // Match dates
+      if (activeSub.startDate) {
+        setStartDate(formatYYYYMMDD(activeSub.startDate));
+      }
+      if (activeSub.endDate) {
+        setEndDate(formatYYYYMMDD(activeSub.endDate));
+        let matchedDuration = 'flex';
+        const planDurationDays = activeSub.plan?.durationDays;
         
-        // Match dates
-        if (activeSub.startDate) {
-          setStartDate(formatYYYYMMDD(activeSub.startDate));
-        }
-        if (activeSub.endDate) {
-          setEndDate(formatYYYYMMDD(activeSub.endDate));
-          let matchedDuration = 'flex';
-          const planDurationDays = activeSub.plan?.durationDays;
+        if (matchingShift?.customPricing && planDurationDays) {
+          const getDurationDays = (label: string) => {
+            const l = String(label).toLowerCase();
+            const num = parseInt(l) || 1;
+            if (l.includes('day')) return num;
+            if (l.includes('month')) return num * 30;
+            if (l.includes('year')) return num * 365;
+            return 30;
+          };
           
-          if (matchingShift?.customPricing && planDurationDays) {
-            const getDurationDays = (label: string) => {
-              const l = String(label).toLowerCase();
-              const num = parseInt(l) || 1;
-              if (l.includes('day')) return num;
-              if (l.includes('month')) return num * 30;
-              if (l.includes('year')) return num * 365;
-              return 30;
-            };
-            
-            const match = matchingShift.customPricing.find((cp: any) => getDurationDays(cp.label) === planDurationDays);
-            if (match) {
-              matchedDuration = match.label;
-            }
+          const match = matchingShift.customPricing.find((cp: any) => getDurationDays(cp.label) === planDurationDays);
+          if (match) {
+            matchedDuration = match.label;
           }
-          setDurationMode(matchedDuration);
         }
-        
-        // Already paid / subscribed -> show invoice enabled
-        setShouldGenerateInvoice(true);
-        
-        const payment = student.payments ? [...student.payments].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .find((p: any) => 
-            p.subscriptionPlanId === activeSub.subscriptionPlanId || 
-            p.subscriptionPlanId === activeSub.plan?.id || 
-            p.studentSubscriptionId === activeSub.id || 
-            !p.subscriptionPlanId
-          ) : null;
-        
-        if (payment) {
-          setPaymentMethod(payment.method);
-          setInvoiceAmount(payment.amount?.toString() || '');
-          const discount = payment.discountAmount ? Number(payment.discountAmount) : 0;
-          setDiscountAmount(discount > 0 ? discount.toString() : '');
-          setPrefilledPayment(payment);
-        }
-      } else {
-        // No active subscription -> allow invoice generation and reset to student's admission date or preselected date
-        setShouldGenerateInvoice(true);
-        setDurationMode('');
-        const baseDate = formatYYYYMMDD(preselectedJoiningDate) || formatYYYYMMDD(student?.joiningDate) || formatYYYYMMDD(new Date());
-        setStartDate(baseDate);
-        const end = new Date(baseDate);
-        end.setMonth(end.getMonth() + 1);
-        setEndDate(formatYYYYMMDD(end));
+        setDurationMode(matchedDuration);
       }
     }
-  }, [isOpen, studentProfileId, studentsData, shifts, preselectedJoiningDate]);
+
+    if (payment) {
+      setPaymentMethod(payment.method || 'CASH');
+      setInvoiceAmount(payment.amount !== undefined ? Number(payment.amount).toString() : '0');
+      const discount = payment.discountAmount ? Number(payment.discountAmount) : 0;
+      setDiscountAmount(discount > 0 ? discount.toString() : '');
+      setPrefilledPayment(payment);
+    }
+
+    syncedStudentIdRef.current = studentProfileId;
+  }, [isOpen, studentProfileId, selectedStudent, allStudentPayments, shifts, preselectedShiftId]);
 
   // Duration modes calculations
   useEffect(() => {
@@ -305,20 +334,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     return basePrice;
   }, [shiftId, shifts, durationMode, startDate, endDate]);
 
-  // Get selected student object for easy access
-  const selectedStudent = useMemo(() => {
-    if (!studentProfileId || !studentsData?.students) return null;
-    return studentsData.students.find((s: any) => s.id === studentProfileId) || null;
-  }, [studentProfileId, studentsData]);
 
-  // Get the most recent payment record for this student (fetched from API)
-  const lastStudentPayment = useMemo(() => {
-    const payments = studentPaymentsData?.payments || studentPaymentsData || [];
-    if (!Array.isArray(payments) || payments.length === 0) return null;
-    return [...payments].sort((a: any, b: any) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
-  }, [studentPaymentsData]);
 
   // Student existing outstanding balance from prior transactions
   const studentExistingDue = selectedStudent ? Number(selectedStudent.dueAmount) : 0;
@@ -331,14 +347,19 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
     return Math.max(0, netPayable - paid);
   }, [calculatedBaseAmount, invoiceAmount, discountAmount]);
 
+  // Auto-fill invoice amount only for new bookings (when student does not already have an admission payment)
   useEffect(() => {
     if (prefilledPayment) return;
+    if (selectedStudent && (selectedStudent.subscriptions?.length > 0 || allStudentPayments.length > 0)) {
+      return;
+    }
     if (calculatedBaseAmount > 0) {
-      setInvoiceAmount(calculatedBaseAmount.toString());
+      const discount = parseFloat(discountAmount) || 0;
+      setInvoiceAmount(Math.max(0, calculatedBaseAmount - discount).toString());
     } else {
       setInvoiceAmount('');
     }
-  }, [calculatedBaseAmount, prefilledPayment]);
+  }, [calculatedBaseAmount, discountAmount, prefilledPayment, selectedStudent, allStudentPayments.length]);
 
   const handleAllocate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -347,6 +368,22 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       showToast('Select an available shift for these dates.', 'error');
       return;
     }
+
+    const parsedDiscount = parseFloat(discountAmount) || 0;
+    const parsedPaid = Number(invoiceAmount) || 0;
+    const netPayable = Math.max(0, calculatedBaseAmount - parsedDiscount);
+
+    if (shouldGenerateInvoice && calculatedBaseAmount > 0) {
+      if (parsedDiscount > calculatedBaseAmount) {
+        showToast(`Discount (₹${parsedDiscount}) cannot exceed the plan price (₹${calculatedBaseAmount}).`, 'error');
+        return;
+      }
+      if (parsedPaid > netPayable) {
+        showToast(`Collect amount (₹${parsedPaid}) cannot exceed net payable (₹${netPayable}) after discount.`, 'error');
+        return;
+      }
+    }
+
     try {
       await allocateSeat({
         studentProfileId,
@@ -360,26 +397,27 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         let paymentResult;
         const isSameAmount = prefilledPayment && Number(invoiceAmount) === Number(prefilledPayment.amount);
         const isSameMethod = prefilledPayment && paymentMethod === prefilledPayment.method;
+        const isSameDiscount = prefilledPayment && Number(discountAmount || 0) === Number(prefilledPayment.discountAmount || 0);
 
-        if (prefilledPayment && isSameAmount && isSameMethod) {
+        if (prefilledPayment && isSameAmount && isSameMethod && isSameDiscount) {
           paymentResult = { payment: prefilledPayment };
         } else {
           paymentResult = await createPayment({
             studentProfileId,
-            amount: Number(invoiceAmount),
+            amount: parsedPaid,
             method: paymentMethod,
             shiftId: shiftId || undefined,
             durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
             totalAmount: calculatedBaseAmount,
-            discountAmount: discountAmount || undefined,
+            discountAmount: parsedDiscount > 0 ? parsedDiscount : undefined,
           }).unwrap();
         }
 
         const student = studentsData?.students?.find((s: any) => s.id === studentProfileId) || selectedStudent;
-        const parsedDiscount = parseFloat(discountAmount) || 0;
-        const parsedPaid = Number(invoiceAmount) || 0;
         const actualPayable = Math.max(0, calculatedBaseAmount - parsedDiscount);
         const remainingDue = Math.max(0, actualPayable - parsedPaid);
+        const effectivePreviousDue = prefilledPayment ? 0 : studentExistingDue;
+        const effectiveTotalDue = prefilledPayment ? Math.max(remainingDue, studentExistingDue) : remainingDue + studentExistingDue;
 
         const invoiceInfo = {
           payment: paymentResult.payment,
@@ -394,8 +432,8 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           discountAmount: parsedDiscount,
           paidAmount: parsedPaid,
           dueAmount: remainingDue,
-          previousDue: studentExistingDue,
-          totalDue: remainingDue + studentExistingDue,
+          previousDue: effectivePreviousDue,
+          totalDue: effectiveTotalDue,
         };
 
         if (paymentMethod === 'RAZORPAY' && paymentResult.razorpayOrder) {
@@ -746,34 +784,41 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                     ]}
                   />
                 </div>
-                <div>
-                  <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Collect Amount (₹)</label>
-                  <input
-                    type="number"
-                    required
-                    value={invoiceAmount}
-                    onChange={(e) => {
-                      setPrefilledPayment(null);
-                      setInvoiceAmount(e.target.value);
-                    }}
-                    style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: '#ffffff' }}
-                  />
-                </div>
-                {calculatedBaseAmount > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: calculatedBaseAmount > 0 ? '1fr 1fr' : '1fr', gap: '10px' }}>
                   <div>
-                    <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Discount (₹)</label>
+                    <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Collect Amount (₹)</label>
                     <input
                       type="number"
-                      placeholder="0"
-                      value={discountAmount}
+                      required
+                      value={invoiceAmount}
                       onChange={(e) => {
                         setPrefilledPayment(null);
-                        setDiscountAmount(e.target.value);
+                        setInvoiceAmount(e.target.value);
                       }}
-                      style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: '#ffffff' }}
+                      style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: '#ffffff', boxSizing: 'border-box' }}
                     />
                   </div>
-                )}
+                  {calculatedBaseAmount > 0 && (
+                    <div>
+                      <label className="custom-input-label" style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-slate)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>Discount (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={discountAmount}
+                        onChange={(e) => {
+                          setPrefilledPayment(null);
+                          const val = e.target.value;
+                          setDiscountAmount(val);
+                          const disc = parseFloat(val) || 0;
+                          if (calculatedBaseAmount > 0) {
+                            setInvoiceAmount(Math.max(0, calculatedBaseAmount - disc).toString());
+                          }
+                        }}
+                        style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid rgba(15, 23, 42, 0.05)', fontSize: '0.8rem', color: 'var(--text-navy)', width: '100%', outline: 'none', backgroundColor: '#ffffff', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  )}
+                </div>
                 {calculatedBaseAmount > 0 && (
                   <div style={{ borderTop: '1px dashed var(--border-card)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {/* Total Price for new booking */}
@@ -795,35 +840,34 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                       <span style={{ color: 'var(--text-slate)' }}>Collected Amount:</span>
                       <span style={{ color: 'var(--text-navy)', fontWeight: 600 }}>₹{parseFloat(invoiceAmount) || 0}</span>
                     </div>
-                    {/* Previous Due if any */}
-                    {studentExistingDue > 0 && (
+                    {/* Previous Due if any and NOT prefilled payment */}
+                    {studentExistingDue > 0 && !prefilledPayment && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
                         <span style={{ color: '#991b1b' }}>Previous Due:</span>
                         <span style={{ color: '#991b1b', fontWeight: 600 }}>₹{studentExistingDue.toFixed(2)}</span>
                       </div>
                     )}
                     {/* Due / Fully Paid */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', borderTop: '1px solid var(--border-card)', paddingTop: '6px', marginTop: '2px' }}>
-                      <span style={{ fontWeight: 700, color: (dueAmount > 0 || studentExistingDue > 0) ? '#991b1b' : 'var(--status-emerald)' }}>
-                        {dueAmount > 0 ? 'Due Amount:' : (studentExistingDue > 0 ? 'Total Due:' : 'Status:')}
-                      </span>
-                      {dueAmount > 0 ? (
-                        <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>
-                          ₹{dueAmount}
-                          {studentExistingDue > 0 && (
-                            <span style={{ fontSize: '0.72rem', color: '#991b1b', fontWeight: 500, marginLeft: '4px' }}>
-                              (+ ₹{studentExistingDue.toFixed(2)} prev = ₹{(dueAmount + studentExistingDue).toFixed(2)})
+                    {(() => {
+                      const effectiveDue = prefilledPayment
+                        ? Math.max(dueAmount, studentExistingDue)
+                        : (dueAmount + studentExistingDue);
+
+                      return (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', borderTop: '1px solid var(--border-card)', paddingTop: '6px', marginTop: '2px' }}>
+                          <span style={{ fontWeight: 700, color: effectiveDue > 0 ? '#991b1b' : 'var(--status-emerald)' }}>
+                            {effectiveDue > 0 ? 'Total Due:' : 'Status:'}
+                          </span>
+                          {effectiveDue > 0 ? (
+                            <span style={{ color: 'var(--status-red)', fontWeight: 700 }}>
+                              ₹{effectiveDue.toFixed(2)}
                             </span>
+                          ) : (
+                            <span style={{ color: 'var(--status-emerald)', fontWeight: 700 }}>✅ Fully Paid</span>
                           )}
-                        </span>
-                      ) : studentExistingDue > 0 ? (
-                        <span style={{ color: '#991b1b', fontWeight: 700 }}>
-                          ₹{studentExistingDue.toFixed(2)} (Previous Due)
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--status-emerald)', fontWeight: 700 }}>✅ Fully Paid</span>
-                      )}
-                    </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
