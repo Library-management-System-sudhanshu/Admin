@@ -90,9 +90,6 @@ export default function SuperAdminDashboard() {
                 >
                   <td style={{ padding: '1rem 0', fontWeight: 600, color: 'var(--accent-blue)' }}>
                     {row.name}
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400, marginTop: '2px' }}>
-                      {row.subdomain}.studyflow.in
-                    </div>
                   </td>
                   <td style={{ color: '#475569' }}>{row.owner}</td>
                   <td style={{ color: '#475569' }}>{row.plan}</td>

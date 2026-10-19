@@ -19,8 +19,7 @@ import {
   Mail, 
   Phone, 
   ShieldAlert, 
-  ShieldCheck, 
-  ExternalLink 
+  ShieldCheck
 } from 'lucide-react';
 
 export default function WorkspaceDetail() {
@@ -30,7 +29,16 @@ export default function WorkspaceDetail() {
   const { showAlert } = useAlert();
 
   const { data: workspace, isLoading, error } = useGetWorkspaceByIdQuery(id!, { skip: !id });
-  const { data: students = [] } = useGetStudentsQuery({ workspaceId: id }, { skip: !id });
+  const { data: studentsData } = useGetStudentsQuery({ workspaceId: id }, { skip: !id });
+
+  const students: any[] = React.useMemo(() => {
+    if (!studentsData) return [];
+    if (Array.isArray(studentsData)) return studentsData;
+    if (Array.isArray(studentsData.students)) return studentsData.students;
+    if (Array.isArray(studentsData.data)) return studentsData.data;
+    return [];
+  }, [studentsData]);
+
   const [updateWorkspace, { isLoading: isUpdating }] = useUpdateWorkspaceMutation();
   const [deleteWorkspace, { isLoading: isDeleting }] = useDeleteWorkspaceMutation();
 
@@ -166,11 +174,6 @@ export default function WorkspaceDetail() {
               {isActive ? 'Access Active' : 'Access Disabled'}
             </span>
           </div>
-          <span style={{ fontSize: '0.9rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            URL: <a href={`http://${workspace.subdomain}.studyflow.in:5173`} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {workspace.subdomain}.studyflow.in <ExternalLink size={12} />
-            </a>
-          </span>
         </div>
 
         <div style={{ display: 'flex', gap: '12px' }}>
@@ -378,11 +381,13 @@ export default function WorkspaceDetail() {
                 color: '#475569',
                 lineHeight: 1.5
               }}>
-                <strong>Plan Features:</strong>
+                <strong>Plan Allowances & Features:</strong>
                 <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px' }}>
-                  <li>Max Rooms: {workspace.subscription.saasPlan?.maxRooms || 'Unlimited'}</li>
-                  <li>Max Seats: {workspace.subscription.saasPlan?.maxSeats || 'Unlimited'}</li>
-                  <li>WhatsApp Broadcast: {workspace.subscription.saasPlan?.allowWhatsApp ? 'Allowed' : 'Not Allowed'}</li>
+                  <li>Max Physical Seats: {workspace.subscription.saasPlan?.maxSeats === -1 ? 'Unlimited' : (workspace.subscription.saasPlan?.maxSeats ?? 'Unlimited')}</li>
+                  <li>Max Rooms / Floors: {workspace.subscription.saasPlan?.maxRooms === -1 ? 'Unlimited' : (workspace.subscription.saasPlan?.maxRooms ?? 'Unlimited')}</li>
+                  <li>Max Branches: {workspace.subscription.saasPlan?.maxBranches === -1 ? 'Unlimited' : (workspace.subscription.saasPlan?.maxBranches ?? 1)}</li>
+                  <li>Max Staff Accounts: {workspace.subscription.saasPlan?.maxStaff === -1 ? 'Unlimited' : (workspace.subscription.saasPlan?.maxStaff ?? 1)}</li>
+                  <li>WhatsApp Broadcast: {workspace.subscription.saasPlan?.allowWhatsApp ? 'Allowed (message credits separate)' : 'Disabled'}</li>
                 </ul>
               </div>
             </div>
@@ -482,15 +487,15 @@ export default function WorkspaceDetail() {
               {students.slice(0, 5).map((stud: any) => (
                 <tr key={stud.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '12px', fontWeight: 600, color: '#1e293b' }}>
-                    {stud.user?.name}
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{stud.user?.email || 'No email'}</div>
+                    {stud.user?.name || stud.name || 'Student'}
+                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{stud.user?.email || stud.email || 'No email'}</div>
                   </td>
-                  <td style={{ padding: '12px', color: '#475569' }}>{stud.user?.mobile}</td>
+                  <td style={{ padding: '12px', color: '#475569' }}>{stud.user?.mobile || stud.mobile || 'N/A'}</td>
                   <td style={{ padding: '12px', color: '#64748b' }}>
-                    {new Date(stud.joiningDate).toLocaleDateString()}
+                    {stud.joiningDate ? new Date(stud.joiningDate).toLocaleDateString() : 'N/A'}
                   </td>
-                  <td style={{ padding: '12px', fontWeight: 600, color: stud.dueAmount > 0 ? '#ef4444' : '#10b981' }}>
-                    ₹{stud.dueAmount}
+                  <td style={{ padding: '12px', fontWeight: 600, color: (Number(stud.dueAmount) || 0) > 0 ? '#ef4444' : '#10b981' }}>
+                    ₹{Number(stud.dueAmount) || 0}
                   </td>
                 </tr>
               ))}

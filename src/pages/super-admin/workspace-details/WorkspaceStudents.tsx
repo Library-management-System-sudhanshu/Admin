@@ -12,7 +12,26 @@ export default function WorkspaceStudents() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data: workspace, isLoading: isWorkspaceLoading } = useGetWorkspaceByIdQuery(id!, { skip: !id });
-  const { data: students = [], isLoading: isStudentsLoading } = useGetStudentsQuery({ workspaceId: id }, { skip: !id });
+  const { data: studentsData, isLoading: isStudentsLoading } = useGetStudentsQuery({ workspaceId: id }, { skip: !id });
+
+  const studentsList: any[] = React.useMemo(() => {
+    if (!studentsData) return [];
+    if (Array.isArray(studentsData)) return studentsData;
+    if (Array.isArray(studentsData.students)) return studentsData.students;
+    if (Array.isArray(studentsData.data)) return studentsData.data;
+    return [];
+  }, [studentsData]);
+
+  const filteredStudents = React.useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    return studentsList.filter((s: any) => {
+      const name = (s.user?.name || s.name || '').toLowerCase();
+      const mobile = s.user?.mobile || s.mobile || '';
+      const email = (s.user?.email || s.email || '').toLowerCase();
+      if (!query) return true;
+      return name.includes(query) || mobile.includes(query) || email.includes(query);
+    });
+  }, [studentsList, searchQuery]);
 
   if (isWorkspaceLoading || isStudentsLoading) {
     return (
@@ -27,12 +46,6 @@ export default function WorkspaceStudents() {
       </div>
     );
   }
-
-  const filteredStudents = students.filter((s: any) => 
-    s.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.user?.mobile?.includes(searchQuery) ||
-    s.user?.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -105,18 +118,18 @@ export default function WorkspaceStudents() {
               {filteredStudents.map((stud: any) => (
                 <tr key={stud.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '12px', fontWeight: 600, color: '#1e293b' }}>
-                    {stud.user?.name}
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{stud.user?.email || 'No email'}</div>
+                    {stud.user?.name || stud.name || 'Student'}
+                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>{stud.user?.email || stud.email || 'No email'}</div>
                   </td>
-                  <td style={{ padding: '12px', color: '#475569' }}>{stud.user?.mobile}</td>
+                  <td style={{ padding: '12px', color: '#475569' }}>{stud.user?.mobile || stud.mobile || 'N/A'}</td>
                   <td style={{ padding: '12px', color: '#475569' }}>
-                    {stud.guardianName ? `${stud.guardianName} (${stud.guardianMobile})` : 'N/A'}
+                    {stud.guardianName ? `${stud.guardianName} (${stud.guardianMobile || 'N/A'})` : 'N/A'}
                   </td>
                   <td style={{ padding: '12px', color: '#64748b' }}>
-                    {new Date(stud.joiningDate).toLocaleDateString()}
+                    {stud.joiningDate ? new Date(stud.joiningDate).toLocaleDateString() : 'N/A'}
                   </td>
-                  <td style={{ padding: '12px', fontWeight: 600, color: stud.dueAmount > 0 ? '#ef4444' : '#10b981' }}>
-                    ₹{stud.dueAmount}
+                  <td style={{ padding: '12px', fontWeight: 600, color: (Number(stud.dueAmount) || 0) > 0 ? '#ef4444' : '#10b981' }}>
+                    ₹{Number(stud.dueAmount) || 0}
                   </td>
                 </tr>
               ))}

@@ -35,10 +35,10 @@ export const subscriptionsApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, error) => error ? [] : ['SaaSSubscription'],
     }),
     createSaaSPayment: builder.mutation({
-      query: ({ workspaceId, saasPlanId }) => ({
+      query: ({ workspaceId, saasPlanId, isAnnual, billingCycle }: { workspaceId: string; saasPlanId: string; isAnnual?: boolean; billingCycle?: string }) => ({
         url: `workspaces/${workspaceId}/saas-payment/create`,
         method: 'POST',
-        body: { saasPlanId },
+        body: { saasPlanId, isAnnual, billingCycle },
       }),
     }),
     verifySaaSPayment: builder.mutation({

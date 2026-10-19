@@ -38,6 +38,7 @@ export default function Settings() {
   // Tabs state
   const [activeTab, setActiveTab] = useState(0);
   const [hoveredPlanId, setHoveredPlanId] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -76,6 +77,8 @@ export default function Settings() {
       const orderData = await createSaaSPayment({
         workspaceId: user.workspaceId,
         saasPlanId: plan.id,
+        isAnnual: billingCycle === 'annual',
+        billingCycle: billingCycle === 'annual' ? 'ANNUAL' : 'MONTHLY',
       }).unwrap();
 
       const options = {
@@ -535,10 +538,69 @@ export default function Settings() {
             )}
           </Card>
 
-          {/* Pricing Plans & Upgrades */}
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-            Upgrade / Purchase Subscription
-          </Typography>
+          {/* Pricing Plans & Upgrades Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '1.75rem' }}>
+            <div>
+              <Typography variant="h6" sx={{ fontWeight: 700, m: 0 }}>
+                Upgrade / Purchase Subscription
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                Select a plan tailored to your physical seats, rooms, and multi-branch scale.
+              </Typography>
+            </div>
+
+            {/* Monthly / Annual toggle switch */}
+            <div style={{
+              display: 'inline-flex',
+              background: '#e2e8f0',
+              borderRadius: '12px',
+              padding: '4px',
+              border: '1px solid #cbd5e1'
+            }}>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('monthly')}
+                style={{
+                  border: 'none',
+                  background: billingCycle === 'monthly' ? '#ffffff' : 'transparent',
+                  color: billingCycle === 'monthly' ? '#0f172a' : '#64748b',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  boxShadow: billingCycle === 'monthly' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('annual')}
+                style={{
+                  border: 'none',
+                  background: billingCycle === 'annual' ? '#ffffff' : 'transparent',
+                  color: billingCycle === 'annual' ? '#0f172a' : '#64748b',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: billingCycle === 'annual' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Annual (2 Mo Free)
+                <span style={{ background: '#dcfce7', color: '#166534', fontSize: '0.68rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                  Save 17%
+                </span>
+              </button>
+            </div>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
             {saasPlans.map((plan: any) => {
@@ -601,9 +663,71 @@ export default function Settings() {
                   <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: titleColor, fontWeight: 800 }}>{plan.name}</h3>
                   <p style={{ margin: '0 0 1.5rem 0', color: descColor, fontSize: '0.85rem', lineHeight: 1.4, minHeight: '38px' }}>{plan.description}</p>
                   
-                  <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: '1.5rem', borderBottom: `1px solid ${isCurrent ? '#333333' : '#e5e7eb'}`, paddingBottom: '16px' }}>
-                    <span style={{ fontSize: '2.25rem', fontWeight: 900, color: priceColor }}>₹{plan.price}</span>
-                    <span style={{ color: periodColor, marginLeft: '4px', fontSize: '0.85rem', fontWeight: 600 }}>/ month</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: '1rem', borderBottom: `1px solid ${isCurrent ? '#333333' : '#e5e7eb'}`, paddingBottom: '14px' }}>
+                    <span style={{ fontSize: '2.25rem', fontWeight: 900, color: priceColor }}>
+                      ₹{billingCycle === 'annual' ? (plan.annualPrice ? Number(plan.annualPrice).toLocaleString('en-IN') : (Number(plan.price) * 10).toLocaleString('en-IN')) : Number(plan.price).toLocaleString('en-IN')}
+                    </span>
+                    <span style={{ color: periodColor, marginLeft: '6px', fontSize: '0.85rem', fontWeight: 600 }}>
+                      {billingCycle === 'annual' ? '/ year (2 mo free)' : '/ month'}
+                    </span>
+                  </div>
+
+                  {/* Quota Highlights */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.25rem' }}>
+                    <span style={{ 
+                      background: isCurrent ? 'rgba(255,255,255,0.1)' : '#e2e8f0', 
+                      color: isCurrent ? '#f1f5f9' : '#334155', 
+                      padding: '3px 8px', 
+                      borderRadius: '6px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 600 
+                    }}>
+                      🪑 {plan.maxSeats === -1 ? 'Unlimited' : `${plan.maxSeats}`} Seats
+                    </span>
+                    <span style={{ 
+                      background: isCurrent ? 'rgba(255,255,255,0.1)' : '#e2e8f0', 
+                      color: isCurrent ? '#f1f5f9' : '#334155', 
+                      padding: '3px 8px', 
+                      borderRadius: '6px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 600 
+                    }}>
+                      🚪 {plan.maxRooms === -1 ? 'Unlimited' : `${plan.maxRooms}`} Rooms
+                    </span>
+                    <span style={{ 
+                      background: isCurrent ? 'rgba(255,255,255,0.1)' : '#e2e8f0', 
+                      color: isCurrent ? '#f1f5f9' : '#334155', 
+                      padding: '3px 8px', 
+                      borderRadius: '6px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 600 
+                    }}>
+                      🏢 {plan.maxBranches === -1 ? 'Unlimited' : `${plan.maxBranches || 1}`} Branch{(plan.maxBranches || 1) > 1 ? 'es' : ''}
+                    </span>
+                    <span style={{ 
+                      background: isCurrent ? 'rgba(255,255,255,0.1)' : '#e2e8f0', 
+                      color: isCurrent ? '#f1f5f9' : '#334155', 
+                      padding: '3px 8px', 
+                      borderRadius: '6px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 600 
+                    }}>
+                      👥 {plan.maxStaff === -1 ? 'Unlimited' : `${plan.maxStaff || 1}`} Staff
+                    </span>
+                    <span style={{ 
+                      background: plan.allowWhatsApp 
+                        ? (isCurrent ? 'rgba(198, 254, 98, 0.2)' : 'rgba(16, 185, 129, 0.12)')
+                        : (isCurrent ? 'rgba(255,255,255,0.06)' : 'rgba(100, 116, 139, 0.1)'), 
+                      color: plan.allowWhatsApp 
+                        ? (isCurrent ? '#C6FE62' : '#059669')
+                        : (isCurrent ? '#94a3b8' : '#64748b'), 
+                      padding: '3px 8px', 
+                      borderRadius: '6px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 700 
+                    }}>
+                      💬 WhatsApp: {plan.allowWhatsApp ? 'Enabled (credits extra)' : 'Disabled'}
+                    </span>
                   </div>
 
                   <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 2rem 0', flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -635,6 +759,51 @@ export default function Settings() {
                 </div>
               );
             })}
+          </div>
+
+          {/* Rules & Custom Enterprise Consultation Box */}
+          <div style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            marginTop: '1.5rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                  Need More Scale or Custom Migration?
+                </h4>
+                <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '0.85rem' }}>
+                  Tier 6 Custom Plan is available for &gt;500 physical seats, &gt;5 branches, custom migrations, or dedicated mobile apps.
+                </p>
+              </div>
+              <a
+                href="mailto:support@studyflow.com?subject=Custom%20Plan%20Inquiry"
+                style={{
+                  background: '#0f172a',
+                  color: '#ffffff',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  textDecoration: 'none'
+                }}
+              >
+                Contact Sales for Quotation
+              </a>
+            </div>
+
+            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '0.8rem', color: '#64748b' }}>
+              <span>💡 <strong>Additional 50 Seats:</strong> ₹150 / month</span>
+              <span>👥 <strong>Additional Staff Account:</strong> ₹50 / month</span>
+              <span>💬 <strong>WhatsApp Broadcasts:</strong> Prepaid message credits (pay as you go)</span>
+              <span>🎁 <strong>Annual Billing:</strong> 2 Months Free applied automatically</span>
+            </div>
           </div>
         </Box>
       )}
