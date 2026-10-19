@@ -441,15 +441,24 @@ export default function WorkspacesList() {
                 let isExpired = false;
 
                 if (expiryDate) {
-                  const expiryTime = new Date(expiryDate).getTime();
-                  const now = Date.now();
-                  daysRemaining = Math.ceil((expiryTime - now) / (1000 * 60 * 60 * 24));
-                  formattedExpiry = new Date(expiryDate).toLocaleDateString("en-IN", {
+                  const expiry = new Date(expiryDate);
+                  const now = new Date();
+
+                  formattedExpiry = expiry.toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "short",
                     year: "numeric"
                   });
-                  isExpired = daysRemaining < 0 || row.subscription?.status === "EXPIRED";
+
+                  // Normalize to midnight local time to calculate calendar day difference cleanly
+                  const expiryMidnight = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate()).getTime();
+                  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+                  daysRemaining = Math.round((expiryMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+                  if (Object.is(daysRemaining, -0)) daysRemaining = 0;
+
+                  // Considered expired if the exact timestamp is in the past OR calendar day has passed OR status is EXPIRED
+                  isExpired = expiry.getTime() < now.getTime() || daysRemaining < 0 || row.subscription?.status === "EXPIRED";
                 }
 
                 // Date Added
@@ -536,7 +545,7 @@ export default function WorkspacesList() {
                             border: `1px solid ${isExpired ? "#fca5a5" : (daysRemaining! <= 7 ? "#fde68a" : "#bbf7d0")}`
                           }}>
                             {isExpired 
-                              ? (daysRemaining !== null && daysRemaining < 0 ? `${Math.abs(daysRemaining)}d expired` : "Expired")
+                              ? (daysRemaining !== null && daysRemaining < 0 ? `${Math.abs(daysRemaining)}d expired` : "Expired today")
                               : daysRemaining === 0 
                               ? "Expires today" 
                               : `${daysRemaining}d left`}

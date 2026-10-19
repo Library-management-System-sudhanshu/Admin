@@ -160,7 +160,9 @@ export default function WorkspaceDetail() {
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>{workspace.name}</h2>
+            <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#ffffff' }}>
+              {workspace.name}
+            </h2>
             <span style={{
               background: isActive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
               color: isActive ? '#34d399' : '#f87171',
@@ -173,6 +175,15 @@ export default function WorkspaceDetail() {
             }}>
               {isActive ? 'Access Active' : 'Access Disabled'}
             </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem', color: '#94a3b8', flexWrap: 'wrap' }}>
+            <span>Library Workspace: <strong style={{ color: '#f1f5f9' }}>{workspace.name}</strong></span>
+            {workspace.subdomain && (
+              <>
+                <span>•</span>
+                <span>Subdomain: <strong style={{ color: '#93c5fd' }}>{workspace.subdomain}</strong></span>
+              </>
+            )}
           </div>
         </div>
 
@@ -278,6 +289,14 @@ export default function WorkspaceDetail() {
               Workspace Profile Details
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.875rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Workspace / Space Name:</span>
+                <span style={{ fontWeight: 700, color: '#0f172a' }}>{workspace.name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Subdomain Handle:</span>
+                <span style={{ fontWeight: 600, color: '#2563eb' }}>{workspace.subdomain || 'N/A'}</span>
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Workspace ID:</span>
                 <span style={{ fontWeight: 600, color: '#334155', fontFamily: 'monospace' }}>{workspace.id}</span>
