@@ -15,6 +15,8 @@ export * from './components/RoomToolbar';
 export * from './components/RoomSection';
 export * from './components/SeatsWorkspace';
 export * from './components/SeatsToolbar';
+export * from './components/FloorNavigationTabs';
+export * from './components/SeatImportModal';
 
 // Drawer Components
 export * from './drawer/AllocationDatesForm';

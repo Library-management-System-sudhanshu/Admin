@@ -14,6 +14,7 @@ export interface SeatsWorkspaceProps {
   onAddFloor: () => void;
   onAddRoom: (floorId: string) => void;
   onAddSeat: (roomId: string) => void;
+  onImportLayout?: () => void;
   collapsedRooms: Record<string, boolean>;
   onToggleCollapseRoom: (roomId: string) => void;
   roomSearches: Record<string, string>;
@@ -44,6 +45,7 @@ export const SeatsWorkspace: React.FC<SeatsWorkspaceProps> = ({
   onAddFloor,
   onAddRoom,
   onAddSeat,
+  onImportLayout,
   collapsedRooms,
   onToggleCollapseRoom,
   roomSearches,
@@ -79,12 +81,32 @@ export const SeatsWorkspace: React.FC<SeatsWorkspaceProps> = ({
         <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-navy)' }}>
           No floors configured
         </h3>
-        <p style={{ margin: '8px 0 16px 0', fontSize: '0.875rem', color: 'var(--text-slate)', maxWidth: '400px' }}>
-          You haven't added any floors or seat layouts in this branch yet. Create one to get started.
+        <p style={{ margin: '8px 0 20px 0', fontSize: '0.875rem', color: 'var(--text-slate)', maxWidth: '420px' }}>
+          You haven't added any floors or seat layouts in this branch yet. Create one manually or import your entire layout in bulk.
         </p>
-        <Button onClick={onAddFloor} variant="primary" style={{ backgroundColor: 'var(--accent-blue)' }}>
-          Add Your First Floor
-        </Button>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Button onClick={onAddFloor} variant="primary" style={{ backgroundColor: 'var(--accent-blue)', borderRadius: '12px' }}>
+            + Add Your First Floor
+          </Button>
+          {onImportLayout && (
+            <Button
+              onClick={onImportLayout}
+              variant="outline"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                borderRadius: '12px',
+                borderColor: '#10B981',
+                color: '#065F46',
+                backgroundColor: '#ECFDF5',
+                fontWeight: 700,
+              }}
+            >
+              📥 Import Layout (CSV / Excel)
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -124,24 +146,45 @@ export const SeatsWorkspace: React.FC<SeatsWorkspaceProps> = ({
           No rooms created in {currentFloor?.name || 'this floor'}
         </h3>
         <p style={{ margin: '8px 0 20px 0', fontSize: '0.875rem', color: 'var(--text-slate)', maxWidth: '420px' }}>
-          You have created "{currentFloor?.name || 'this floor'}". Add a room or hall to start configuring seats.
+          You have created "{currentFloor?.name || 'this floor'}". Add a room or import seats and rooms directly from a file.
         </p>
-        {currentFloor && (
-          <Button
-            onClick={() => onAddRoom(currentFloor.id)}
-            variant="primary"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 20px',
-              borderRadius: '12px',
-              backgroundColor: 'var(--accent-blue)',
-            }}
-          >
-            <Plus size={16} /> Add Room to {currentFloor.name}
-          </Button>
-        )}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {currentFloor && (
+            <Button
+              onClick={() => onAddRoom(currentFloor.id)}
+              variant="primary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 20px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--accent-blue)',
+              }}
+            >
+              <Plus size={16} /> Add Room to {currentFloor.name}
+            </Button>
+          )}
+          {onImportLayout && (
+            <Button
+              onClick={onImportLayout}
+              variant="outline"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 20px',
+                borderRadius: '12px',
+                borderColor: '#10B981',
+                color: '#065F46',
+                backgroundColor: '#ECFDF5',
+                fontWeight: 700,
+              }}
+            >
+              📥 Import Rooms & Seats
+            </Button>
+          )}
+        </div>
       </div>
     );
   }

@@ -44,6 +44,8 @@ import {
   SeatsWorkspace,
   SeatQuickActions,
   SeatDetailsDrawer,
+  FloorNavigationTabs,
+  SeatImportModal,
   AddDeskModal,
   LayoutCanvas,
   calculateWorkspaceStats,
@@ -182,6 +184,7 @@ export default function Seats() {
   const [openAllocateModal, setOpenAllocateModal] = useState(false);
   const [openInvoiceReceipt, setOpenInvoiceReceipt] = useState(false);
   const [createdInvoiceData, setCreatedInvoiceData] = useState<any>(null);
+  const [openImportModal, setOpenImportModal] = useState(false);
 
   // Inline edit allocation dates state
   const [isEditingDates, setIsEditingDates] = useState(false);
@@ -707,6 +710,51 @@ export default function Seats() {
         />
       )}
 
+      {/* 2.5 FLOOR NAVIGATION & QUICK ACTIONS BAR */}
+      {selectedBranch && seatMap && seatMap.length > 0 && (
+        <FloorNavigationTabs
+          floors={seatMap}
+          activeFloorId={selectedFloorId}
+          onSelectFloor={(floorId) => {
+            setSelectedFloorId(floorId);
+            setSelectedSeatId(null);
+            setSelectedAllocationId(null);
+            setIsDrawerOpen(false);
+            layout.setIsFloorVisualization(false);
+            layout.setActiveRoomEditingId(null);
+          }}
+          onAddFloor={() => {
+            setCreatorType('floor');
+            setParentId('');
+            setOpenCreator(true);
+          }}
+          onAddRoom={(floorId) => {
+            setCreatorType('room');
+            setParentId(floorId);
+            setOpenCreator(true);
+          }}
+          onAddSeat={(floorId) => {
+            setCreatorType('seat');
+            const targetFloor = seatMap.find((f: any) => f.id === floorId);
+            if (targetFloor?.rooms && targetFloor.rooms.length > 0) {
+              setParentId(targetFloor.rooms[0].id);
+            }
+            setOpenCreator(true);
+          }}
+          onImportLayout={() => setOpenImportModal(true)}
+          onEditFloor={(floor) => {
+            setSelectedFloorIdToEdit(floor.id);
+            setEditFloorName(floor.name);
+            setOpenEditFloorModal(true);
+          }}
+          onDeleteFloor={handleDeleteFloor}
+          isFloorVisualization={layout.isFloorVisualization}
+          onToggleVisualization={() => {
+            layout.setIsFloorVisualization(!layout.isFloorVisualization);
+          }}
+        />
+      )}
+
       {/* 3. MAIN WORKSPACE */}
       <SeatsWorkspace
         isLoading={isMapLoading}
@@ -729,6 +777,7 @@ export default function Seats() {
           setParentId(roomId);
           setOpenCreator(true);
         }}
+        onImportLayout={() => setOpenImportModal(true)}
         collapsedRooms={collapsedRooms}
         onToggleCollapseRoom={(roomId) =>
           setCollapsedRooms((prev) => ({ ...prev, [roomId]: !prev[roomId] }))
@@ -901,7 +950,7 @@ export default function Seats() {
           }
         }}
         onImportLayout={() => {
-          showToast('Premium Feature: Import seat layout configurations via Excel/CSV.', 'info');
+          setOpenImportModal(true);
         }}
       />
 
@@ -914,6 +963,22 @@ export default function Seats() {
         seatMap={seatMap}
         currentFloor={currentFloor}
         selectedBranch={selectedBranch}
+        onOpenImport={() => setOpenImportModal(true)}
+      />
+
+      {/* Floor, Room & Seat Import Modal */}
+      <SeatImportModal
+        isOpen={openImportModal}
+        onClose={() => setOpenImportModal(false)}
+        seatMap={seatMap}
+        selectedBranch={selectedBranch}
+        initialFloorId={selectedFloorId || undefined}
+        onSuccess={(targetFloorId) => {
+          refetchSeatMap();
+          if (targetFloorId) {
+            setSelectedFloorId(targetFloorId);
+          }
+        }}
       />
 
       {/* Add Desk Modal */}

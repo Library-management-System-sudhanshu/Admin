@@ -55,7 +55,7 @@ export const SeatsToolbar: React.FC<SeatsToolbarProps> = ({
     <div
       style={{
         display: 'flex',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
         gap: '16px',
@@ -63,29 +63,30 @@ export const SeatsToolbar: React.FC<SeatsToolbarProps> = ({
         paddingBottom: '16px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
-        {/* Branch Selector */}
+      {/* Left: Branch Selector & Title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '8px',
             background: '#ffffff',
-            padding: '6px 10px',
+            padding: '8px 14px',
             borderRadius: '20px',
-            border: '1px solid rgba(15, 23, 42, 0.05)',
+            border: '1px solid rgba(15, 23, 42, 0.08)',
             boxShadow: 'var(--shadow-soft)',
           }}
         >
-          <Building size={14} color="#64748B" />
+          <Building size={16} color="var(--accent-blue)" />
+          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748B' }}>Branch:</span>
           <select
             value={selectedBranch}
             onChange={(e) => onBranchChange(e.target.value)}
             style={{
               border: 'none',
               background: 'transparent',
-              fontSize: '0.8rem',
-              fontWeight: 600,
+              fontSize: '0.85rem',
+              fontWeight: 700,
               color: 'var(--text-navy)',
               outline: 'none',
               cursor: 'pointer',
@@ -98,114 +99,10 @@ export const SeatsToolbar: React.FC<SeatsToolbarProps> = ({
             ))}
           </select>
         </div>
+      </div>
 
-        {/* Floor Selector */}
-        {selectedBranch && floors.length > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              background: '#ffffff',
-              padding: '4px 8px',
-              borderRadius: '20px',
-              border: '1px solid rgba(15, 23, 42, 0.05)',
-              boxShadow: 'var(--shadow-soft)',
-            }}
-          >
-            <Layers size={12} color="#64748B" />
-            <select
-              value={activeFloorIndex}
-              onChange={(e) => onFloorChange(Number(e.target.value))}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'var(--text-navy)',
-                outline: 'none',
-                cursor: 'pointer',
-                maxWidth: '100px',
-              }}
-            >
-              {floors.map((floor, idx) => (
-                <option key={floor.id} value={idx}>
-                  {floor.name}
-                </option>
-              ))}
-            </select>
-
-            {currentFloor && onEditFloor && (
-              <button
-                type="button"
-                onClick={() => onEditFloor(currentFloor)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '2px',
-                  cursor: 'pointer',
-                  color: 'var(--text-slate)',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-                title="Edit Floor"
-              >
-                <Edit2 size={12} />
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Add Room Button */}
-        {selectedBranch && currentFloor && onAddRoom && (
-          <button
-            type="button"
-            onClick={() => onAddRoom(currentFloor.id)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              border: '1px solid rgba(37, 99, 235, 0.2)',
-              backgroundColor: 'rgba(37, 99, 235, 0.08)',
-              color: 'var(--accent-blue)',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 150ms ease',
-            }}
-            title="Add Room"
-          >
-            <Plus size={14} /> Add Room
-          </button>
-        )}
-
-        {/* Visualization Toggle */}
-        {selectedBranch && floors.length > 0 && (
-          <button
-            type="button"
-            onClick={onToggleVisualization}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              border: '1px solid rgba(15, 23, 42, 0.05)',
-              backgroundColor: isFloorVisualization ? 'var(--accent-blue)' : '#ffffff',
-              color: isFloorVisualization ? '#ffffff' : 'var(--text-navy)',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: 'var(--shadow-soft)',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            {isFloorVisualization ? <LayoutGrid size={14} /> : <Map size={14} />}
-            <span>{isFloorVisualization ? 'Grid View' : 'Floor Visualizer'}</span>
-          </button>
-        )}
+      {/* Right: Search, Expiring Seats & User Avatar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
 
         {/* Global Search */}
         <div style={{ position: 'relative', width: '150px' }}>

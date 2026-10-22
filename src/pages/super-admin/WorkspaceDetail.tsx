@@ -500,6 +500,7 @@ export default function WorkspaceDetail() {
                 <th style={{ padding: '8px 12px' }}>Mobile Number</th>
                 <th style={{ padding: '8px 12px' }}>Joined Date</th>
                 <th style={{ padding: '8px 12px' }}>Due balance</th>
+                <th style={{ padding: '8px 12px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -515,6 +516,16 @@ export default function WorkspaceDetail() {
                   </td>
                   <td style={{ padding: '12px', fontWeight: 600, color: (Number(stud.dueAmount) || 0) > 0 ? '#ef4444' : '#10b981' }}>
                     ₹{Number(stud.dueAmount) || 0}
+                  </td>
+                  <td style={{ padding: '12px', textAlign: 'right' }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/super-admin/workspaces/${id}/students?editStudentId=${stud.id}`)}
+                      style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '6px' }}
+                    >
+                      Edit
+                    </Button>
                   </td>
                 </tr>
               ))}

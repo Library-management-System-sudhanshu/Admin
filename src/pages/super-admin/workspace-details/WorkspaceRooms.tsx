@@ -76,8 +76,15 @@ export default function WorkspaceRooms() {
               <Building2 size={20} />
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>Classrooms & Rooms list</h2>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>Workspace: {workspace.name}</p>
+              <h2 style={{ 
+                margin: 0, 
+                fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif",
+                fontSize: '1.25rem', 
+                fontWeight: 600, 
+                color: '#0f172a',
+                letterSpacing: '-0.02em'
+              }}>Classrooms & Rooms list</h2>
+              <p style={{ margin: 0, fontSize: '0.8125rem', color: '#64748b', fontWeight: 400 }}>Workspace: {workspace.name}</p>
             </div>
           </div>
           <div style={{ width: '300px' }}>

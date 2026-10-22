@@ -1,12 +1,19 @@
 import {
   useGetWhatsAppTemplatesQuery,
   useCreateWhatsAppTemplateMutation,
-  useSendWhatsAppBroadcastMutation,
-  useGetWhatsAppLogsQuery,
   useGetBranchesQuery,
   useGetShiftsQuery,
   useGetStudentsQuery,
 } from '../store/api';
+import {
+  getLocalBroadcastLogs,
+  saveLocalBroadcastLog,
+  saveMultipleLocalBroadcastLogs,
+  clearLocalBroadcastLogs,
+  deleteLocalBroadcastLog,
+  getTimeUntilExpiration,
+  type BroadcastLogItem,
+} from '../utils/broadcastLogsStorage';
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
@@ -75,11 +82,23 @@ export default function WhatsApp() {
   const [tab, setTab] = useState(0);
 
   const { data: templates, isLoading: templatesLoading } = useGetWhatsAppTemplatesQuery({});
-  const { data: logs, isLoading: logsLoading } = useGetWhatsAppLogsQuery({});
   const { data: branches } = useGetBranchesQuery(user?.workspaceId, { skip: !user?.workspaceId });
   const { data: shifts } = useGetShiftsQuery(user?.workspaceId, { skip: !user?.workspaceId });
 
-  const [sendBroadcast, { isLoading: isSending }] = useSendWhatsAppBroadcastMutation();
+  const [logs, setLogs] = useState<BroadcastLogItem[]>(() => getLocalBroadcastLogs('whatsapp'));
+  const [isSending, setIsSending] = useState(false);
+
+  useEffect(() => {
+    const handleUpdate = () => setLogs(getLocalBroadcastLogs('whatsapp'));
+    window.addEventListener('studyflow_broadcast_logs_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    const interval = setInterval(handleUpdate, 30000);
+    return () => {
+      window.removeEventListener('studyflow_broadcast_logs_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Selected config
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -175,6 +194,19 @@ export default function WhatsApp() {
     const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
     const win = window.open(url, '_blank');
 
+    saveLocalBroadcastLog({
+      channel: 'whatsapp',
+      recipient: phone,
+      recipientName: student.displayName || student.user?.name || student.name || 'Student',
+      recipientContact: phone,
+      message,
+      status: 'OPENED_WA',
+      branchName: student.branch?.name,
+      seatNumber: student.seatNumber,
+      feeAmount: amount,
+      dueDate,
+    });
+
     if (win) {
       win.focus();
       showToast(`Opening WhatsApp for ${student.user?.name || phone}...`, 'success');
@@ -236,42 +268,34 @@ export default function WhatsApp() {
       }
     }
 
-    try {
-      await sendBroadcast({
-        templateId: selectedTemplateId,
-        customVariables: {
-          amount,
-          dueDate,
-          endDate,
-          seatNumber,
-          holidayDate,
-          resumeDate,
-          reason,
-          message: customMsg,
-          ...customVars,
-        },
-        filters: {
-          branchId: branchId === 'ALL' ? undefined : (branchId || undefined),
-          shiftId: shiftId === 'ALL' ? undefined : (shiftId || undefined),
-          status: statusFilter === 'ALL' ? undefined : statusFilter,
-        },
-        studentIds: selectedIds,
-      }).unwrap();
-      showToast('Broadcast dispatch triggered successfully!', 'success');
-      // Reset variables
-      setAmount('');
-      setDueDate('');
-      setEndDate('');
-      setSeatNumber('');
-      setHolidayDate('');
-      setResumeDate('');
-      setReason('');
-      setCustomMsg('');
-      setCustomVars({});
-      setFetchTrigger(false);
-    } catch (err) {
-      showToast(getErrorMessage(err, 'Broadcast failed'), 'error');
-    }
+    const targetStudents = studentsData?.students?.filter((s: any) => selectedStudentIds[s.id]) || [];
+
+    // Save strictly to local device storage (auto-deletes after 24 hours, zero backend logs)
+    saveMultipleLocalBroadcastLogs(targetStudents.map((s: any) => ({
+      channel: 'whatsapp',
+      recipient: s.user?.mobile || s.contactMobile || 'WhatsApp',
+      recipientName: s.displayName || s.user?.name || s.name || 'Student',
+      recipientContact: s.user?.mobile || s.contactMobile || 'WhatsApp',
+      message: getStudentMessagePreview(s),
+      status: 'OPENED_WA',
+      branchName: s.branch?.name,
+      seatNumber: s.seatNumber,
+      feeAmount: amount,
+      dueDate,
+    })));
+
+    showToast(`Broadcast queued locally on this device for ${selectedIds.length} recipient(s).`, 'success');
+    // Reset variables
+    setAmount('');
+    setDueDate('');
+    setEndDate('');
+    setSeatNumber('');
+    setHolidayDate('');
+    setResumeDate('');
+    setReason('');
+    setCustomMsg('');
+    setCustomVars({});
+    setFetchTrigger(false);
   };
 
   const getTemplateTextPreview = () => {
@@ -796,34 +820,65 @@ export default function WhatsApp() {
 
       {tab === 1 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {logsLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5 }}>
-              <CircularProgress />
+          <Box sx={{ p: 2, bgcolor: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>🔒 Device-Level Storage (Auto-Purged after 24h)</Typography>
+              <Typography sx={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Logs are stored strictly in your browser and automatically deleted after 24 hours. Zero logs are sent to the backend database.</Typography>
+            </Box>
+            {logs.length > 0 && (
+              <Button type="button" variant="outline" onClick={() => { clearLocalBroadcastLogs('whatsapp'); setLogs([]); showToast('WhatsApp logs cleared.', 'info'); }} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
+                Clear Logs
+              </Button>
+            )}
+          </Box>
+          {logs.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 6, color: 'var(--text-secondary)' }}>
+              <Typography variant="body2">No WhatsApp logs on this device yet.</Typography>
             </Box>
           ) : (
             <TableContainer component={Paper} sx={{ borderRadius: 2.5, bgcolor: 'var(--bg-surface)', border: '1px solid var(--border-color)', boxShadow: 'none' }}>
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'var(--bg-surface-hover)' }}>
-                    <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Recipient Mobile</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Recipient</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Message Content</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Sent Date</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Delivery Status</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Auto-Purge</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>Action</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {logs?.map((log: any) => (
+                  {logs.map((log: BroadcastLogItem) => (
                     <TableRow key={log.id} hover sx={{ '&:hover': { bgcolor: 'var(--bg-surface-hover) !important' } }}>
-                      <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>{log.recipient}</TableCell>
-                      <TableCell sx={{ maxWidth: 400, fontSize: '0.85rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>{log.message}</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)' }}>
+                        <div>{log.recipientName || log.recipient}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{log.recipientContact || log.recipient}</div>
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 350, fontSize: '0.85rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>{log.message}</TableCell>
                       <TableCell sx={{ fontSize: '0.85rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)' }}>{new Date(log.sentAt).toLocaleString()}</TableCell>
                       <TableCell sx={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <Chip 
-                          label={log.status} 
-                          size="small" 
-                          color={log.status === 'SENT' || log.status === 'SUCCESS' ? 'success' : 'error'} 
-                          variant="outlined" 
+                        <Chip label={getTimeUntilExpiration(log.sentAt).label} size="small" sx={{ fontSize: '0.7rem' }} />
+                      </TableCell>
+                      <TableCell sx={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <Chip
+                          label={log.status === 'OPENED_WA' ? 'Opened in WA' : log.status}
+                          size="small"
+                          color="success"
+                          variant="outlined"
                         />
+                      </TableCell>
+                      <TableCell align="right" sx={{ borderBottom: '1px solid var(--border-color)' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            deleteLocalBroadcastLog(log.id);
+                            setLogs(getLocalBroadcastLogs('whatsapp'));
+                          }}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem' }}
+                        >
+                          Delete
+                        </button>
                       </TableCell>
                     </TableRow>
                   ))}
