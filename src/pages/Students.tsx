@@ -560,32 +560,32 @@ export default function Students() {
     try {
       const studentProfileId = activeAllocation.studentProfileId || fullStudent?.id;
 
-      // 1. Vacate the current seat allocation
-      await vacateSeat({
-        id: activeAllocation.seatId,
+      const paymentPayload = {
         studentProfileId,
-      }).unwrap();
-      
-      // 2. Re-allocate with new shift and dates
-      await allocateSeat({
+        amount: renewPaid,
+        method: renewPaymentMethod,
+        shiftId: renewShiftId || undefined,
+        durationMonths: typeof renewDuration === 'number' 
+          ? renewDuration 
+          : (parseInt(String(renewDuration), 10) || undefined),
+        totalAmount: planBasePrice,
+        discountAmount: discountNum > 0 ? discountNum : undefined,
+        notes: typeof renewDuration === 'string' ? `Plan Duration: ${renewDuration}` : undefined,
+      };
+
+      // Atomic seat renewal: allocateSeat deactivates old allocation & executes payment in single DB transaction
+      const allocResult = await allocateSeat({
         studentProfileId,
         seatId: activeAllocation.seatId,
         shiftId: renewShiftId,
         startDate: renewStartDate,
         endDate: renewEndDate,
+        payment: paymentPayload,
       }).unwrap();
 
-      // 3. Create payment invoice record
-      const paymentResult = await createPayment({
-        studentProfileId,
-        amount: renewPaid,
-        method: renewPaymentMethod,
-        shiftId: renewShiftId || undefined,
-        durationMonths: typeof renewDuration === 'number' ? renewDuration : undefined,
-        totalAmount: planBasePrice,
-        discountAmount: discountNum > 0 ? discountNum : undefined,
-        notes: typeof renewDuration === 'string' ? `Plan Duration: ${renewDuration}` : undefined,
-      }).unwrap();
+      const paymentResult = allocResult?.payment 
+        ? { payment: allocResult.payment, razorpayOrder: allocResult.razorpayOrder } 
+        : await createPayment(paymentPayload).unwrap();
 
       const invoiceInfo = {
         payment: paymentResult?.payment || paymentResult,

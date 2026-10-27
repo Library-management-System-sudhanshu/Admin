@@ -228,6 +228,7 @@ export default function Seats() {
     branches,
     selectedBranch,
     allocateSeat,
+    vacateSeat,
     createPayment,
     showToast,
     onSuccess: (invoiceInfo) => {

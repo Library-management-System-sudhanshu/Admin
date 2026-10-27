@@ -10,6 +10,7 @@ export interface UseSeatAllocationFormProps {
   branches?: any[];
   selectedBranch?: string;
   allocateSeat: (payload: any) => { unwrap: () => Promise<any> };
+  vacateSeat?: (payload: any) => { unwrap: () => Promise<any> };
   createPayment: (payload: any) => { unwrap: () => Promise<any> };
   showToast: (msg: string, type?: 'success' | 'error' | 'warning' | 'info') => void;
   onSuccess: (invoiceInfo?: any) => void;
@@ -23,6 +24,7 @@ export function useSeatAllocationForm({
   branches,
   selectedBranch,
   allocateSeat,
+  vacateSeat,
   createPayment,
   showToast,
   onSuccess,
@@ -109,31 +111,47 @@ export function useSeatAllocationForm({
     if (!selectedSeat) return;
 
     setIsAllocating(true);
+    const paymentPayload = shouldGenerateInvoice ? {
+      studentProfileId,
+      amount: Number(invoiceAmount),
+      method: paymentMethod,
+      shiftId: shiftId || undefined,
+      durationMonths: typeof durationMode === 'number' 
+        ? durationMode 
+        : (parseInt(String(durationMode), 10) || undefined),
+      totalAmount: calculatedBaseAmount,
+    } : undefined;
+
+    let allocResult: any = null;
     try {
-      await allocateSeat({
+      allocResult = await allocateSeat({
         studentProfileId,
         seatId: selectedSeat.id,
         shiftId,
         startDate,
         endDate,
+        payment: paymentPayload,
       }).unwrap();
+    } catch (allocErr: any) {
+      // Backend automatically rolled back entire transaction in DB
+      showToast(allocErr.data?.message || 'Seat allocation failed', 'error');
+      setIsAllocating(false);
+      return;
+    }
 
+    try {
       if (shouldGenerateInvoice) {
-        const paymentResult = await createPayment({
-          studentProfileId,
-          amount: Number(invoiceAmount),
-          method: paymentMethod,
-          shiftId: shiftId || undefined,
-          durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
-          totalAmount: calculatedBaseAmount,
-        }).unwrap();
+        let paymentResult: any = allocResult?.payment ? { payment: allocResult.payment } : null;
+        if (!paymentResult) {
+          paymentResult = await createPayment(paymentPayload).unwrap();
+        }
 
         const seatPaid = Number(invoiceAmount) || 0;
         const seatTotal = calculatedBaseAmount || seatPaid;
         const seatDue = Math.max(0, seatTotal - seatPaid);
 
         const invoiceInfo = {
-          payment: paymentResult.payment,
+          payment: paymentResult?.payment,
           student: studentsData?.students?.find((s: any) => s.id === studentProfileId),
           seatNumber: selectedSeat.number || selectedSeat.seatNumber,
           shift: shifts?.find((s: any) => s.id === shiftId),
@@ -153,7 +171,14 @@ export function useSeatAllocationForm({
       }
       resetForm();
     } catch (err: any) {
-      showToast(err.data?.message || 'Seat allocation failed', 'error');
+      showToast(err.data?.message || 'Payment processing failed. Reverting seat...', 'error');
+      if (vacateSeat) {
+        try {
+          await vacateSeat({ id: selectedSeat.id, studentProfileId }).unwrap();
+        } catch (e) {
+          console.error('Failed to revert seat:', e);
+        }
+      }
     } finally {
       setIsAllocating(false);
     }

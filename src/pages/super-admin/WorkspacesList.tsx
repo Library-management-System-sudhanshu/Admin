@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Modal } from "../../components/ui/Modal";
+import { EditSubscriptionModal } from "../../components/super-admin/EditSubscriptionModal";
 import { useGetWorkspacesQuery, useUpdateWorkspaceMutation, useCreateWorkspaceMutation, useDeleteWorkspaceMutation } from "../../store/api";
 import { useToast } from "../../components/ui/ToastContext";
 import { useAlert } from "../../components/ui/AlertContext";
@@ -26,6 +27,7 @@ export default function WorkspacesList() {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
+  const [subModalWorkspace, setSubModalWorkspace] = useState<any | null>(null);
 
   // Form state for creating workspace
   const [formData, setFormData] = useState({
@@ -514,8 +516,7 @@ export default function WorkspacesList() {
                           </span>
                         )}
                       </div>
-                      
-                      {/* Subscription End Date in Small */}
+                                       {/* Subscription End Date in Small */}
                       {expiryDate ? (
                         <div style={{ 
                           fontSize: "0.75rem", 
@@ -525,25 +526,34 @@ export default function WorkspacesList() {
                           flexWrap: "wrap",
                           gap: "5px" 
                         }}>
-                          <span style={{ color: "#64748b", display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                            <Calendar size={12} style={{ color: "#94a3b8" }} />
+                          <span 
+                            onClick={() => setSubModalWorkspace(row)}
+                            title="Click to edit expiry date"
+                            style={{ color: "#64748b", display: "inline-flex", alignItems: "center", gap: "3px", cursor: "pointer" }}
+                          >
+                            <Calendar size={12} style={{ color: "#2563eb" }} />
                             <span>Expires: <strong>{formattedExpiry}</strong></span>
                           </span>
                           
                           {/* Expiry days pill badge */}
-                          <span style={{
-                            fontSize: "0.7rem",
-                            fontWeight: 800,
-                            padding: "1px 6px",
-                            borderRadius: "4px",
-                            background: isExpired 
-                              ? "#fee2e2" 
-                              : (daysRemaining! <= 7 ? "#fef3c7" : "#dcfce7"),
-                            color: isExpired 
-                              ? "#991b1b" 
-                              : (daysRemaining! <= 7 ? "#92400e" : "#166534"),
-                            border: `1px solid ${isExpired ? "#fca5a5" : (daysRemaining! <= 7 ? "#fde68a" : "#bbf7d0")}`
-                          }}>
+                          <span 
+                            onClick={() => setSubModalWorkspace(row)}
+                            title="Click to edit subscription"
+                            style={{
+                              fontSize: "0.7rem",
+                              fontWeight: 800,
+                              padding: "1px 6px",
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              background: isExpired 
+                                ? "#fee2e2" 
+                                : (daysRemaining! <= 7 ? "#fef3c7" : "#dcfce7"),
+                              color: isExpired 
+                                ? "#991b1b" 
+                                : (daysRemaining! <= 7 ? "#92400e" : "#166534"),
+                              border: `1px solid ${isExpired ? "#fca5a5" : (daysRemaining! <= 7 ? "#fde68a" : "#bbf7d0")}`
+                            }}
+                          >
                             {isExpired 
                               ? (daysRemaining !== null && daysRemaining < 0 ? `${Math.abs(daysRemaining)}d expired` : "Expired today")
                               : daysRemaining === 0 
@@ -552,9 +562,22 @@ export default function WorkspacesList() {
                           </span>
                         </div>
                       ) : (
-                        <div style={{ fontSize: "0.725rem", color: "#94a3b8", marginTop: "3px", fontStyle: "italic" }}>
-                          No expiry date
-                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setSubModalWorkspace(row)}
+                          style={{
+                            fontSize: "0.725rem",
+                            color: "#2563eb",
+                            marginTop: "3px",
+                            background: "transparent",
+                            border: "none",
+                            padding: 0,
+                            cursor: "pointer",
+                            textDecoration: "underline"
+                          }}
+                        >
+                          + Set expiry date
+                        </button>
                       )}
                     </td>
 
@@ -601,6 +624,24 @@ export default function WorkspacesList() {
                         <Button 
                           variant="outline" 
                           size="sm" 
+                          onClick={() => setSubModalWorkspace(row)}
+                          title="Edit Subscription / Expiry Date"
+                          style={{ 
+                            borderRadius: "8px", 
+                            borderColor: "#bfdbfe",
+                            color: "#1d4ed8",
+                            backgroundColor: "rgba(37, 99, 235, 0.08)",
+                            padding: "6px 8px",
+                            display: "inline-flex", 
+                            alignItems: "center", 
+                            justifyContent: "center" 
+                          }}
+                        >
+                          <Calendar size={13} />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
                           onClick={() => handleToggleAccess(row)}
                           disabled={isUpdating || isDeleting}
                           title={isActive ? "Disable Workspace Access" : "Enable Workspace Access"}
@@ -610,9 +651,9 @@ export default function WorkspacesList() {
                             color: isActive ? "#ea580c" : "#16a34a",
                             backgroundColor: isActive ? "#fff7ed" : "#f0fdf4",
                             padding: "6px 8px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center"
+                            display: "inline-flex", 
+                            alignItems: "center", 
+                            justifyContent: "center" 
                           }}
                         >
                           {isActive ? <Ban size={13} /> : <Check size={13} />}
@@ -629,9 +670,9 @@ export default function WorkspacesList() {
                             color: "#ef4444",
                             backgroundColor: "#fef2f2",
                             padding: "6px 8px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center"
+                            display: "inline-flex", 
+                            alignItems: "center", 
+                            justifyContent: "center" 
                           }}
                         >
                           <Trash2 size={13} />
@@ -730,6 +771,14 @@ export default function WorkspacesList() {
           </div>
         </form>
       </Modal>
+
+      {/* 2. EDIT SUBSCRIPTION & EXPIRY MODAL */}
+      <EditSubscriptionModal
+        isOpen={Boolean(subModalWorkspace)}
+        onClose={() => setSubModalWorkspace(null)}
+        workspace={subModalWorkspace}
+        onSuccess={refetch}
+      />
     </div>
   );
 }

@@ -12,7 +12,7 @@ export const seatsApi = baseApi.injectEndpoints({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: (_result, error) => error ? [] : ['Seats', 'Students', 'Metrics'],
+      invalidatesTags: (_result, error) => error ? [] : ['Seats', 'Students', 'Metrics', 'Payments'],
     }),
     transferSeat: builder.mutation({
       query: (data) => ({
@@ -40,7 +40,7 @@ export const seatsApi = baseApi.injectEndpoints({
           body: studentProfileId ? { studentProfileId } : undefined,
         };
       },
-      invalidatesTags: (_result, error) => error ? [] : ['Seats', 'Students', 'Metrics'],
+      invalidatesTags: (_result, error) => error ? [] : ['Seats', 'Students', 'Metrics', 'Payments'],
     }),
     updateSeatStatus: builder.mutation({
       query: ({ id, status }) => ({

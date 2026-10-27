@@ -72,6 +72,14 @@ export const workspacesApi = baseApi.injectEndpoints({
       query: (workspaceId) => `workspaces/${workspaceId}/plans`,
       providesTags: ['Plans'],
     }),
+    updateWorkspaceSubscription: builder.mutation({
+      query: ({ workspaceId, ...data }) => ({
+        url: `workspaces/${workspaceId}/saas-subscription`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: (_result, error) => error ? [] : ['Workspaces', 'SuperAdminMetrics'],
+    }),
   }),
 });
 
@@ -87,5 +95,6 @@ export const {
   useCreateShiftMutation,
   useUpdateShiftMutation,
   useDeleteShiftMutation,
-  useGetPlansQuery
+  useGetPlansQuery,
+  useUpdateWorkspaceSubscriptionMutation,
 } = workspacesApi;

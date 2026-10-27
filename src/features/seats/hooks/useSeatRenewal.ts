@@ -124,26 +124,33 @@ export function useSeatRenewal({
     }
 
     setIsRenewing(true);
+    const paymentPayload = {
+      studentProfileId: activeAllocation.studentProfileId,
+      amount: renewPaid,
+      method: renewPaymentMethod,
+      shiftId: renewShiftId || undefined,
+      durationMonths: typeof renewDuration === 'number' 
+        ? renewDuration 
+        : (parseInt(String(renewDuration), 10) || undefined),
+      totalAmount: planBasePrice,
+      discountAmount: discountNum > 0 ? discountNum : undefined,
+      notes: typeof renewDuration === 'string' ? `Plan Duration: ${renewDuration}` : undefined,
+    };
+
     try {
-      await vacateSeat({ id: selectedSeat.id, studentProfileId: activeAllocation.studentProfileId }).unwrap();
-      await allocateSeat({
+      // Atomic renewal: allocateSeat deactivates old allocation and creates payment in one DB transaction
+      const allocResult = await allocateSeat({
         studentProfileId: activeAllocation.studentProfileId,
         seatId: selectedSeat.id,
         shiftId: renewShiftId,
         startDate: renewStartDate,
         endDate: renewEndDate,
+        payment: paymentPayload,
       }).unwrap();
 
-      const paymentResult = await createPayment({
-        studentProfileId: activeAllocation.studentProfileId,
-        amount: renewPaid,
-        method: renewPaymentMethod,
-        shiftId: renewShiftId || undefined,
-        durationMonths: typeof renewDuration === 'number' ? renewDuration : undefined,
-        totalAmount: planBasePrice,
-        discountAmount: discountNum > 0 ? discountNum : undefined,
-        notes: typeof renewDuration === 'string' ? `Plan Duration: ${renewDuration}` : undefined,
-      }).unwrap();
+      const paymentResult = allocResult?.payment 
+        ? { payment: allocResult.payment, razorpayOrder: allocResult.razorpayOrder } 
+        : await createPayment(paymentPayload).unwrap();
 
       const invoiceInfo = {
         payment: paymentResult?.payment || paymentResult,

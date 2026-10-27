@@ -1,5 +1,5 @@
 import { LoadingState } from '../../components/feedback/LoadingState';
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   useGetWorkspaceByIdQuery, 
@@ -10,6 +10,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/ToastContext';
 import { useAlert } from '../../components/ui/AlertContext';
+import { EditSubscriptionModal } from '../../components/super-admin/EditSubscriptionModal';
 import { 
   ArrowLeft, 
   Building2, 
@@ -19,7 +20,10 @@ import {
   Mail, 
   Phone, 
   ShieldAlert, 
-  ShieldCheck
+  ShieldCheck,
+  Calendar,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function WorkspaceDetail() {
@@ -28,7 +32,9 @@ export default function WorkspaceDetail() {
   const { showToast } = useToast();
   const { showAlert } = useAlert();
 
-  const { data: workspace, isLoading, error } = useGetWorkspaceByIdQuery(id!, { skip: !id });
+  const [isEditSubModalOpen, setIsEditSubModalOpen] = useState(false);
+
+  const { data: workspace, isLoading, error, refetch } = useGetWorkspaceByIdQuery(id!, { skip: !id });
   const { data: studentsData } = useGetStudentsQuery({ workspaceId: id }, { skip: !id });
 
   const students: any[] = React.useMemo(() => {
@@ -187,7 +193,24 @@ export default function WorkspaceDetail() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <Button
+            variant="outline"
+            onClick={() => setIsEditSubModalOpen(true)}
+            style={{
+              borderRadius: '12px',
+              padding: '10px 18px',
+              borderColor: '#3b82f6',
+              color: '#60a5fa',
+              backgroundColor: 'rgba(59, 130, 246, 0.12)',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <Calendar size={16} /> Edit Expiry Date
+          </Button>
           <Button
             variant="outline"
             onClick={handleDeleteWorkspace}
@@ -353,9 +376,75 @@ export default function WorkspaceDetail() {
           padding: '24px',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.02)'
         }}>
-          <h3 style={{ margin: '0 0 12px 0', fontSize: '1.05rem', fontWeight: 700, color: '#0f172a', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-            SaaS Subscription Details
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 14px 0', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+              SaaS Subscription Details
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditSubModalOpen(true)}
+              style={{
+                borderRadius: '8px',
+                borderColor: '#2563eb',
+                color: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.05)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                padding: '6px 12px'
+              }}
+            >
+              <Calendar size={14} /> Edit Subscription / Expiry
+            </Button>
+          </div>
+
+          {/* Expired / Due Warning Banner */}
+          {(() => {
+            const exp = workspace.subscription?.currentPeriodEnd || workspace.subscription?.trialEndDate;
+            const isExp = exp ? (new Date(exp).getTime() < Date.now() || workspace.subscription?.status === 'EXPIRED') : false;
+            if (!isExp) return null;
+            return (
+              <div style={{
+                background: '#fee2e2',
+                border: '1px solid #fca5a5',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '10px',
+                color: '#991b1b',
+                fontSize: '0.825rem',
+                fontWeight: 600
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertTriangle size={16} />
+                  <span>This workspace subscription has expired. Student & owner access may be restricted.</span>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsEditSubModalOpen(true)}
+                  style={{
+                    backgroundColor: '#dc2626',
+                    borderColor: '#dc2626',
+                    borderRadius: '8px',
+                    padding: '5px 12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700
+                  }}
+                >
+                  Renew / Extend Now
+                </Button>
+              </div>
+            );
+          })()}
+
           {workspace.subscription ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.875rem' }}>
@@ -411,7 +500,12 @@ export default function WorkspaceDetail() {
               </div>
             </div>
           ) : (
-            <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>No active subscription plan configured.</p>
+            <div style={{ padding: '12px 0', textAlign: 'center' }}>
+              <p style={{ margin: '0 0 10px 0', color: '#64748b', fontSize: '0.85rem' }}>No active subscription plan configured.</p>
+              <Button variant="primary" size="sm" onClick={() => setIsEditSubModalOpen(true)}>
+                <Calendar size={14} style={{ marginRight: '6px' }} /> Configure Subscription Now
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -535,6 +629,14 @@ export default function WorkspaceDetail() {
           <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>No students registered under this library yet.</p>
         )}
       </div>
+
+      {/* Edit Subscription / Expiry Modal */}
+      <EditSubscriptionModal
+        isOpen={isEditSubModalOpen}
+        onClose={() => setIsEditSubModalOpen(false)}
+        workspace={workspace}
+        onSuccess={refetch}
+      />
 
     </div>
   );

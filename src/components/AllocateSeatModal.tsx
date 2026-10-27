@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
-import { useAllocateSeatMutation, useCreatePaymentMutation, useGetStudentsQuery, useGetStudentPaymentsQuery, useVerifyRazorpayMutation } from '../store/api';
+import { useAllocateSeatMutation, useVacateSeatMutation, useCreatePaymentMutation, useGetStudentsQuery, useGetStudentPaymentsQuery, useVerifyRazorpayMutation } from '../store/api';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
@@ -45,6 +45,7 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
   const navigate = useNavigate();
   const { data: studentsData } = useGetStudentsQuery(undefined);
   const [allocateSeat, { isLoading: isAllocating }] = useAllocateSeatMutation();
+  const [vacateSeat] = useVacateSeatMutation();
   const [createPayment, { isLoading: isCreatingPayment }] = useCreatePaymentMutation();
   const [verifyRazorpay] = useVerifyRazorpayMutation();
 
@@ -384,30 +385,58 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
       }
     }
 
+    const paymentPayload = (shouldGenerateInvoice && !prefilledPayment) ? {
+      amount: parsedPaid,
+      method: paymentMethod,
+      shiftId: shiftId || undefined,
+      durationMonths: typeof durationMode === 'number' 
+        ? durationMode 
+        : (parseInt(String(durationMode), 10) || undefined),
+      totalAmount: calculatedBaseAmount,
+      discountAmount: parsedDiscount > 0 ? parsedDiscount : undefined,
+    } : undefined;
+
+    let allocResult: any = null;
     try {
-      await allocateSeat({
+      allocResult = await allocateSeat({
         studentProfileId,
         seatId: selectedSeat.id,
         shiftId,
         startDate,
         endDate,
+        payment: paymentPayload,
       }).unwrap();
+    } catch (allocErr: any) {
+      // Backend automatically rolled back the entire transaction!
+      showToast(allocErr.data?.message || 'Seat allocation failed', 'error');
+      return;
+    }
 
-      if (shouldGenerateInvoice) {
-        let paymentResult;
+    if (shouldGenerateInvoice) {
+      try {
+        let paymentResult: any;
         const isSameAmount = prefilledPayment && Number(invoiceAmount) === Number(prefilledPayment.amount);
         const isSameMethod = prefilledPayment && paymentMethod === prefilledPayment.method;
         const isSameDiscount = prefilledPayment && Number(discountAmount || 0) === Number(prefilledPayment.discountAmount || 0);
 
         if (prefilledPayment && isSameAmount && isSameMethod && isSameDiscount) {
           paymentResult = { payment: prefilledPayment };
+        } else if (allocResult?.payment) {
+          // Payment was created and committed atomically with the seat allocation!
+          paymentResult = {
+            payment: allocResult.payment,
+            razorpayOrder: allocResult.razorpayOrder,
+          };
         } else {
+          // Fallback if backend was called without inline payment
           paymentResult = await createPayment({
             studentProfileId,
             amount: parsedPaid,
             method: paymentMethod,
             shiftId: shiftId || undefined,
-            durationMonths: typeof durationMode === 'number' ? durationMode : undefined,
+            durationMonths: typeof durationMode === 'number' 
+              ? durationMode 
+              : (parseInt(String(durationMode), 10) || undefined),
             totalAmount: calculatedBaseAmount,
             discountAmount: parsedDiscount > 0 ? parsedDiscount : undefined,
           }).unwrap();
@@ -439,7 +468,12 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
         if (paymentMethod === 'RAZORPAY' && paymentResult.razorpayOrder) {
           const scriptLoaded = await loadRazorpayScript();
           if (!scriptLoaded) {
-            showToast('Failed to load Razorpay SDK. Check internet connection.', 'error');
+            showToast('Failed to load Razorpay SDK. Check internet connection. Reverting seat...', 'error');
+            try {
+              await vacateSeat({ id: selectedSeat.id, studentProfileId }).unwrap();
+            } catch (e) {
+              console.error('Failed to vacate seat on SDK error:', e);
+            }
             return;
           }
 
@@ -466,8 +500,23 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
                   payment: verifiedPayment,
                 });
               } catch (err: any) {
-                showToast(err.data?.message || 'Payment verification failed', 'error');
+                showToast(err.data?.message || 'Payment verification failed. Reverting seat allocation.', 'error');
+                try {
+                  await vacateSeat({ id: selectedSeat.id, studentProfileId }).unwrap();
+                } catch (e) {
+                  console.error('Failed to vacate seat after verification error:', e);
+                }
               }
+            },
+            modal: {
+              ondismiss: async function () {
+                showToast('Razorpay payment cancelled. Reverting seat allocation...', 'warning');
+                try {
+                  await vacateSeat({ id: selectedSeat.id, studentProfileId }).unwrap();
+                } catch (e) {
+                  console.error('Failed to vacate seat after dismiss:', e);
+                }
+              },
             },
             prefill: {
               name: getStudentDisplayName(student),
@@ -485,12 +534,17 @@ export const AllocateSeatModal: React.FC<AllocateSeatModalProps> = ({
           showToast('Seat allocated successfully!', 'success');
           onSuccess(invoiceInfo);
         }
-      } else {
-        showToast('Seat allocated successfully!', 'success');
-        onSuccess(null);
+      } catch (paymentErr: any) {
+        showToast(paymentErr.data?.message || 'Payment processing failed. Reverting seat allocation...', 'error');
+        try {
+          await vacateSeat({ id: selectedSeat.id, studentProfileId }).unwrap();
+        } catch (e) {
+          console.error('Failed to revert seat:', e);
+        }
       }
-    } catch (err: any) {
-      showToast(err.data?.message || 'Seat allocation failed', 'error');
+    } else {
+      showToast('Seat allocated successfully!', 'success');
+      onSuccess(null);
     }
   };
 
